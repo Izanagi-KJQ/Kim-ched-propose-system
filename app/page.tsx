@@ -37,6 +37,7 @@ import {
   GraduationCap,
   DollarSign,
 } from "lucide-react"
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 export default function Component() {
   const [activeTab, setActiveTab] = useState("dashboard")
@@ -155,29 +156,38 @@ export default function Component() {
     }
   }
 
+  const pieData = [
+    { name: 'Total Applications', value: stats.totalApplications },
+    { name: 'Pending Review', value: stats.pendingReview },
+    { name: 'Approved', value: stats.approved },
+    { name: 'Active Scholarships', value: stats.totalScholarships },
+  ];
+  const pieColors = ['#7C3AED', '#818CF8', '#FBBF24', '#34D399'];
+  const ranking = applications
+    .filter(app => app.gpa)
+    .sort((a, b) => (b.gpa || 0) - (a.gpa || 0));
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F4F0FA]">
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <GraduationCap className="h-8 w-8 text-blue-600" />
-                <h1 className="text-2xl font-bold text-gray-900">SAMRS</h1>
-              </div>
-              <span className="text-sm text-gray-500">Scholarship Application Management & Ranking System</span>
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <GraduationCap className="h-8 w-8 text-purple-600" />
+              <h1 className="text-2xl font-bold text-purple-700">SAMRS</h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              <Avatar>
-                <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                <AvatarFallback>AD</AvatarFallback>
-              </Avatar>
-            </div>
+            <span className="text-sm text-gray-500 hidden md:block">Scholarship Application Management & Ranking System</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Button variant="outline" size="sm" className="flex items-center border-purple-200 text-purple-700">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Avatar>
+              <AvatarImage src="/placeholder.svg?height=32&width=32" />
+              <AvatarFallback>AD</AvatarFallback>
+            </Avatar>
           </div>
         </div>
       </header>
@@ -188,7 +198,7 @@ export default function Component() {
           <nav className="p-4 space-y-2">
             <Button
               variant={activeTab === "dashboard" ? "default" : "ghost"}
-              className="w-full justify-start"
+              className={`w-full justify-start ${activeTab === 'dashboard' ? 'bg-purple-100 text-purple-700' : ''}`}
               onClick={() => setActiveTab("dashboard")}
             >
               <TrendingUp className="h-4 w-4 mr-2" />
@@ -196,7 +206,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "applications" ? "default" : "ghost"}
-              className="w-full justify-start"
+              className={`w-full justify-start ${activeTab === 'applications' ? 'bg-purple-100 text-purple-700' : ''}`}
               onClick={() => setActiveTab("applications")}
             >
               <FileText className="h-4 w-4 mr-2" />
@@ -204,7 +214,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "scholarships" ? "default" : "ghost"}
-              className="w-full justify-start"
+              className={`w-full justify-start ${activeTab === 'scholarships' ? 'bg-purple-100 text-purple-700' : ''}`}
               onClick={() => setActiveTab("scholarships")}
             >
               <Award className="h-4 w-4 mr-2" />
@@ -212,7 +222,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "ranking" ? "default" : "ghost"}
-              className="w-full justify-start"
+              className={`w-full justify-start ${activeTab === 'ranking' ? 'bg-purple-100 text-purple-700' : ''}`}
               onClick={() => setActiveTab("ranking")}
             >
               <Star className="h-4 w-4 mr-2" />
@@ -220,7 +230,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "users" ? "default" : "ghost"}
-              className="w-full justify-start"
+              className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700' : ''}`}
               onClick={() => setActiveTab("users")}
             >
               <Users className="h-4 w-4 mr-2" />
@@ -230,95 +240,103 @@ export default function Component() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-8 bg-[#F4F0FA]">
           {activeTab === "dashboard" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div>
-                <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
-                <p className="text-gray-600">Overview of scholarship applications and system metrics</p>
+                <h2 className="text-3xl font-bold text-purple-700">Admin Dashboard</h2>
               </div>
-
-              {/* Stats Cards */}
+              {/* Stat Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
-                    <FileText className="h-4 w-4 text-muted-foreground" />
+                <Card className="bg-purple-50 border-0">
+                  <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-purple-700">Total Applications</CardTitle>
+                    <FileText className="h-6 w-6 text-purple-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.totalApplications}</div>
-                    <p className="text-xs text-muted-foreground">+12% from last month</p>
+                    <div className="text-2xl font-bold text-purple-700">{stats.totalApplications}</div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                <Card className="bg-indigo-50 border-0">
+                  <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-indigo-700">Pending Review</CardTitle>
+                    <Clock className="h-6 w-6 text-indigo-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.pendingReview}</div>
-                    <p className="text-xs text-muted-foreground">Requires attention</p>
+                    <div className="text-2xl font-bold text-indigo-700">{stats.pendingReview}</div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Approved</CardTitle>
-                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                <Card className="bg-yellow-50 border-0">
+                  <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-yellow-700">Approved</CardTitle>
+                    <CheckCircle className="h-6 w-6 text-yellow-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.approved}</div>
-                    <p className="text-xs text-muted-foreground">+8% from last month</p>
+                    <div className="text-2xl font-bold text-yellow-700">{stats.approved}</div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Scholarships</CardTitle>
-                    <Award className="h-4 w-4 text-muted-foreground" />
+                <Card className="bg-green-50 border-0">
+                  <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-green-700">Active Scholarships</CardTitle>
+                    <Award className="h-6 w-6 text-green-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.totalScholarships}</div>
-                    <p className="text-xs text-muted-foreground">3 closing soon</p>
+                    <div className="text-2xl font-bold text-green-700">{stats.totalScholarships}</div>
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Recent Applications */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Applications</CardTitle>
-                  <CardDescription>Latest scholarship applications submitted</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {applications.slice(0, 5).map((app) => (
-                      <div key={app.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          <Avatar>
-                            <AvatarImage src={app.avatar || "/placeholder.svg"} />
-                            <AvatarFallback>
-                              {app.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{app.name}</p>
-                            <p className="text-sm text-gray-500">{app.scholarship}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <p className="font-medium">{app.amount}</p>
-                            <p className="text-sm text-gray-500">GPA: {app.gpa}</p>
-                          </div>
-                          {getStatusBadge(app.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Charts and Ranking */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Pie Chart */}
+                <Card className="col-span-1 bg-white border-0 shadow-md">
+                  <CardHeader>
+                    <CardTitle>Applications Overview</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                            {pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Ranking Table */}
+                <Card className="col-span-2 bg-white border-0 shadow-md">
+                  <CardHeader>
+                    <CardTitle>Student Ranking (by GWA)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GWA</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {ranking.map((app, idx) => (
+                            <tr key={app.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">{idx + 1}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">{app.name}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">{app.gpa}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
 
