@@ -38,10 +38,42 @@ import {
   DollarSign,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 
 export default function Component() {
   const [activeTab, setActiveTab] = useState("dashboard")
   const [selectedApplication, setSelectedApplication] = useState(null)
+  const [selectedScholarship, setSelectedScholarship] = useState(null)
+  const [modalMode, setModalMode] = useState(null)
+  const [scholarships, setScholarships] = useState([
+    {
+      id: "SCH001",
+      name: "Merit Excellence Scholarship",
+      amount: "$5,000",
+      deadline: "2024-03-15",
+      applicants: 234,
+      status: "active",
+    },
+    {
+      id: "SCH002",
+      name: "STEM Innovation Grant",
+      amount: "$7,500",
+      deadline: "2024-04-01",
+      applicants: 189,
+      status: "active",
+    },
+    {
+      id: "SCH003",
+      name: "Community Leadership Award",
+      amount: "$3,000",
+      deadline: "2024-02-28",
+      applicants: 156,
+      status: "closed",
+    },
+  ])
 
   // Mock data
   const stats = {
@@ -102,33 +134,6 @@ export default function Component() {
     },
   ]
 
-  const scholarships = [
-    {
-      id: "SCH001",
-      name: "Merit Excellence Scholarship",
-      amount: "$5,000",
-      deadline: "2024-03-15",
-      applicants: 234,
-      status: "active",
-    },
-    {
-      id: "SCH002",
-      name: "STEM Innovation Grant",
-      amount: "$7,500",
-      deadline: "2024-04-01",
-      applicants: 189,
-      status: "active",
-    },
-    {
-      id: "SCH003",
-      name: "Community Leadership Award",
-      amount: "$3,000",
-      deadline: "2024-02-28",
-      applicants: 156,
-      status: "closed",
-    },
-  ]
-
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending: { label: "Pending", variant: "secondary" as const },
@@ -166,6 +171,17 @@ export default function Component() {
   const ranking = applications
     .filter(app => app.gpa)
     .sort((a, b) => (b.gpa || 0) - (a.gpa || 0));
+
+  // Handler for saving scholarship edits
+  function handleSaveScholarship(data) {
+    setScholarships((prev) =>
+      prev.map((sch) =>
+        sch.id === selectedScholarship.id ? { ...sch, ...data } : sch
+      )
+    )
+    setModalMode(null)
+    setSelectedScholarship(null)
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F0FA]">
@@ -626,7 +642,6 @@ export default function Component() {
                   Create Scholarship
                 </Button>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {scholarships.map((scholarship) => (
                   <Card key={scholarship.id}>
@@ -656,11 +671,11 @@ export default function Component() {
                         </div>
                         <div className="pt-3 border-t">
                           <div className="flex space-x-2">
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
                               <Edit className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
@@ -671,6 +686,34 @@ export default function Component() {
                   </Card>
                 ))}
               </div>
+              {/* Scholarship View/Edit Modal */}
+              <Dialog open={!!modalMode} onOpenChange={() => { setModalMode(null); setSelectedScholarship(null); }}>
+                <DialogContent className="max-w-md w-full p-6">
+                  <DialogHeader>
+                    <DialogTitle>{modalMode === "view" ? "View Scholarship" : "Edit Scholarship"}</DialogTitle>
+                  </DialogHeader>
+                  {selectedScholarship && (
+                    <div>
+                      {modalMode === "view" ? (
+                        <div className="space-y-2">
+                          <p><strong>Name:</strong> {selectedScholarship.name}</p>
+                          <p><strong>Amount:</strong> {selectedScholarship.amount}</p>
+                          <p><strong>Deadline:</strong> {selectedScholarship.deadline}</p>
+                          <p><strong>Status:</strong> {selectedScholarship.status}</p>
+                          <p><strong>Applicants:</strong> {selectedScholarship.applicants}</p>
+                        </div>
+                      ) : (
+                        <ScholarshipEditForm scholarship={selectedScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
+                      )}
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Close</Button>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 
@@ -748,5 +791,78 @@ export default function Component() {
         </main>
       </div>
     </div>
+  )
+}
+
+// ScholarshipEditForm component
+function ScholarshipEditForm({ scholarship, onSave, onCancel }) {
+  const form = useForm({
+    defaultValues: {
+      name: scholarship.name,
+      amount: scholarship.amount,
+      deadline: scholarship.deadline,
+      status: scholarship.status,
+      applicants: scholarship.applicants,
+    },
+  })
+
+  function onSubmit(values) {
+    onSave({ ...scholarship, ...values })
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField name="name" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Name</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="amount" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Amount</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="deadline" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Deadline</FormLabel>
+            <FormControl>
+              <Input type="date" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="status" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Status</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="applicants" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Applicants</FormLabel>
+            <FormControl>
+              <Input type="number" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <div className="flex space-x-2">
+          <Button type="submit" className="flex-1">Save</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        </div>
+      </form>
+    </Form>
   )
 }
