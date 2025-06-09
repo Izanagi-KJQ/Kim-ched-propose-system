@@ -43,12 +43,21 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 
+type Scholarship = {
+  id: string;
+  name: string;
+  amount: string;
+  deadline: string;
+  applicants: number;
+  status: string;
+};
+
 export default function Component() {
-  const [activeTab, setActiveTab] = useState("dashboard")
-  const [selectedApplication, setSelectedApplication] = useState(null)
-  const [selectedScholarship, setSelectedScholarship] = useState(null)
-  const [modalMode, setModalMode] = useState(null)
-  const [scholarships, setScholarships] = useState([
+  const [activeTab, setActiveTab] = useState<string>("dashboard")
+  const [selectedApplication, setSelectedApplication] = useState<any>(null)
+  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
+  const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null)
+  const [scholarships, setScholarships] = useState<Scholarship[]>([
     {
       id: "SCH001",
       name: "Merit Excellence Scholarship",
@@ -173,7 +182,8 @@ export default function Component() {
     .sort((a, b) => (b.gpa || 0) - (a.gpa || 0));
 
   // Handler for saving scholarship edits
-  function handleSaveScholarship(data) {
+  function handleSaveScholarship(data: Scholarship) {
+    if (!selectedScholarship) return;
     setScholarships((prev) =>
       prev.map((sch) =>
         sch.id === selectedScholarship.id ? { ...sch, ...data } : sch
@@ -795,18 +805,27 @@ export default function Component() {
 }
 
 // ScholarshipEditForm component
-function ScholarshipEditForm({ scholarship, onSave, onCancel }) {
-  const form = useForm({
+function ScholarshipEditForm({
+  scholarship,
+  onSave,
+  onCancel,
+}: {
+  scholarship: Scholarship;
+  onSave: (data: Scholarship) => void;
+  onCancel: () => void;
+}) {
+  const form = useForm<Scholarship>({
     defaultValues: {
       name: scholarship.name,
       amount: scholarship.amount,
       deadline: scholarship.deadline,
       status: scholarship.status,
       applicants: scholarship.applicants,
+      id: scholarship.id,
     },
   })
 
-  function onSubmit(values) {
+  function onSubmit(values: Scholarship) {
     onSave({ ...scholarship, ...values })
   }
 
