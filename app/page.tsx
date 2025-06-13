@@ -71,6 +71,8 @@ interface Application {
   review?: string;
 }
 
+type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
+
 type ProgressBarInputProps = {
   value: number | null;
   onChange: (value: number) => void;
@@ -118,13 +120,12 @@ type User = {
 };
 
 export default function Component() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState<TabName>("dashboard");
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "create" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [scholarships, setScholarships] = useState<Scholarship[]>([
-    // Mock data
     {
       id: "SCH001",
       name: "Merit Excellence Scholarship",
@@ -163,7 +164,6 @@ export default function Component() {
   }
 
   const [applications, setApplications] = useState<Application[]>([
-    // Mock data
     {
       id: "APP001",
       name: "Sarah Johnson",
@@ -795,10 +795,16 @@ export default function Component() {
                   <h2 className="text-3xl font-bold text-gray-900">Applications</h2>
                   <p className="text-gray-600">Manage and review scholarship applications</p>
                 </div>
-                <Button onClick={() => setModalMode("createApplication")}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  New Application
-                </Button>
+                <div className="flex items-center space-x-4"> {/* Added a div to group buttons */}
+                  <Button variant="outline" onClick={() => setTrashBinOpen(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
+                  </Button>
+                  <Button onClick={() => setModalMode("createApplication")}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    New Application
+                  </Button>
+                </div>
               </div>
 
               {/* Filters */}
@@ -844,15 +850,6 @@ export default function Component() {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Add Trash Bin button above the applications table */}
-              <div className="flex items-center justify-between mb-2">
-                <div></div>
-                <Button variant="outline" onClick={() => setTrashBinOpen(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
-                </Button>
-              </div>
 
               {/* Applications Table */}
               <Card>
@@ -1363,84 +1360,82 @@ export default function Component() {
               </div>
 
               <Card>
-                <CardContent className="pt-6 overflow-x-auto">
-                  {loadingUsers ? (
-                    <div className="text-center py-8">Loading users...</div>
-                  ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Last Active</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map(user => (
-                        <TableRow key={user.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <Avatar>
-                                <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                                <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{user.name}</p>
-                                <p className="text-sm text-gray-500">{user.email}</p>
-                              </div>
+                {loadingUsers ? (
+                  <div className="text-center py-8">Loading users...</div>
+                ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Last Active</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map(user => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <Avatar>
+                              <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                              <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{user.name}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge>{user.role}</Badge>
-                          </TableCell>
-                          <TableCell>{user.department}</TableCell>
-                          <TableCell>{user.lastActive}</TableCell>
-                          <TableCell>
-                            <span className="flex items-center gap-2">
-                              {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                              {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-gray-400" />}
-                              <Badge variant="default">{user.status}</Badge>
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>Edit User</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenChangeRole(user)}>Change Role</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>Reset Password</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {user.status === 'Active' ? (
-                                  <DropdownMenuItem className="text-red-600" onClick={() => handleOpenDeactivate(user)}>
-                                    <XCircle className="h-4 w-4 mr-2 text-red-600" />
-                                    Deactivate
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem className="text-green-600" onClick={() => handleReactivate(user)}>
-                                    <UserPlus className="h-4 w-4 mr-2 text-green-600" />
-                                    Reactivate
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
-                                  <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-                                  Delete
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge>{user.role}</Badge>
+                        </TableCell>
+                        <TableCell>{user.department}</TableCell>
+                        <TableCell>{user.lastActive}</TableCell>
+                        <TableCell>
+                          <span className="flex items-center gap-2">
+                            {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                            {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-gray-400" />}
+                            <Badge variant="default">{user.status}</Badge>
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>Edit User</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenChangeRole(user)}>Change Role</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>Reset Password</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {user.status === 'Active' ? (
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleOpenDeactivate(user)}>
+                                  <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                  Deactivate
                                 </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  )}
-                </CardContent>
+                              ) : (
+                                <DropdownMenuItem className="text-green-600" onClick={() => handleReactivate(user)}>
+                                  <UserPlus className="h-4 w-4 mr-2 text-green-600" />
+                                  Reactivate
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
+                                <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                )}
               </Card>
             </div>
           )}
@@ -1516,7 +1511,7 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
   const form = useForm<Omit<Scholarship, 'id'>>({
     defaultValues: {
       name: scholarship.name,
-      amount: scholarship.amount.replace('$', ''), // Remove '$' for editing
+      amount: scholarship.amount.replace('$', ''),
       deadline: scholarship.deadline,
       status: scholarship.status,
       applicants: scholarship.applicants,
@@ -1837,8 +1832,7 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
-              <Input {...field} type="number" step="0.01" value={field.value !== null && field.value !== undefined ? field.value : ''}
-                onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} />
+              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
             </FormControl>
             <FormMessage />
           </FormItem>
