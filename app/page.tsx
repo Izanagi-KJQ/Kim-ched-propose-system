@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +36,10 @@ import {
   Mail,
   GraduationCap,
   DollarSign,
+  PauseCircle,
+  UserX,
+  UserPlus,
+  Trash2,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList, Sector } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
@@ -103,7 +107,27 @@ function ProgressBarInput({ value, onChange, min = 0, max = 100, step = 1 }: Pro
   );
 }
 
+type Scholarship = {
+  id: string;
+  name: string;
+  amount: string;
+  deadline: string;
+  applicants: number;
+  status: string;
+};
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  lastActive: string;
+  status: string;
+};
+
 export default function Component() {
+config
   const [activeTab, setActiveTab] = useState("dashboard")
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
@@ -111,6 +135,12 @@ export default function Component() {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [scholarships, setScholarships] = useState<Scholarship[]>([
     // Mock data
+  const [activeTab, setActiveTab] = useState<string>("dashboard")
+  const [selectedApplication, setSelectedApplication] = useState<any>(null)
+  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
+  const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null)
+  const [scholarships, setScholarships] = useState<Scholarship[]>([
+main
     {
       id: "SCH001",
       name: "Merit Excellence Scholarship",
@@ -209,6 +239,96 @@ export default function Component() {
 
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [downloadApplication, setDownloadApplication] = useState<Application | null>(null);
+
+  // User management state
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
+
+  // Fetch users from API on mount
+  useEffect(() => {
+    setLoadingUsers(true);
+    fetch("/api/users")
+      .then(res => res.json())
+      .then(data => setUsers(data))
+      .finally(() => setLoadingUsers(false));
+  }, []);
+
+  // Handlers for user actions
+  const handleOpenAddUser = () => setUserModal({ mode: 'add' });
+  const handleOpenEditUser = (user: User) => setUserModal({ mode: 'edit', user });
+  const handleOpenChangeRole = (user: User) => setUserModal({ mode: 'role', user });
+  const handleOpenResetPassword = (user: User) => setUserModal({ mode: 'reset', user });
+  const handleOpenDeactivate = (user: User) => setUserModal({ mode: 'deactivate', user });
+  const handleCloseUserModal = () => setUserModal(null);
+
+  // Add or edit user
+  const handleSaveUser = async (user: User) => {
+    if (userModal?.mode === 'add') {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      const newUser = await res.json();
+      setUsers(prev => [...prev, newUser]);
+    } else if (userModal?.mode === 'edit' && userModal.user) {
+      const res = await fetch(`/api/users/${userModal.user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      const updatedUser = await res.json();
+      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    }
+    setUserModal(null);
+  };
+  // Change role
+  const handleChangeRole = async (user: User, newRole: string) => {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    });
+    const updatedUser = await res.json();
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUserModal(null);
+  };
+  // Reset password
+  const handleResetPassword = async (user: User) => {
+    await fetch(`/api/users/${user.id}`, { method: 'POST' });
+    alert(`Password reset for ${user.name}`);
+    setUserModal(null);
+  };
+  // Deactivate
+  const handleDeactivate = async (user: User) => {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Inactive' }),
+    });
+    const updatedUser = await res.json();
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUserModal(null);
+  };
+  // Reactivate user
+  const handleReactivate = async (user: User) => {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Active' }),
+    });
+    const updatedUser = await res.json();
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUserModal(null);
+  };
+  // Delete user
+  const handleDeleteUser = async (user: User) => {
+    if (!window.confirm(`Are you sure you want to delete ${user.name}? This cannot be undone.`)) return;
+    await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+    setUsers(prev => prev.filter(u => u.id !== user.id));
+    setUserModal(null);
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -314,7 +434,9 @@ export default function Component() {
   // Handler for saving scholarship edits
   function handleSaveScholarship(data: Scholarship) {
     if (!selectedScholarship) return;
+config
     const currentScholarship = selectedScholarship; // Introduce a local variable to narrow the type
+main
     setScholarships((prev) =>
       prev.map((sch) =>
         sch.id === currentScholarship.id ? { ...sch, ...data } : sch
@@ -775,6 +897,7 @@ export default function Component() {
                                 {getStatusIcon(app.status)}
                                 {getStatusBadge(app.status)}
                               </div>
+config
                             </TableCell>
                             <TableCell>
                               {app.score !== null && app.score !== undefined ? (
@@ -817,6 +940,42 @@ export default function Component() {
                             </TableCell>
                           </TableRow>
                         ))}
+                            ) : (
+                              <span className="text-gray-400">Not scored</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{app.submittedDate}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Review & Score
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Send Message
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download Documents
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+main
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -1164,7 +1323,7 @@ export default function Component() {
                   <h2 className="text-3xl font-bold text-gray-900">User Management</h2>
                   <p className="text-gray-600">Manage system users and permissions</p>
                 </div>
-                <Button>
+                <Button onClick={handleOpenAddUser}>
                   <Users className="h-4 w-4 mr-2" />
                   Add User
                 </Button>
@@ -1172,6 +1331,9 @@ export default function Component() {
 
               <Card>
                 <CardContent className="pt-6">
+                  {loadingUsers ? (
+                    <div className="text-center py-8">Loading users...</div>
+                  ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1184,70 +1346,171 @@ export default function Component() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <Avatar>
-                              <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">John Doe</p>
-                              <p className="text-sm text-gray-500">john.doe@university.edu</p>
+                      {users.map(user => (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <Avatar>
+                                <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                                <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{user.name}</p>
+                                <p className="text-sm text-gray-500">{user.email}</p>
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge>Administrator</Badge>
-                        </TableCell>
-                        <TableCell>Financial Aid</TableCell>
-                        <TableCell>2 hours ago</TableCell>
-                        <TableCell>
-                          <Badge variant="default">Active</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Edit User</DropdownMenuItem>
-                              <DropdownMenuItem>Change Role</DropdownMenuItem>
-                              <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">Deactivate</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                          <TableCell>
+                            <Badge>{user.role}</Badge>
+                          </TableCell>
+                          <TableCell>{user.department}</TableCell>
+                          <TableCell>{user.lastActive}</TableCell>
+                          <TableCell>
+                            <span className="flex items-center gap-2">
+                              {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                              {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-gray-400" />}
+                              <Badge variant="default">{user.status}</Badge>
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>Edit User</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenChangeRole(user)}>Change Role</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>Reset Password</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {user.status === 'Active' ? (
+                                  <DropdownMenuItem className="text-red-600" onClick={() => handleOpenDeactivate(user)}>
+                                    <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                    Deactivate
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem className="text-green-600" onClick={() => handleReactivate(user)}>
+                                    <UserPlus className="h-4 w-4 mr-2 text-green-600" />
+                                    Reactivate
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
+                                  <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
+                  )}
                 </CardContent>
               </Card>
             </div>
           )}
         </main>
       </div>
+      {/* User Modals */}
+      <Dialog open={!!userModal} onOpenChange={handleCloseUserModal}>
+        <DialogContent className="max-w-md w-full p-6">
+          <DialogHeader>
+            <DialogTitle>
+              {userModal?.mode === 'add' && 'Add User'}
+              {userModal?.mode === 'edit' && 'Edit User'}
+              {userModal?.mode === 'role' && 'Change Role'}
+              {userModal?.mode === 'reset' && 'Reset Password'}
+              {userModal?.mode === 'deactivate' && 'Deactivate User'}
+            </DialogTitle>
+          </DialogHeader>
+          {/* Modal Content */}
+          {userModal?.mode === 'add' || userModal?.mode === 'edit' ? (
+            <UserForm
+              user={userModal.mode === 'edit' ? userModal.user : undefined}
+              onSave={handleSaveUser}
+              onCancel={handleCloseUserModal}
+            />
+          ) : null}
+          {userModal?.mode === 'role' && userModal.user ? (
+            <div>
+              <Label>Role</Label>
+              <Select defaultValue={userModal.user.role} onValueChange={role => handleChangeRole(userModal.user!, role)}>
+                <SelectTrigger className="w-full mt-2 mb-4">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Staff">Staff</SelectItem>
+                  <SelectItem value="Viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
+            </div>
+          ) : null}
+          {userModal?.mode === 'reset' && userModal.user ? (
+            <div>
+              <p>Are you sure you want to reset the password for <b>{userModal.user.name}</b>?</p>
+              <div className="flex space-x-2 mt-4">
+                <Button onClick={() => handleResetPassword(userModal.user!)}>Reset</Button>
+                <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
+              </div>
+            </div>
+          ) : null}
+          {userModal?.mode === 'deactivate' && userModal.user ? (
+            <div>
+              <p>Are you sure you want to deactivate <b>{userModal.user.name}</b>?</p>
+              <div className="flex space-x-2 mt-4">
+                <Button variant="destructive" onClick={() => handleDeactivate(userModal.user!)}>Deactivate</Button>
+                <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 // ScholarshipEditForm component
+config
 function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: Scholarship, onSave: (data: Scholarship) => void, onCancel: () => void }) {
   const form = useForm<Omit<Scholarship, 'id'>>({
+=======
+function ScholarshipEditForm({
+  scholarship,
+  onSave,
+  onCancel,
+}: {
+  scholarship: Scholarship;
+  onSave: (data: Scholarship) => void;
+  onCancel: () => void;
+}) {
+  const form = useForm<Scholarship>({
+main
     defaultValues: {
       name: scholarship.name,
       amount: scholarship.amount.replace('$', ''), // Remove '$' for editing
       deadline: scholarship.deadline,
       status: scholarship.status,
       applicants: scholarship.applicants,
+      id: scholarship.id,
     },
   })
 
+config
   function onSubmit(values: Omit<Scholarship, 'id'>) {
     onSave({ ...scholarship, ...values, amount: `$${values.amount}` }) // Add '$' back on save
+=======
+  function onSubmit(values: Scholarship) {
+    onSave({ ...scholarship, ...values })
+main
   }
 
   return (
@@ -1315,6 +1578,7 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
   )
 }
 
+config
 // ScholarshipCreateForm component
 function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Scholarship, 'id'>) => void, onCancel: () => void }) {
   const form = useForm<Omit<Scholarship, 'id'>>({
@@ -1334,6 +1598,18 @@ function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Schol
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
+// UserForm component
+function UserForm({ user, onSave, onCancel }: { user?: User, onSave: (user: User) => void, onCancel: () => void }) {
+  const form = useForm<User>({
+    defaultValues: user || { name: '', email: '', role: 'Staff', department: '', lastActive: 'Just now', status: 'Active', id: '' },
+  });
+  function onSubmit(values: User) {
+    onSave({ ...user, ...values, id: user?.id || '' });
+  }
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+main
         <FormField name="name" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Name</FormLabel>
@@ -1343,6 +1619,7 @@ function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Schol
             <FormMessage />
           </FormItem>
         )} />
+config
         <FormField name="amount" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Amount</FormLabel>
@@ -1427,10 +1704,12 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
             <FormMessage />
           </FormItem>
         )} />
+main
         <FormField name="email" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
+config
               <Input {...field} type="email" />
             </FormControl>
             <FormMessage />
@@ -1470,10 +1749,13 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
             <FormLabel>GPA</FormLabel>
             <FormControl>
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
+              <Input type="email" {...field} />
+main
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
+config
         <FormField name="status" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Status</FormLabel>
@@ -1487,12 +1769,26 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
                   <SelectItem value="under_review">Under Review</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
+        <FormField name="role" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Role</FormLabel>
+            <FormControl>
+              <Select defaultValue={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Staff">Staff</SelectItem>
+                  <SelectItem value="Viewer">Viewer</SelectItem>
+main
                 </SelectContent>
               </Select>
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
+config
         <FormField name="score" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Score</FormLabel>
@@ -1618,12 +1914,17 @@ function SendMessageForm({ application, onSend, onCancel }: { application: Appli
         <FormField name="subject" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Subject</FormLabel>
+        <FormField name="department" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Department</FormLabel>
+main
             <FormControl>
               <Input {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
+config
         <FormField name="message" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Message</FormLabel>
@@ -1635,9 +1936,17 @@ function SendMessageForm({ application, onSend, onCancel }: { application: Appli
         )} />
         <div className="flex space-x-2">
           <Button type="submit" className="flex-1">Send Message</Button>
+
+        <div className="flex space-x-2">
+          <Button type="submit" className="flex-1">Save</Button>
+main
           <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
       </form>
     </Form>
+config
   )
+=======
+  );
+main
 }

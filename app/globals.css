@@ -8,6 +8,10 @@ body {
 
 @layer utilities {
   .text-balance {
+config
+=======
+    text-wrap: pretty; /* Fallback for browsers that support it */
+main
   }
 }
 
