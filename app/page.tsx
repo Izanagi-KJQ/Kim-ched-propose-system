@@ -1432,7 +1432,6 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
       deadline: scholarship.deadline,
       status: scholarship.status,
       applicants: scholarship.applicants,
-      id: scholarship.id,
     },
   })
 
@@ -1750,8 +1749,8 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
-              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
-              <Input type="email" {...field} />
+              <Input {...field} type="number" step="0.01" value={field.value !== null && field.value !== undefined ? field.value : ''}
+                onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} />
             </FormControl>
             <FormMessage />
           </FormItem>
