@@ -1749,7 +1749,12 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
+HEAD
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+
+              <Input {...field} type="number" step="0.01" value={field.value !== null && field.value !== undefined ? field.value : ''}
+                onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} />
+897c49c879923b3adba734596dacf8f959924469
             </FormControl>
             <FormMessage />
           </FormItem>
