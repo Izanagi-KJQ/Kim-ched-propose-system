@@ -107,15 +107,6 @@ function ProgressBarInput({ value, onChange, min = 0, max = 100, step = 1 }: Pro
   );
 }
 
-type Scholarship = {
-  id: string;
-  name: string;
-  amount: string;
-  deadline: string;
-  applicants: number;
-  status: string;
-};
-
 type User = {
   id: string;
   name: string;
@@ -127,20 +118,13 @@ type User = {
 };
 
 export default function Component() {
-config
-  const [activeTab, setActiveTab] = useState("dashboard")
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
-  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
-  const [modalMode, setModalMode] = useState<"view" | "edit" | "create" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null)
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
+  const [modalMode, setModalMode] = useState<"view" | "edit" | "create" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [scholarships, setScholarships] = useState<Scholarship[]>([
     // Mock data
-  const [activeTab, setActiveTab] = useState<string>("dashboard")
-  const [selectedApplication, setSelectedApplication] = useState<any>(null)
-  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
-  const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null)
-  const [scholarships, setScholarships] = useState<Scholarship[]>([
-main
     {
       id: "SCH001",
       name: "Merit Excellence Scholarship",
@@ -165,7 +149,7 @@ main
       applicants: 156,
       status: "closed",
     },
-  ])
+  ]);
 
   // Add sort state for scholarships
   const [scholarshipSort, setScholarshipSort] = useState<string>("deadline_oldest");
@@ -434,9 +418,7 @@ main
   // Handler for saving scholarship edits
   function handleSaveScholarship(data: Scholarship) {
     if (!selectedScholarship) return;
-config
     const currentScholarship = selectedScholarship; // Introduce a local variable to narrow the type
-main
     setScholarships((prev) =>
       prev.map((sch) =>
         sch.id === currentScholarship.id ? { ...sch, ...data } : sch
@@ -897,7 +879,6 @@ main
                                 {getStatusIcon(app.status)}
                                 {getStatusBadge(app.status)}
                               </div>
-config
                             </TableCell>
                             <TableCell>
                               {app.score !== null && app.score !== undefined ? (
@@ -940,42 +921,6 @@ config
                             </TableCell>
                           </TableRow>
                         ))}
-                            ) : (
-                              <span className="text-gray-400">Not scored</span>
-                            )}
-                          </TableCell>
-                          <TableCell>{app.submittedDate}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Review & Score
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Mail className="h-4 w-4 mr-2" />
-                                  Send Message
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download Documents
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-main
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -1479,21 +1424,8 @@ main
 }
 
 // ScholarshipEditForm component
-config
 function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: Scholarship, onSave: (data: Scholarship) => void, onCancel: () => void }) {
   const form = useForm<Omit<Scholarship, 'id'>>({
-=======
-function ScholarshipEditForm({
-  scholarship,
-  onSave,
-  onCancel,
-}: {
-  scholarship: Scholarship;
-  onSave: (data: Scholarship) => void;
-  onCancel: () => void;
-}) {
-  const form = useForm<Scholarship>({
-main
     defaultValues: {
       name: scholarship.name,
       amount: scholarship.amount.replace('$', ''), // Remove '$' for editing
@@ -1504,13 +1436,8 @@ main
     },
   })
 
-config
   function onSubmit(values: Omit<Scholarship, 'id'>) {
     onSave({ ...scholarship, ...values, amount: `$${values.amount}` }) // Add '$' back on save
-=======
-  function onSubmit(values: Scholarship) {
-    onSave({ ...scholarship, ...values })
-main
   }
 
   return (
@@ -1578,7 +1505,6 @@ main
   )
 }
 
-config
 // ScholarshipCreateForm component
 function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Scholarship, 'id'>) => void, onCancel: () => void }) {
   const form = useForm<Omit<Scholarship, 'id'>>({
@@ -1598,18 +1524,6 @@ function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Schol
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-// UserForm component
-function UserForm({ user, onSave, onCancel }: { user?: User, onSave: (user: User) => void, onCancel: () => void }) {
-  const form = useForm<User>({
-    defaultValues: user || { name: '', email: '', role: 'Staff', department: '', lastActive: 'Just now', status: 'Active', id: '' },
-  });
-  function onSubmit(values: User) {
-    onSave({ ...user, ...values, id: user?.id || '' });
-  }
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-main
         <FormField name="name" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Name</FormLabel>
@@ -1619,7 +1533,6 @@ main
             <FormMessage />
           </FormItem>
         )} />
-config
         <FormField name="amount" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Amount</FormLabel>
@@ -1673,6 +1586,97 @@ config
   )
 }
 
+// UserForm component
+function UserForm({ user, onSave, onCancel }: { user?: User, onSave: (user: User) => void, onCancel: () => void }) {
+  const form = useForm<User>({
+    defaultValues: user || { name: '', email: '', role: 'Staff', department: '', lastActive: 'Just now', status: 'Active', id: '' },
+  });
+  function onSubmit(values: User) {
+    onSave({ ...user, ...values, id: user?.id || '' });
+  }
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField name="name" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Name</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="email" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input {...field} type="email" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="role" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Role</FormLabel>
+            <FormControl>
+              <Select defaultValue={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Staff">Staff</SelectItem>
+                  <SelectItem value="Viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="department" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Department</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="lastActive" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Last Active</FormLabel>
+            <FormControl>
+              <Input {...field} type="datetime-local" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="status" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Status</FormLabel>
+            <FormControl>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <div className="flex space-x-2">
+          <Button type="submit" className="flex-1">Save</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
 // ApplicationCreateForm component
 function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (data: Omit<Application, 'id' | 'avatar'>) => void, onCancel: () => void, scholarships: Scholarship[] }) {
   const form = useForm<Omit<Application, 'id' | 'avatar'>>({
@@ -1704,12 +1708,10 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
             <FormMessage />
           </FormItem>
         )} />
-main
         <FormField name="email" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-config
               <Input {...field} type="email" />
             </FormControl>
             <FormMessage />
@@ -1750,12 +1752,10 @@ config
             <FormControl>
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
               <Input type="email" {...field} />
-main
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
-config
         <FormField name="status" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Status</FormLabel>
@@ -1769,26 +1769,12 @@ config
                   <SelectItem value="under_review">Under Review</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
-        <FormField name="role" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Role</FormLabel>
-            <FormControl>
-              <Select defaultValue={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Administrator">Administrator</SelectItem>
-                  <SelectItem value="Staff">Staff</SelectItem>
-                  <SelectItem value="Viewer">Viewer</SelectItem>
-main
                 </SelectContent>
               </Select>
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
-config
         <FormField name="score" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Score</FormLabel>
@@ -1914,17 +1900,12 @@ function SendMessageForm({ application, onSend, onCancel }: { application: Appli
         <FormField name="subject" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Subject</FormLabel>
-        <FormField name="department" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Department</FormLabel>
-main
             <FormControl>
               <Input {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
-config
         <FormField name="message" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Message</FormLabel>
@@ -1936,17 +1917,9 @@ config
         )} />
         <div className="flex space-x-2">
           <Button type="submit" className="flex-1">Send Message</Button>
-
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save</Button>
-main
           <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
       </form>
     </Form>
-config
   )
-=======
-  );
-main
 }
