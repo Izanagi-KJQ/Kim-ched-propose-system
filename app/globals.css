@@ -11,9 +11,13 @@ body {
   }
 }
 
+html, body {
+  height: 100%;
+}
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 240 20% 97%; /* Corresponds to #F4F0FA */
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
@@ -88,7 +92,7 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
   }
 }
 
@@ -99,7 +103,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f0f0f0; /* Light gray track */
+  background: #F4F0FA; /* Match main content background */
   border-radius: 10px;
 }
 

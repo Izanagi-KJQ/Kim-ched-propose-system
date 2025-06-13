@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +36,10 @@ import {
   Mail,
   GraduationCap,
   DollarSign,
+  PauseCircle,
+  UserX,
+  UserPlus,
+  Trash2,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList, Sector } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
@@ -103,11 +107,21 @@ function ProgressBarInput({ value, onChange, min = 0, max = 100, step = 1 }: Pro
   );
 }
 
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  lastActive: string;
+  status: string;
+};
+
 export default function Component() {
-  const [activeTab, setActiveTab] = useState("dashboard")
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
-  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
-  const [modalMode, setModalMode] = useState<"view" | "edit" | "create" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null)
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
+  const [modalMode, setModalMode] = useState<"view" | "edit" | "create" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [scholarships, setScholarships] = useState<Scholarship[]>([
     // Mock data
@@ -135,7 +149,7 @@ export default function Component() {
       applicants: 156,
       status: "closed",
     },
-  ])
+  ]);
 
   // Add sort state for scholarships
   const [scholarshipSort, setScholarshipSort] = useState<string>("deadline_oldest");
@@ -209,6 +223,101 @@ export default function Component() {
 
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [downloadApplication, setDownloadApplication] = useState<Application | null>(null);
+
+  // User management state
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteApplication, setDeleteApplication] = useState<Application | null>(null);
+  const [trashBin, setTrashBin] = useState<Application[]>([]);
+  const [trashBinOpen, setTrashBinOpen] = useState(false);
+
+  // Fetch users from API on mount
+  useEffect(() => {
+    setLoadingUsers(true);
+    fetch("/api/users")
+      .then(res => res.json())
+      .then(data => setUsers(data))
+      .finally(() => setLoadingUsers(false));
+  }, []);
+
+  // Handlers for user actions
+  const handleOpenAddUser = () => setUserModal({ mode: 'add' });
+  const handleOpenEditUser = (user: User) => setUserModal({ mode: 'edit', user });
+  const handleOpenChangeRole = (user: User) => setUserModal({ mode: 'role', user });
+  const handleOpenResetPassword = (user: User) => setUserModal({ mode: 'reset', user });
+  const handleOpenDeactivate = (user: User) => setUserModal({ mode: 'deactivate', user });
+  const handleCloseUserModal = () => setUserModal(null);
+
+  // Add or edit user
+  const handleSaveUser = async (user: User) => {
+    if (userModal?.mode === 'add') {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      const newUser = await res.json();
+      setUsers(prev => [...prev, newUser]);
+    } else if (userModal?.mode === 'edit' && userModal.user) {
+      const res = await fetch(`/api/users/${userModal.user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      const updatedUser = await res.json();
+      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    }
+    setUserModal(null);
+  };
+  // Change role
+  const handleChangeRole = async (user: User, newRole: string) => {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    });
+    const updatedUser = await res.json();
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUserModal(null);
+  };
+  // Reset password
+  const handleResetPassword = async (user: User) => {
+    await fetch(`/api/users/${user.id}`, { method: 'POST' });
+    alert(`Password reset for ${user.name}`);
+    setUserModal(null);
+  };
+  // Deactivate
+  const handleDeactivate = async (user: User) => {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Inactive' }),
+    });
+    const updatedUser = await res.json();
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUserModal(null);
+  };
+  // Reactivate user
+  const handleReactivate = async (user: User) => {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Active' }),
+    });
+    const updatedUser = await res.json();
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUserModal(null);
+  };
+  // Delete user
+  const handleDeleteUser = async (user: User) => {
+    if (!window.confirm(`Are you sure you want to delete ${user.name}? This cannot be undone.`)) return;
+    await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+    setUsers(prev => prev.filter(u => u.id !== user.id));
+    setUserModal(null);
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -401,10 +510,33 @@ export default function Component() {
     }
   }
 
+  function handleDeleteApplicant(app: Application) {
+    setDeleteApplication(app);
+    setDeleteDialogOpen(true);
+  }
+
+  function handleConfirmDeleteApplicant() {
+    if (deleteApplication) {
+      setApplications(prev => prev.filter(a => a.id !== deleteApplication.id));
+      setTrashBin(prev => [...prev, deleteApplication]);
+      setDeleteDialogOpen(false);
+      setDeleteApplication(null);
+    }
+  }
+
+  function handleRestoreApplicant(app: Application) {
+    setApplications(prev => [...prev, app]);
+    setTrashBin(prev => prev.filter(a => a.id !== app.id));
+  }
+
+  function handlePermanentDeleteApplicant(app: Application) {
+    setTrashBin(prev => prev.filter(a => a.id !== app.id));
+  }
+
   return (
-    <div className="min-h-screen bg-[#F4F0FA]">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-gray-200 fixed top-0 w-full z-10">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -426,9 +558,9 @@ export default function Component() {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex mt-[64px] min-h-[calc(100vh-64px)] bg-[#F4F0FA] overflow-y-auto">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen">
+        <aside className="w-64 bg-white border-r border-gray-200 fixed top-[64px] left-0 h-[calc(100vh-64px)] overflow-y-auto z-30 shadow-lg">
           <nav className="p-4 space-y-2">
             <Button
               variant={activeTab === "dashboard" ? "default" : "ghost"}
@@ -474,7 +606,7 @@ export default function Component() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 bg-[#F4F0FA]">
+        <main className="flex-1 p-8 ml-64 overflow-x-auto">
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               <div>
@@ -671,7 +803,7 @@ export default function Component() {
 
               {/* Filters */}
               <Card>
-                <CardContent className="pt-6">
+                <CardContent className="pt-6 overflow-x-auto">
                   <div className="flex items-center space-x-4">
                     <div className="flex-1">
                       <div className="relative">
@@ -713,9 +845,18 @@ export default function Component() {
                 </CardContent>
               </Card>
 
+              {/* Add Trash Bin button above the applications table */}
+              <div className="flex items-center justify-between mb-2">
+                <div></div>
+                <Button variant="outline" onClick={() => setTrashBinOpen(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
+                </Button>
+              </div>
+
               {/* Applications Table */}
               <Card>
-                <CardContent className="pt-6">
+                <CardContent className="pt-6 overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -811,6 +952,10 @@ export default function Component() {
                                   <DropdownMenuItem onClick={() => handleDownloadDocuments(app)}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download Documents
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteApplicant(app)}>
+                                    <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                    Delete Applicant
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -916,6 +1061,53 @@ export default function Component() {
                     <Button variant="outline" onClick={() => setDownloadDialogOpen(false)}>Cancel</Button>
                     <Button onClick={handleConfirmDownloadPDF}>Download PDF</Button>
                     <Button onClick={handleConfirmDownloadDOCX} variant="secondary">Download DOCX</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              {/* Delete Applicant Confirmation Modal */}
+              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="max-w-md w-full p-6 rounded-xl">
+                  <DialogHeader>
+                    <DialogTitle>Delete Applicant</DialogTitle>
+                  </DialogHeader>
+                  {deleteApplication && (
+                    <div className="space-y-2 text-sm">
+                      <p>Are you sure you want to delete the application of <span className="font-semibold">{deleteApplication.name}</span>?</p>
+                      <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+                    <Button variant="destructive" onClick={handleConfirmDeleteApplicant}>Delete</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              {/* Trash Bin Modal */}
+              <Dialog open={trashBinOpen} onOpenChange={setTrashBinOpen}>
+                <DialogContent className="max-w-lg w-full p-6 rounded-xl">
+                  <DialogHeader>
+                    <DialogTitle>Trash Bin</DialogTitle>
+                  </DialogHeader>
+                  {trashBin.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">No deleted applicants.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {trashBin.map(app => (
+                        <div key={app.id} className="flex items-center justify-between border-b pb-2">
+                          <div>
+                            <div className="font-medium">{app.name}</div>
+                            <div className="text-xs text-gray-500">{app.email} | {app.scholarship}</div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => handleRestoreApplicant(app)}>Restore</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handlePermanentDeleteApplicant(app)}>Delete Permanently</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setTrashBinOpen(false)}>Close</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -1164,14 +1356,17 @@ export default function Component() {
                   <h2 className="text-3xl font-bold text-gray-900">User Management</h2>
                   <p className="text-gray-600">Manage system users and permissions</p>
                 </div>
-                <Button>
+                <Button onClick={handleOpenAddUser}>
                   <Users className="h-4 w-4 mr-2" />
                   Add User
                 </Button>
               </div>
 
               <Card>
-                <CardContent className="pt-6">
+                <CardContent className="pt-6 overflow-x-auto">
+                  {loadingUsers ? (
+                    <div className="text-center py-8">Loading users...</div>
+                  ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1184,52 +1379,134 @@ export default function Component() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <Avatar>
-                              <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">John Doe</p>
-                              <p className="text-sm text-gray-500">john.doe@university.edu</p>
+                      {users.map(user => (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <Avatar>
+                                <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                                <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{user.name}</p>
+                                <p className="text-sm text-gray-500">{user.email}</p>
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge>Administrator</Badge>
-                        </TableCell>
-                        <TableCell>Financial Aid</TableCell>
-                        <TableCell>2 hours ago</TableCell>
-                        <TableCell>
-                          <Badge variant="default">Active</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Edit User</DropdownMenuItem>
-                              <DropdownMenuItem>Change Role</DropdownMenuItem>
-                              <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">Deactivate</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                          <TableCell>
+                            <Badge>{user.role}</Badge>
+                          </TableCell>
+                          <TableCell>{user.department}</TableCell>
+                          <TableCell>{user.lastActive}</TableCell>
+                          <TableCell>
+                            <span className="flex items-center gap-2">
+                              {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                              {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-gray-400" />}
+                              <Badge variant="default">{user.status}</Badge>
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>Edit User</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenChangeRole(user)}>Change Role</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>Reset Password</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {user.status === 'Active' ? (
+                                  <DropdownMenuItem className="text-red-600" onClick={() => handleOpenDeactivate(user)}>
+                                    <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                    Deactivate
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem className="text-green-600" onClick={() => handleReactivate(user)}>
+                                    <UserPlus className="h-4 w-4 mr-2 text-green-600" />
+                                    Reactivate
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
+                                  <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
+                  )}
                 </CardContent>
               </Card>
             </div>
           )}
         </main>
       </div>
+      {/* User Modals */}
+      <Dialog open={!!userModal} onOpenChange={handleCloseUserModal}>
+        <DialogContent className="max-w-md w-full p-6">
+          <DialogHeader>
+            <DialogTitle>
+              {userModal?.mode === 'add' && 'Add User'}
+              {userModal?.mode === 'edit' && 'Edit User'}
+              {userModal?.mode === 'role' && 'Change Role'}
+              {userModal?.mode === 'reset' && 'Reset Password'}
+              {userModal?.mode === 'deactivate' && 'Deactivate User'}
+            </DialogTitle>
+          </DialogHeader>
+          {/* Modal Content */}
+          {userModal?.mode === 'add' || userModal?.mode === 'edit' ? (
+            <UserForm
+              user={userModal.mode === 'edit' ? userModal.user : undefined}
+              onSave={handleSaveUser}
+              onCancel={handleCloseUserModal}
+            />
+          ) : null}
+          {userModal?.mode === 'role' && userModal.user ? (
+            <div>
+              <Label>Role</Label>
+              <Select defaultValue={userModal.user.role} onValueChange={role => handleChangeRole(userModal.user!, role)}>
+                <SelectTrigger className="w-full mt-2 mb-4">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Staff">Staff</SelectItem>
+                  <SelectItem value="Viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
+            </div>
+          ) : null}
+          {userModal?.mode === 'reset' && userModal.user ? (
+            <div>
+              <p>Are you sure you want to reset the password for <b>{userModal.user.name}</b>?</p>
+              <div className="flex space-x-2 mt-4">
+                <Button onClick={() => handleResetPassword(userModal.user!)}>Reset</Button>
+                <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
+              </div>
+            </div>
+          ) : null}
+          {userModal?.mode === 'deactivate' && userModal.user ? (
+            <div>
+              <p>Are you sure you want to deactivate <b>{userModal.user.name}</b>?</p>
+              <div className="flex space-x-2 mt-4">
+                <Button variant="destructive" onClick={() => handleDeactivate(userModal.user!)}>Deactivate</Button>
+                <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -1396,6 +1673,97 @@ function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Schol
   )
 }
 
+// UserForm component
+function UserForm({ user, onSave, onCancel }: { user?: User, onSave: (user: User) => void, onCancel: () => void }) {
+  const form = useForm<User>({
+    defaultValues: user || { name: '', email: '', role: 'Staff', department: '', lastActive: 'Just now', status: 'Active', id: '' },
+  });
+  function onSubmit(values: User) {
+    onSave({ ...user, ...values, id: user?.id || '' });
+  }
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField name="name" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Name</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="email" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input {...field} type="email" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="role" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Role</FormLabel>
+            <FormControl>
+              <Select defaultValue={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Staff">Staff</SelectItem>
+                  <SelectItem value="Viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="department" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Department</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="lastActive" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Last Active</FormLabel>
+            <FormControl>
+              <Input {...field} type="datetime-local" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="status" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Status</FormLabel>
+            <FormControl>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <div className="flex space-x-2">
+          <Button type="submit" className="flex-1">Save</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
 // ApplicationCreateForm component
 function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (data: Omit<Application, 'id' | 'avatar'>) => void, onCancel: () => void, scholarships: Scholarship[] }) {
   const form = useForm<Omit<Application, 'id' | 'avatar'>>({
@@ -1469,7 +1837,8 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
-              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
+              <Input {...field} type="number" step="0.01" value={field.value !== null && field.value !== undefined ? field.value : ''}
+                onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} />
             </FormControl>
             <FormMessage />
           </FormItem>
