@@ -249,7 +249,7 @@ export default function Component() {
   };
 
   // Add requirements state to each application
-  const [requirementsMap, setRequirementsMap] = useState<Record<string, Record<string, boolean>>>({});
+  const [requirementsMap, setRequirementsMap] = useState<Record<string, Record<string, { valid: boolean, falseDoc: boolean }>>>({});
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Helper to get requirements for a scholarship
@@ -282,16 +282,38 @@ export default function Component() {
     setApplications((prev) => prev.filter((s) => s.id !== id));
     setRequirementsMap((prev) => { const copy = { ...prev }; delete copy[id]; return copy; });
   };
-  const handleValidateRequirement = (studentId: string, req: string, value: boolean) => {
+  const handleValidateRequirement = (studentId: string, req: string, value: { valid: boolean; falseDoc: boolean }) => {
     setRequirementsMap((prev) => ({
       ...prev,
       [studentId]: { ...prev[studentId], [req]: value },
     }));
   };
 
-  // Ranking logic: sort by score, slice for approved/reserve
+  // Ranking logic: sort by requirements status, then by GPA
+  function getRequirementsStatus(studentId: string, requirements: string[]) {
+    const reqs = requirementsMap[studentId] || {};
+    if (requirements.some(req => reqs[req]?.falseDoc)) return 'Disqualified';
+    if (requirements.some(req => !reqs[req]?.valid)) return 'Incomplete';
+    return 'Complete';
+  }
+
   const ranked = applications.filter(app => app.gpa !== null && app.gpa !== undefined)
-    .sort((a, b) => (b.gpa || 0) - (a.gpa || 0)).reverse();
+    .map(app => {
+      const reqs = getRequirements(app.scholarship);
+      const status = getRequirementsStatus(app.id, reqs);
+      return { ...app, requirementsStatus: status };
+    })
+    .sort((a, b) => {
+      // Disqualified at the bottom
+      if (a.requirementsStatus === 'Disqualified' && b.requirementsStatus !== 'Disqualified') return 1;
+      if (a.requirementsStatus !== 'Disqualified' && b.requirementsStatus === 'Disqualified') return -1;
+      // Incomplete below complete
+      if (a.requirementsStatus === 'Incomplete' && b.requirementsStatus === 'Complete') return 1;
+      if (a.requirementsStatus === 'Complete' && b.requirementsStatus === 'Incomplete') return -1;
+      // Otherwise, sort by GPA descending
+      return (b.gpa || 0) - (a.gpa || 0);
+    });
+
   const approved = ranked.slice(0, 102);
   const reserve = ranked.slice(102, 150);
   const pending = applications.filter(app => app.status === 'pending');
@@ -1184,7 +1206,7 @@ export default function Component() {
                               <div>
                                 <p className="font-medium">{app.name}</p>
                                 <p className="text-sm text-gray-500">GPA: {app.gpa}</p>
-                                <span className="text-xs text-gray-400">{app.status === 'reserve' ? 'Reserve' : (index < 102 ? 'Approved' : 'Reserve')}</span>
+                                <span className={`text-xs font-bold ${app.requirementsStatus === 'Disqualified' ? 'text-red-600' : app.requirementsStatus === 'Incomplete' ? 'text-yellow-600' : 'text-green-600'}`}>{app.requirementsStatus}</span>
                               </div>
                             </div>
                             <div className="flex items-center space-x-4">
@@ -1205,7 +1227,6 @@ export default function Component() {
                       <CardDescription>View and validate required documents for the selected student</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Requirements Checklist */}
                       {selectedStudentId ? (
                         <RequirementsChecklist
                           requirements={getRequirements(applications.find(a => a.id === selectedStudentId)?.scholarship || '')}
@@ -1215,81 +1236,6 @@ export default function Component() {
                       ) : (
                         <p className="text-gray-600 text-sm">Select a student to view their requirements.</p>
                       )}
-                      {/* Scoring Panel */}
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="academic">Academic Performance (40%)</Label>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="40"
-                              placeholder="0-40"
-                              value={academic}
-                              onChange={e => setAcademic(Number(e.target.value))}
-                            />
-                            <span className="text-sm text-gray-500">/40</span>
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="extracurricular">Extracurricular (30%)</Label>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="30"
-                              placeholder="0-30"
-                              value={extracurricular}
-                              onChange={e => setExtracurricular(Number(e.target.value))}
-                            />
-                            <span className="text-sm text-gray-500">/30</span>
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="essay">Essay Quality (20%)</Label>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="20"
-                              placeholder="0-20"
-                              value={essay}
-                              onChange={e => setEssay(Number(e.target.value))}
-                            />
-                            <span className="text-sm text-gray-500">/20</span>
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="financial">Financial Need (10%)</Label>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="10"
-                              placeholder="0-10"
-                              value={financial}
-                              onChange={e => setFinancial(Number(e.target.value))}
-                            />
-                            <span className="text-sm text-gray-500">/10</span>
-                          </div>
-                        </div>
-                        <div className="pt-4 border-t">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium">Total Score</span>
-                            <span className="text-2xl font-bold">{totalScore}</span>
-                          </div>
-                          <Progress value={totalScore} className="mb-4" />
-                          <Textarea
-                            placeholder="Add review comments..."
-                            className="mb-4"
-                            value={review}
-                            onChange={e => setReview(e.target.value)}
-                          />
-                          <Button className="w-full" onClick={handleSaveScore} type="button">
-                            Save Score & Review
-                          </Button>
-                        </div>
-                      </div>
                     </CardContent>
                   </Card>
                 </div>

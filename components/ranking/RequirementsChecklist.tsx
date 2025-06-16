@@ -2,8 +2,8 @@ import React from 'react';
 
 interface RequirementsChecklistProps {
   requirements: string[];
-  validated: Record<string, boolean>;
-  onValidate: (req: string, value: boolean) => void;
+  validated: Record<string, { valid: boolean; falseDoc: boolean }>;
+  onValidate: (req: string, value: { valid: boolean; falseDoc: boolean }) => void;
 }
 
 const RequirementsChecklist: React.FC<RequirementsChecklistProps> = ({ requirements, validated, onValidate }) => {
@@ -15,11 +15,21 @@ const RequirementsChecklist: React.FC<RequirementsChecklistProps> = ({ requireme
           <li key={req} className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={!!validated[req]}
-              onChange={e => onValidate(req, e.target.checked)}
+              checked={!!validated[req]?.valid}
+              onChange={e => onValidate(req, { valid: e.target.checked, falseDoc: validated[req]?.falseDoc || false })}
               className="accent-purple-600 w-4 h-4 rounded border-gray-300"
             />
             <span>{req}</span>
+            <label className="flex items-center gap-1 ml-2 text-xs text-red-600">
+              <input
+                type="checkbox"
+                checked={!!validated[req]?.falseDoc}
+                onChange={e => onValidate(req, { valid: validated[req]?.valid || false, falseDoc: e.target.checked })}
+                className="accent-red-600 w-3 h-3 rounded border-gray-300"
+              />
+              <span>False</span>
+              {validated[req]?.falseDoc && <span title="Marked as false document">🚩</span>}
+            </label>
           </li>
         ))}
       </ul>
