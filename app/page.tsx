@@ -40,6 +40,7 @@ import {
   UserX,
   UserPlus,
   Trash2,
+  Lock,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList, Sector } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
@@ -47,6 +48,8 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
+import AddStudentModal from "@/components/ranking/AddStudentModal";
 
 interface Scholarship {
   id: string;
@@ -66,9 +69,9 @@ interface Application {
   gpa: number | null;
   status: string;
   submittedDate: string;
-  score: number | null;
   avatar: string;
   review?: string;
+  requirements?: Record<string, boolean>;
 }
 
 type ProgressBarInputProps = {
@@ -173,7 +176,6 @@ export default function Component() {
       gpa: 3.9,
       status: "pending",
       submittedDate: "2024-01-15",
-      score: null,
       avatar: "/placeholder.svg?height=32&width=32",
     },
     {
@@ -185,7 +187,6 @@ export default function Component() {
       gpa: 3.8,
       status: "under_review",
       submittedDate: "2024-01-14",
-      score: 85,
       avatar: "/placeholder.svg?height=32&width=32",
     },
     {
@@ -197,7 +198,6 @@ export default function Component() {
       gpa: 3.7,
       status: "approved",
       submittedDate: "2024-01-12",
-      score: 92,
       avatar: "/placeholder.svg?height=32&width=32",
     },
     {
@@ -209,7 +209,6 @@ export default function Component() {
       gpa: 3.6,
       status: "rejected",
       submittedDate: "2024-01-10",
-      score: 68,
       avatar: "/placeholder.svg?height=32&width=32",
     },
   ])
@@ -228,6 +227,75 @@ export default function Component() {
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
+
+  // Add requirements per scholarship (customizable)
+  const scholarshipRequirements: Record<string, string[]> = {
+    "Merit Excellence Scholarship": [
+      "Birth Certificate",
+      "Transcript",
+      "Recommendation Letter",
+      "Essay",
+    ],
+    "STEM Innovation Grant": [
+      "Transcript",
+      "STEM Project Portfolio",
+      "Essay",
+    ],
+    "Community Leadership Award": [
+      "Birth Certificate",
+      "Community Service Proof",
+      "Essay",
+    ],
+  };
+
+  // Add requirements state to each application
+  const [requirementsMap, setRequirementsMap] = useState<Record<string, Record<string, boolean>>>({});
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  // Helper to get requirements for a scholarship
+  const getRequirements = (scholarship: string) => scholarshipRequirements[scholarship] || [];
+
+  // Add/Remove student handlers
+  const handleAddStudent = (student: any) => {
+    // If approved slots are full, add as reserve
+    if (approved.length >= 102) {
+      setApplications((prev) => [...prev, {
+        ...student,
+        email: "",
+        amount: "",
+        submittedDate: new Date().toISOString().slice(0, 10),
+        status: 'reserve',
+      }]);
+      setRequirementsMap((prev) => ({ ...prev, [student.id]: student.requirements || {} }));
+    } else {
+      setApplications((prev) => [...prev, {
+        ...student,
+        email: "",
+        amount: "",
+        submittedDate: new Date().toISOString().slice(0, 10),
+        status: 'approved',
+      }]);
+      setRequirementsMap((prev) => ({ ...prev, [student.id]: student.requirements || {} }));
+    }
+  };
+  const handleRemoveStudent = (id: string) => {
+    setApplications((prev) => prev.filter((s) => s.id !== id));
+    setRequirementsMap((prev) => { const copy = { ...prev }; delete copy[id]; return copy; });
+  };
+  const handleValidateRequirement = (studentId: string, req: string, value: boolean) => {
+    setRequirementsMap((prev) => ({
+      ...prev,
+      [studentId]: { ...prev[studentId], [req]: value },
+    }));
+  };
+
+  // Ranking logic: sort by score, slice for approved/reserve
+  const ranked = applications.filter(app => app.gpa !== null && app.gpa !== undefined)
+    .sort((a, b) => (b.gpa || 0) - (a.gpa || 0)).reverse();
+  const approved = ranked.slice(0, 102);
+  const reserve = ranked.slice(102, 150);
+  const pending = applications.filter(app => app.status === 'pending');
+  const rejected = applications.filter(app => app.status === 'rejected');
 
   // Fetch users from API on mount
   useEffect(() => {
@@ -452,7 +520,6 @@ export default function Component() {
         gpa: parseFloat(data.gpa?.toString() || '0'), 
         status: data.status,
         submittedDate: data.submittedDate,
-        score: parseInt(data.score?.toString() || '0'), 
         avatar: "/placeholder.svg?height=32&width=32" 
       },
     ]);
@@ -504,6 +571,21 @@ export default function Component() {
       // Example: downloadApplicationAsDOCX(downloadApplication);
     }
   }
+
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+
+  // Add a handler to remove a scholarship
+  const handleRemoveScholarship = (id: string) => {
+    setScholarships((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  // Helper to format amount as peso with commas
+  const formatPeso = (amount: string) => {
+    // Remove any non-digit except dot and comma, then format
+    const num = parseFloat(amount.replace(/[^\d.]/g, ""));
+    if (isNaN(num)) return "₱ 0";
+    return `₱ ${num.toLocaleString()}`;
+  };
 
   return (
     <div className="min-h-screen bg-[#F4F0FA]">
@@ -828,7 +910,6 @@ export default function Component() {
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Score</TableHead>
                         <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -848,7 +929,6 @@ export default function Component() {
                             (app.gpa !== null && app.gpa.toString().toLowerCase().includes(q)) ||
                             app.status.toLowerCase().includes(q) ||
                             app.submittedDate.toLowerCase().includes(q) ||
-                            (app.score !== null && app.score.toString().toLowerCase().includes(q)) ||
                             (app.review && app.review.toLowerCase().includes(q))
                           );
                         })
@@ -879,16 +959,6 @@ export default function Component() {
                                 {getStatusIcon(app.status)}
                                 {getStatusBadge(app.status)}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              {app.score !== null && app.score !== undefined ? (
-                                <div className="flex flex-col items-start gap-1">
-                                  <span className="font-medium">{app.score}</span>
-                                  <Progress value={app.score} className="h-2 w-24" indicatorClassName={getScoreColor(app.score || 0)} />
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">Not scored</span>
-                              )}
                             </TableCell>
                             <TableCell>{app.submittedDate}</TableCell>
                             <TableCell className="text-right">
@@ -953,7 +1023,6 @@ export default function Component() {
                       <p><strong>Amount:</strong> {selectedApplication.amount}</p>
                       <p><strong>GPA:</strong> {selectedApplication.gpa}</p>
                       <p><strong>Status:</strong> {selectedApplication.status}</p>
-                      <p><strong>Score:</strong> {selectedApplication.score ?? "N/A"}</p>
                       <p><strong>Submitted Date:</strong> {selectedApplication.submittedDate}</p>
                     </div>
                   )}
@@ -1030,105 +1099,84 @@ export default function Component() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-3xl font-bold text-gray-900">Application Ranking</h2>
-                <p className="text-gray-600">Review and rank scholarship applications by score</p>
+                <p className="text-gray-600">Review and rank scholarship applications by GWA (GPA)</p>
               </div>
-
+              {/* Slot Summary */}
+              <div className="flex gap-4 mb-4">
+                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{approved.length} / 102</div><div className="text-green-700">Approved</div></CardContent></Card>
+                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{reserve.length} / 48</div><div className="text-yellow-700">Reserve</div></CardContent></Card>
+                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{pending.length}</div><div className="text-orange-700">Pending</div></CardContent></Card>
+                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{rejected.length}</div><div className="text-red-700">Rejected</div></CardContent></Card>
+              </div>
+              <Button className="mb-4" onClick={() => setShowAddModal(true)}>Reserve Slot</Button>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Ranking List */}
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle>Merit Excellence Scholarship Rankings</CardTitle>
-                      <CardDescription>Applications ranked by overall score</CardDescription>
+                      <CardDescription>Applications ranked by GWA (GPA)</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {applications
-                          .filter((app) => app.score)
-                          .sort((a, b) => (b.score || 0) - (a.score || 0))
-                          .map((app, index) => (
-                            <div key={app.id} className="flex items-center justify-between p-4 border rounded-lg">
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-bold">
-                                  {index + 1}
-                                </div>
-                                <Avatar>
-                                  <AvatarImage src={app.avatar || "/placeholder.svg"} />
-                                  <AvatarFallback>
-                                    {app.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{app.name}</p>
-                                  <p className="text-sm text-gray-500">GPA: {app.gpa}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <div className="text-right">
-                                  <p className="font-bold text-lg">{app.score}</p>
-                                  <Progress value={app.score} className="h-2 w-24" indicatorClassName={getScoreColor(app.score || 0)} />
-                                </div>
-                                {getStatusBadge(app.status)}
+                        {[...approved, ...reserve].map((app, index) => (
+                          <div
+                            key={app.id}
+                            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-purple-50 ${selectedStudentId === app.id ? 'ring-2 ring-purple-400' : ''}`}
+                            onClick={() => setSelectedStudentId(app.id)}
+                          >
+                            <div className="flex items-center space-x-4">
+                              <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold ${index < 102 ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>{index + 1}</div>
+                              <Avatar>
+                                <AvatarImage src={app.avatar || "/placeholder.svg"} />
+                                <AvatarFallback>{app.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{app.name}</p>
+                                <p className="text-sm text-gray-500">GPA: {app.gpa}</p>
+                                <span className="text-xs text-gray-400">{app.status === 'reserve' ? 'Reserve' : (index < 102 ? 'Approved' : 'Reserve')}</span>
                               </div>
                             </div>
-                          ))}
+                            <div className="flex items-center space-x-4">
+                              {getStatusBadge(app.status)}
+                              <Button size="sm" variant="destructive" onClick={e => { e.stopPropagation(); handleRemoveStudent(app.id); }}>Remove</Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </CardContent>
                   </Card>
                 </div>
-
-                {/* Scoring Panel */}
+                {/* Requirements Panel shows for selected student only */}
                 <div>
                   <Card>
                     <CardHeader>
-                      <CardTitle>Quick Score</CardTitle>
-                      <CardDescription>Score applications quickly</CardDescription>
+                      <CardTitle>Requirements Info</CardTitle>
+                      <CardDescription>View and validate required documents for the selected student</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label htmlFor="academic">Academic Performance (40%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="40" placeholder="0-40" />
-                          <span className="text-sm text-gray-500">/40</span>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="extracurricular">Extracurricular (30%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="30" placeholder="0-30" />
-                          <span className="text-sm text-gray-500">/30</span>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="essay">Essay Quality (20%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="20" placeholder="0-20" />
-                          <span className="text-sm text-gray-500">/20</span>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="financial">Financial Need (10%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="10" placeholder="0-10" />
-                          <span className="text-sm text-gray-500">/10</span>
-                        </div>
-                      </div>
-                      <div className="pt-4 border-t">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Total Score</span>
-                          <span className="text-2xl font-bold">85</span>
-                        </div>
-                        <Progress value={85} className="mb-4" />
-                        <Textarea placeholder="Add review comments..." className="mb-4" />
-                        <Button className="w-full">Save Score & Review</Button>
-                      </div>
+                    <CardContent>
+                      {selectedStudentId ? (
+                        <RequirementsChecklist
+                          requirements={getRequirements(applications.find(a => a.id === selectedStudentId)?.scholarship || '')}
+                          validated={requirementsMap[selectedStudentId] || {}}
+                          onValidate={(req, value) => handleValidateRequirement(selectedStudentId, req, value)}
+                        />
+                      ) : (
+                        <p className="text-gray-600 text-sm">Select a student to view their requirements.</p>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
               </div>
+              <AddStudentModal
+                open={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                onAdd={student => {
+                  handleAddStudent(student);
+                  setSelectedStudentId(student.id);
+                }}
+                scholarships={Object.entries(scholarshipRequirements).map(([id, reqs], idx) => ({ id: `SCH${idx + 1}`, name: id, requirements: reqs }))}
+              />
             </div>
           )}
 
@@ -1190,14 +1238,16 @@ export default function Component() {
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-lg">{scholarship.name}</CardTitle>
-                          <Badge variant={scholarship.status === "active" ? "default" : "secondary"}>
-                            {scholarship.status}
-                          </Badge>
+                          {scholarship.status === "active" ? (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-700"><CheckCircle className="h-4 w-4 mr-1 text-green-500" /> Active</span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-700"><Lock className="h-4 w-4 mr-1 text-red-500" /> Closed</span>
+                          )}
                         </div>
                         <CardDescription>
                           <div className="flex items-center space-x-2">
-                            <DollarSign className="h-4 w-4" />
-                            <span>{scholarship.amount}</span>
+                            <span className="text-xl">₱</span>
+                            <span>{formatPeso(scholarship.amount)}</span>
                           </div>
                         </CardDescription>
                       </CardHeader>
@@ -1211,17 +1261,19 @@ export default function Component() {
                             <span className="text-gray-500">Applicants:</span>
                             <span className="font-medium">{scholarship.applicants}</span>
                           </div>
-                          <div className="pt-3 border-t">
-                            <div className="flex space-x-2">
-                              <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
-                                <Edit className="h-4 w-4 mr-1" />
-                                Edit
-                              </Button>
-                            </div>
+                          <div className="pt-3 border-t flex space-x-2">
+                            <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
+                              <Eye className="h-4 w-4" />
+                              <span>View</span>
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
+                              <Edit className="h-4 w-4" />
+                              <span>Edit</span>
+                            </Button>
+                            <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => handleRemoveScholarship(scholarship.id)}>
+                              <Trash2 className="h-4 w-4" />
+                              <span>Remove</span>
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -1239,7 +1291,7 @@ export default function Component() {
                       {modalMode === "view" && selectedScholarship ? (
                         <div className="space-y-2">
                           <p><strong>Name:</strong> {selectedScholarship.name}</p>
-                          <p><strong>Amount:</strong> {selectedScholarship.amount}</p>
+                          <p><strong>Amount:</strong> {formatPeso(selectedScholarship.amount)}</p>
                           <p><strong>Deadline:</strong> {selectedScholarship.deadline}</p>
                           <p><strong>Status:</strong> {selectedScholarship.status}</p>
                           <p><strong>Applicants:</strong> {selectedScholarship.applicants}</p>
@@ -1395,13 +1447,7 @@ export default function Component() {
             </div>
           ) : null}
           {userModal?.mode === 'reset' && userModal.user ? (
-            <div>
-              <p>Are you sure you want to reset the password for <b>{userModal.user.name}</b>?</p>
-              <div className="flex space-x-2 mt-4">
-                <Button onClick={() => handleResetPassword(userModal.user!)}>Reset</Button>
-                <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
-              </div>
-            </div>
+            <ChangePasswordForm user={userModal.user} onCancel={handleCloseUserModal} />
           ) : null}
           {userModal?.mode === 'deactivate' && userModal.user ? (
             <div>
@@ -1428,7 +1474,7 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
   const form = useForm<Omit<Scholarship, 'id'>>({
     defaultValues: {
       name: scholarship.name,
-      amount: scholarship.amount.replace('$', ''), // Remove '$' for editing
+      amount: scholarship.amount.replace(/[^\d.,₱]/g, ''), // Remove all except digits, dot, comma, peso
       deadline: scholarship.deadline,
       status: scholarship.status,
       applicants: scholarship.applicants,
@@ -1436,7 +1482,7 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
   })
 
   function onSubmit(values: Omit<Scholarship, 'id'>) {
-    onSave({ ...scholarship, ...values, amount: `$${values.amount}` }) // Add '$' back on save
+    onSave({ ...scholarship, ...values, amount: values.amount })
   }
 
   return (
@@ -1455,7 +1501,7 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
           <FormItem>
             <FormLabel>Amount</FormLabel>
             <FormControl>
-              <Input {...field} type="number" />
+              <Input {...field} type="text" inputMode="decimal" pattern="[₱0-9,. ]*" placeholder="₱ 5,000" />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -1687,7 +1733,6 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
       gpa: 0,
       status: "pending",
       submittedDate: "",
-      score: 0,
     },
   })
 
@@ -1749,12 +1794,7 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
-HEAD
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
-
-              <Input {...field} type="number" step="0.01" value={field.value !== null && field.value !== undefined ? field.value : ''}
-                onChange={e => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))} />
-897c49c879923b3adba734596dacf8f959924469
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -1774,18 +1814,6 @@ HEAD
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="score" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Score</FormLabel>
-            <FormControl>
-              <ProgressBarInput
-                value={field.value}
-                onChange={field.onChange}
-              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -1813,7 +1841,6 @@ function ApplicationReviewForm({ application, onSave, onCancel }: { application:
   const form = useForm<{ score: number | null, status: string, review: string }>({ // Update type
     defaultValues: {
       review: application.review || "", // Initialize with existing review
-      score: application.score, // Initialize with existing score
       status: application.status, // Initialize with existing status
     },
   })
@@ -1825,18 +1852,6 @@ function ApplicationReviewForm({ application, onSave, onCancel }: { application:
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full"> {/* Added w-full for full width */}
-        <FormField name="score" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Score</FormLabel>
-            <FormControl>
-              <ProgressBarInput
-                value={field.value}
-                onChange={field.onChange}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
         <FormField name="status" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Status</FormLabel>
@@ -1925,4 +1940,51 @@ function SendMessageForm({ application, onSend, onCancel }: { application: Appli
       </form>
     </Form>
   )
+}
+
+// ChangePasswordForm component
+function ChangePasswordForm({ user, onCancel }: { user: User, onCancel: () => void }) {
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [retypePassword, setRetypePassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!oldPassword || !newPassword || !retypePassword) {
+      setError('All fields are required.');
+      return;
+    }
+    if (newPassword !== retypePassword) {
+      setError('New passwords do not match.');
+      return;
+    }
+    // Simulate password change
+    setSuccess('Password changed successfully!');
+    setTimeout(onCancel, 1200);
+  };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block font-medium mb-1">Old Password</label>
+        <input type="password" className="w-full border rounded p-2" value={oldPassword} onChange={e => setOldPassword(e.target.value)} required />
+      </div>
+      <div>
+        <label className="block font-medium mb-1">New Password</label>
+        <input type="password" className="w-full border rounded p-2" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+      </div>
+      <div>
+        <label className="block font-medium mb-1">Re-type Password</label>
+        <input type="password" className="w-full border rounded p-2" value={retypePassword} onChange={e => setRetypePassword(e.target.value)} required />
+      </div>
+      {error && <div className="text-red-600 text-sm">{error}</div>}
+      {success && <div className="text-green-600 text-sm">{success}</div>}
+      <div className="flex gap-2 mt-2">
+        <button type="submit" className="flex-1 bg-black text-white rounded p-2" disabled={!oldPassword || !newPassword || !retypePassword || newPassword !== retypePassword}>Confirm</button>
+        <button type="button" className="flex-1 border rounded p-2" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
 }
