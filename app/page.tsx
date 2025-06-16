@@ -314,6 +314,16 @@ export default function Component() {
     setUserModal(null);
   };
 
+  const [academic, setAcademic] = useState(0);
+  const [extracurricular, setExtracurricular] = useState(0);
+  const [essay, setEssay] = useState(0);
+  const [financial, setFinancial] = useState(0);
+  const [review, setReview] = useState("");
+
+  const totalScore = academic + extracurricular + essay + financial;
+
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending: { label: "Pending", variant: "pending" as const },
@@ -427,7 +437,45 @@ export default function Component() {
     setModalMode(null)
     setSelectedScholarship(null)
   }
+ exportfile
+  const handleExport = () => {
+    // Example data, replace with your actual data source
+    const headers = ['ID', 'Name', 'Email', 'Scholarship', 'Amount', 'GPA', 'Status', 'Submitted Date', 'Score'];
+    const csvData = applications.map(app => [
+      app.id,
+      app.name,
+      app.email,
+      app.scholarship,
+      app.amount,
+      app.gpa,
+      app.status,
+      app.submittedDate,
+      app.score || 'Not scored'
+    ]);
 
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `scholarship_applications_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleSaveScore = () => {
+    // Example: Save to state, send to API, etc.
+    alert(
+      `Score saved!\nAcademic: ${academic}\nExtracurricular: ${extracurricular}\nEssay: ${essay}\nFinancial: ${financial}\nTotal: ${totalScore}\nReview: ${review}`
+    );
+    // You can update your application data here or send to a backend
+  };
   // Handler for creating new scholarship
   function handleCreateScholarship(data: Omit<Scholarship, 'id'>) {
     const newId = `SCH00${scholarships.length + 1}`; // Simple ID generation
@@ -504,6 +552,7 @@ export default function Component() {
       // Example: downloadApplicationAsDOCX(downloadApplication);
     }
   }
+ main
 
   return (
     <div className="min-h-screen bg-[#F4F0FA]">
@@ -518,7 +567,12 @@ export default function Component() {
             <span className="text-sm text-gray-500 hidden md:block">Scholarship Application Management & Ranking System</span>
           </div>
           <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" className="flex items-center border-purple-200 text-purple-700">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center border-purple-200 text-purple-700"
+              onClick={handleExport}
+            >
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -1091,39 +1145,74 @@ export default function Component() {
                       <div>
                         <Label htmlFor="academic">Academic Performance (40%)</Label>
                         <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="40" placeholder="0-40" />
+                          <Input
+                            type="number"
+                            min="0"
+                            max="40"
+                            placeholder="0-40"
+                            value={academic}
+                            onChange={e => setAcademic(Number(e.target.value))}
+                          />
                           <span className="text-sm text-gray-500">/40</span>
                         </div>
                       </div>
                       <div>
                         <Label htmlFor="extracurricular">Extracurricular (30%)</Label>
                         <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="30" placeholder="0-30" />
+                          <Input
+                            type="number"
+                            min="0"
+                            max="30"
+                            placeholder="0-30"
+                            value={extracurricular}
+                            onChange={e => setExtracurricular(Number(e.target.value))}
+                          />
                           <span className="text-sm text-gray-500">/30</span>
                         </div>
                       </div>
                       <div>
                         <Label htmlFor="essay">Essay Quality (20%)</Label>
                         <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="20" placeholder="0-20" />
+                          <Input
+                            type="number"
+                            min="0"
+                            max="20"
+                            placeholder="0-20"
+                            value={essay}
+                            onChange={e => setEssay(Number(e.target.value))}
+                          />
                           <span className="text-sm text-gray-500">/20</span>
                         </div>
                       </div>
                       <div>
                         <Label htmlFor="financial">Financial Need (10%)</Label>
                         <div className="flex items-center space-x-2 mt-1">
-                          <Input type="number" min="0" max="10" placeholder="0-10" />
+                          <Input
+                            type="number"
+                            min="0"
+                            max="10"
+                            placeholder="0-10"
+                            value={financial}
+                            onChange={e => setFinancial(Number(e.target.value))}
+                          />
                           <span className="text-sm text-gray-500">/10</span>
                         </div>
                       </div>
                       <div className="pt-4 border-t">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">Total Score</span>
-                          <span className="text-2xl font-bold">85</span>
+                          <span className="text-2xl font-bold">{totalScore}</span>
                         </div>
-                        <Progress value={85} className="mb-4" />
-                        <Textarea placeholder="Add review comments..." className="mb-4" />
-                        <Button className="w-full">Save Score & Review</Button>
+                        <Progress value={totalScore} className="mb-4" />
+                        <Textarea
+                          placeholder="Add review comments..."
+                          className="mb-4"
+                          value={review}
+                          onChange={e => setReview(e.target.value)}
+                        />
+                        <Button className="w-full" onClick={handleSaveScore}>
+                          Save Score & Review
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -1268,7 +1357,13 @@ export default function Component() {
                   <h2 className="text-3xl font-bold text-gray-900">User Management</h2>
                   <p className="text-gray-600">Manage system users and permissions</p>
                 </div>
-                <Button onClick={handleOpenAddUser}>
+ exportfile
+                <Button
+                  onClick={() => setShowAddUserModal(true)}
+                  className="..." // your existing classes
+                >
+
+                <Button onClick={handleOpenAddUser}> main
                   <Users className="h-4 w-4 mr-2" />
                   Add User
                 </Button>
@@ -1358,6 +1453,40 @@ export default function Component() {
           )}
         </main>
       </div>
+ exportfile
+
+      <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+          </DialogHeader>
+          {/* User form goes here */}
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              // handle user creation here
+              setShowAddUserModal(false);
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" name="name" required />
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" required />
+            </div>
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Input id="role" name="role" required />
+            </div>
+            <Button type="submit" className="w-full">Add User</Button>
+          </form>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+
       {/* User Modals */}
       <Dialog open={!!userModal} onOpenChange={handleCloseUserModal}>
         <DialogContent className="max-w-md w-full p-6">
@@ -1414,7 +1543,7 @@ export default function Component() {
           ) : null}
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">Close</Button>
+              <Button variant="outline">Close</Button> main
             </DialogClose>
           </DialogFooter>
         </DialogContent>
