@@ -47,6 +47,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 interface Scholarship {
   id: string;
@@ -60,6 +61,7 @@ interface Scholarship {
 interface Application {
   id: string;
   name: string;
+  region: string;
   email: string;
   scholarship: string;
   amount: string;
@@ -167,6 +169,7 @@ export default function Component() {
     {
       id: "APP001",
       name: "Sarah Johnson",
+      region: "Palawan",
       email: "sarah.johnson@email.com",
       scholarship: "Merit Excellence Scholarship",
       amount: "$5,000",
@@ -179,6 +182,7 @@ export default function Component() {
     {
       id: "APP002",
       name: "Michael Chen",
+      region: "Mindoro Occidental",
       email: "michael.chen@email.com",
       scholarship: "STEM Innovation Grant",
       amount: "$7,500",
@@ -191,6 +195,7 @@ export default function Component() {
     {
       id: "APP003",
       name: "Emily Rodriguez",
+      region: "Mindoro Oriental",
       email: "emily.rodriguez@email.com",
       scholarship: "Community Leadership Award",
       amount: "$3,000",
@@ -203,6 +208,7 @@ export default function Component() {
     {
       id: "APP004",
       name: "David Kim",
+      region: "Marinduque",
       email: "david.kim@email.com",
       scholarship: "Athletic Excellence Scholarship",
       amount: "$4,000",
@@ -233,6 +239,8 @@ export default function Component() {
   const [deleteApplication, setDeleteApplication] = useState<Application | null>(null);
   const [trashBin, setTrashBin] = useState<Application[]>([]);
   const [trashBinOpen, setTrashBinOpen] = useState(false);
+
+  const [rankingDialogOpen, setRankingDialogOpen] = useState(false);
 
   // Fetch users from API on mount
   useEffect(() => {
@@ -451,6 +459,7 @@ export default function Component() {
       { 
         id: newId, 
         name: data.name,
+        region: data.region,
         email: data.email,
         scholarship: data.scholarship,
         amount: data.amount,
@@ -759,28 +768,28 @@ export default function Component() {
                     <CardTitle>Student Ranking (by GWA)</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="w-full h-[450px] flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={ranking.map((app, idx) => ({
-                            rank: idx + 1,
-                            name: app.name,
-                            gwa: app.gpa,
-                          }))}
-                          layout="vertical"
-                          margin={{ top: 30, right: 30, left: 40, bottom: 30 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" domain={[0, 4]} tick={{ fontSize: 12 }} />
-                          <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 14 }} />
-                          <Tooltip formatter={(value) => value} labelFormatter={(label) => `Name: ${label}`} />
-                          <Bar dataKey="gwa" fill="#7C3AED" radius={[0, 8, 8, 0]}
-                            isAnimationActive={true}
-                          >
-                            <LabelList dataKey="gwa" position="right" formatter={(v: number) => v?.toFixed(2)} />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="w-full h-[450px] flex flex-col items-center justify-center">
+                      <Table className="w-full">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">#</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead className="w-24 text-right">GWA</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ranking.slice(0, 7).map((app, idx) => (
+                            <TableRow key={app.id}>
+                              <TableCell className="font-bold">{idx + 1}</TableCell>
+                              <TableCell>{app.name}</TableCell>
+                              <TableCell className="text-right">{app.gpa?.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <Button className="mt-4 w-full max-w-xs" variant="outline" onClick={() => setActiveTab("ranking")}>
+                        See more
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -858,6 +867,7 @@ export default function Component() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Applicant</TableHead>
+                        <TableHead>Region</TableHead>
                         <TableHead>Scholarship</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
@@ -876,6 +886,7 @@ export default function Component() {
                           const q = searchQuery.toLowerCase();
                           return (
                             app.name.toLowerCase().includes(q) ||
+                            app.region?.toLowerCase().includes(q) ||
                             app.email.toLowerCase().includes(q) ||
                             app.scholarship.toLowerCase().includes(q) ||
                             app.amount.toLowerCase().includes(q) ||
@@ -905,6 +916,7 @@ export default function Component() {
                                 </div>
                               </div>
                             </TableCell>
+                            <TableCell>{app.region}</TableCell>
                             <TableCell>{app.scholarship}</TableCell>
                             <TableCell>{app.amount}</TableCell>
                             <TableCell>{app.gpa}</TableCell>
@@ -986,6 +998,7 @@ export default function Component() {
                   {selectedApplication && (
                     <div className="space-y-2 text-sm">
                       <p><strong>Applicant Name:</strong> {selectedApplication.name}</p>
+                      <p><strong>Region:</strong> {selectedApplication.region}</p>
                       <p><strong>Email:</strong> {selectedApplication.email}</p>
                       <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
                       <p><strong>Amount:</strong> {selectedApplication.amount}</p>
@@ -1009,11 +1022,17 @@ export default function Component() {
                     <DialogTitle>Review Application</DialogTitle>
                   </DialogHeader>
                   {selectedApplication && (
-                    <ApplicationReviewForm
-                      application={selectedApplication}
-                      onSave={handleSaveApplicationReview}
-                      onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
-                    />
+                    <div className="space-y-2 text-sm mb-4">
+                      <p><strong>Applicant Name:</strong> {selectedApplication.name}</p>
+                      <p><strong>Region:</strong> {selectedApplication.region}</p>
+                      <p><strong>Email:</strong> {selectedApplication.email}</p>
+                      <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
+                      <p><strong>Amount:</strong> {selectedApplication.amount}</p>
+                      <p><strong>GPA:</strong> {selectedApplication.gpa}</p>
+                      <p><strong>Status:</strong> {selectedApplication.status}</p>
+                      <p><strong>Score:</strong> {selectedApplication.score ?? "N/A"}</p>
+                      <p><strong>Submitted Date:</strong> {selectedApplication.submittedDate}</p>
+                    </div>
                   )}
                   <DialogFooter>
                     <DialogClose asChild>
@@ -1502,6 +1521,83 @@ export default function Component() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Student Ranking Dialog */}
+      <Dialog open={rankingDialogOpen} onOpenChange={setRankingDialogOpen}>
+        <>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay />
+            <DialogPrimitive.Content
+              className="fixed left-1/2 top-1/2 z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] rounded-2xl overflow-hidden bg-background border p-0 shadow-lg"
+            >
+              <div className="flex flex-col w-full h-[500px]"> {/* Adjusted height to match other modal */}
+                {/* Header */}
+                <div className="flex items-center justify-between px-8 py-6 border-b bg-white">
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl font-bold">Student Ranking (by GWA)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" className="font-semibold px-4 py-2">Manage</Button>
+                    <DialogClose asChild>
+                      <button title="Close" className="ml-2 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                        <XCircle className="h-6 w-6 text-gray-400 hover:text-gray-600" />
+                      </button>
+                    </DialogClose>
+                  </div>
+                </div>
+                {/* Content */}
+                <div className="flex-1 flex flex-row bg-white">
+                  {/* Bar Chart */}
+                  <div className="flex-1 flex items-center justify-center min-w-[320px] max-w-[420px] border-r">
+                    <ResponsiveContainer width="100%" height={340}>
+                      <BarChart
+                        data={ranking.slice(0, 5).map((app, idx) => ({
+                          rank: idx + 1,
+                          name: app.name,
+                          gwa: app.gpa,
+                        }))}
+                        layout="vertical"
+                        margin={{ top: 30, right: 30, left: 40, bottom: 30 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" domain={[0, 4]} tick={{ fontSize: 12 }} />
+                        <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 14 }} />
+                        <Tooltip formatter={(value) => value} labelFormatter={(label) => `Name: ${label}`} />
+                        <Bar dataKey="gwa" fill="#7C3AED" radius={[0, 8, 8, 0]} isAnimationActive={true}>
+                          <LabelList dataKey="gwa" position="right" formatter={(v: number) => v?.toFixed(2)} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Scrollable Table */}
+                  <div className="flex-1 flex flex-col p-8 min-w-[320px] max-w-[520px]">
+                    <div className="flex-1 overflow-y-auto" style={{ maxHeight: 340 }}>
+                      <Table className="w-full">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Rank</TableHead>
+                            <TableHead>Applicant Name</TableHead>
+                            <TableHead className="w-24 text-right">GWA</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ranking.map((app, idx) => (
+                            <TableRow key={app.id}>
+                              <TableCell className="font-bold">{idx + 1}</TableCell>
+                              <TableCell>{app.name}</TableCell>
+                              <TableCell className="text-right">{app.gpa?.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </>
+      </Dialog>
     </div>
   )
 }
@@ -1764,6 +1860,7 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
   const form = useForm<Omit<Application, 'id' | 'avatar'>>({
     defaultValues: {
       name: "",
+      region: "",
       email: "",
       scholarship: "",
       amount: "",
@@ -1786,6 +1883,27 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
             <FormLabel>Applicant Name</FormLabel>
             <FormControl>
               <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        {/* Region Dropdown */}
+        <FormField name="region" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Region</FormLabel>
+            <FormControl>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Palawan">Palawan</SelectItem>
+                  <SelectItem value="Mindoro Occidental">Mindoro Occidental</SelectItem>
+                  <SelectItem value="Mindoro Oriental">Mindoro Oriental</SelectItem>
+                  <SelectItem value="Marinduque">Marinduque</SelectItem>
+                  <SelectItem value="Romblon">Romblon</SelectItem>
+                </SelectContent>
+              </Select>
             </FormControl>
             <FormMessage />
           </FormItem>
