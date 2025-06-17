@@ -1027,7 +1027,7 @@ export default function Component() {
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Submitted</TableHead>
+                        <TableHead className="text-right">Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1079,17 +1079,7 @@ export default function Component() {
                                 {getStatusBadge(app.status)}
                               </div>
                             </TableCell>
-                            <TableCell>
-                              {app.score !== null && app.score !== undefined ? (
-                                <div className="flex flex-col items-start gap-1">
-                                  <span className="font-medium">{app.score}</span>
-                                  <Progress value={app.score} className="h-2 w-24" indicatorClassName={getScoreColor(app.score || 0)} />
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">Not scored</span>
-                              )}
-                            </TableCell>
-                            <TableCell>{app.submittedDate}</TableCell>
+                            <TableCell className="text-right">{app.submittedDate}</TableCell>
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1174,17 +1164,11 @@ export default function Component() {
                     <DialogTitle>Review Application</DialogTitle>
                   </DialogHeader>
                   {selectedApplication && (
-                    <div className="space-y-2 text-sm mb-4">
-                      <p><strong>Applicant Name:</strong> {selectedApplication.name}</p>
-                      <p><strong>Region:</strong> {selectedApplication.region}</p>
-                      <p><strong>Email:</strong> {selectedApplication.email}</p>
-                      <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
-                      <p><strong>Amount:</strong> {selectedApplication.amount}</p>
-                      <p><strong>GPA:</strong> {selectedApplication.gpa}</p>
-                      <p><strong>Status:</strong> {selectedApplication.status}</p>
-                      <p><strong>Score:</strong> {selectedApplication.score ?? "N/A"}</p>
-                      <p><strong>Submitted Date:</strong> {selectedApplication.submittedDate}</p>
-                    </div>
+                    <ApplicationReviewForm
+                      application={selectedApplication}
+                      onSave={handleSaveApplicationReview}
+                      onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
+                    />
                   )}
                   <DialogFooter>
                     <DialogClose asChild>
@@ -2172,10 +2156,11 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
 
 // ApplicationReviewForm component
 function ApplicationReviewForm({ application, onSave, onCancel }: { application: Application, onSave: (data: { score: number | null, status: string, review: string }) => void, onCancel: () => void }) {
-  const form = useForm<{ score: number | null, status: string, review: string }>({ // Update type
+  const form = useForm<{ score: number | null, status: string, review: string }>({
     defaultValues: {
-      review: application.review || "", // Initialize with existing review
-      status: application.status, // Initialize with existing status
+      score: application.score ?? null,
+      review: application.review || "",
+      status: application.status,
     },
   })
 
@@ -2185,7 +2170,7 @@ function ApplicationReviewForm({ application, onSave, onCancel }: { application:
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full"> {/* Added w-full for full width */}
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
         <FormField name="status" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Status</FormLabel>
