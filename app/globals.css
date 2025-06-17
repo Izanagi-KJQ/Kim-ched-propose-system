@@ -8,8 +8,13 @@ body {
 
 @layer utilities {
   .text-balance {
+config
     text-wrap: pretty; /* Fallback for browsers that support it */
   }
+=======
+    text-wrap: balance;
+  } 
+main
 }
 
 html, body {
@@ -96,6 +101,7 @@ html, body {
     @apply text-foreground;
   }
 }
+config
 
 /* Custom Scrollbar Styles */
 ::-webkit-scrollbar {
@@ -116,3 +122,4 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: #555; /* Even darker gray on hover */
 }
+main
