@@ -48,12 +48,9 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
-config
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-=======
 import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
 import AddStudentModal from "@/components/ranking/AddStudentModal";
-main
 
 interface Scholarship {
   id: string;
@@ -77,6 +74,7 @@ interface Application {
   avatar: string;
   review?: string;
   requirements?: Record<string, boolean>;
+  score?: number | null;
 }
 
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
@@ -128,18 +126,13 @@ type User = {
 };
 
 export default function Component() {
-config
   const [activeTab, setActiveTab] = useState<TabName>("dashboard");
-  const [activeTab, setActiveTab] = useState("dashboard");
-main
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "create" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [scholarships, setScholarships] = useState<Scholarship[]>([
-config
     // Mock data
-main
     {
       id: "SCH001",
       name: "Merit Excellence Scholarship",
@@ -243,7 +236,6 @@ main
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
 
-config
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteApplication, setDeleteApplication] = useState<Application | null>(null);
   const [trashBin, setTrashBin] = useState<Application[]>([]);
@@ -340,7 +332,6 @@ config
   const reserve = ranked.slice(102, 150);
   const pending = applications.filter(app => app.status === 'pending');
   const rejected = applications.filter(app => app.status === 'rejected');
-main
 
   // Fetch users from API on mount
   useEffect(() => {
@@ -663,7 +654,6 @@ main
     }
   }
 
-config
   function handleDeleteApplicant(app: Application) {
     setDeleteApplication(app);
     setDeleteDialogOpen(true);
@@ -701,7 +691,6 @@ config
     if (isNaN(num)) return "₱ 0";
     return `₱ ${num.toLocaleString()}`;
   };
-main
 
   return (
     <div className="min-h-screen">
@@ -1089,7 +1078,6 @@ main
                                 {getStatusIcon(app.status)}
                                 {getStatusBadge(app.status)}
                               </div>
-config
                             </TableCell>
                             <TableCell>
                               {app.score !== null && app.score !== undefined ? (
@@ -1100,7 +1088,6 @@ config
                               ) : (
                                 <span className="text-gray-400">Not scored</span>
                               )}
-main
                             </TableCell>
                             <TableCell>{app.submittedDate}</TableCell>
                             <TableCell className="text-right">
@@ -1785,11 +1772,7 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
   const form = useForm<Omit<Scholarship, 'id'>>({
     defaultValues: {
       name: scholarship.name,
-config
       amount: scholarship.amount.replace('$', ''),
-=======
-      amount: scholarship.amount.replace(/[^\d.,₱]/g, ''), // Remove all except digits, dot, comma, peso
-main
       deadline: scholarship.deadline,
       status: scholarship.status,
       applicants: scholarship.applicants,
@@ -1797,11 +1780,7 @@ main
   })
 
   function onSubmit(values: Omit<Scholarship, 'id'>) {
-config
     onSave({ ...scholarship, ...values, amount: `$${values.amount}` }) // Add '$' back on save
-=======
-    onSave({ ...scholarship, ...values, amount: values.amount })
-main
   }
 
   return (
@@ -2053,6 +2032,7 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
       gpa: 0,
       status: "pending",
       submittedDate: "",
+      score: null,
     },
   })
 
@@ -2072,7 +2052,6 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
             <FormMessage />
           </FormItem>
         )} />
-config
         {/* Region Dropdown */}
         <FormField name="region" control={form.control} render={({ field }) => (
           <FormItem>
@@ -2094,7 +2073,6 @@ config
             <FormMessage />
           </FormItem>
         )} />
-main
         <FormField name="email" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Email</FormLabel>
@@ -2137,10 +2115,8 @@ main
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
-config
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
-main
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -2164,20 +2140,18 @@ main
             <FormMessage />
           </FormItem>
         )} />
-config
         <FormField name="score" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Score</FormLabel>
             <FormControl>
               <ProgressBarInput
-                value={field.value}
+                value={typeof field.value === 'number' ? field.value : 0}
                 onChange={field.onChange}
               />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
-main
         <FormField name="submittedDate" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Submitted Date</FormLabel>
@@ -2300,7 +2274,6 @@ function SendMessageForm({ application, onSend, onCancel }: { application: Appli
       </form>
     </Form>
   )
-config
 }
 
 // ChangePasswordForm component
@@ -2348,5 +2321,4 @@ function ChangePasswordForm({ user, onCancel }: { user: User, onCancel: () => vo
       </div>
     </form>
   );
-main
 }
