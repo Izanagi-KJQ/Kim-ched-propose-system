@@ -48,8 +48,12 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+config
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+=======
 import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
 import AddStudentModal from "@/components/ranking/AddStudentModal";
+main
 
 interface Scholarship {
   id: string;
@@ -63,6 +67,7 @@ interface Scholarship {
 interface Application {
   id: string;
   name: string;
+  region: string;
   email: string;
   scholarship: string;
   amount: string;
@@ -73,6 +78,8 @@ interface Application {
   review?: string;
   requirements?: Record<string, boolean>;
 }
+
+type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
 
 type ProgressBarInputProps = {
   value: number | null;
@@ -121,13 +128,18 @@ type User = {
 };
 
 export default function Component() {
+config
+  const [activeTab, setActiveTab] = useState<TabName>("dashboard");
   const [activeTab, setActiveTab] = useState("dashboard");
+main
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "create" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [scholarships, setScholarships] = useState<Scholarship[]>([
+config
     // Mock data
+main
     {
       id: "SCH001",
       name: "Merit Excellence Scholarship",
@@ -166,10 +178,10 @@ export default function Component() {
   }
 
   const [applications, setApplications] = useState<Application[]>([
-    // Mock data
     {
       id: "APP001",
       name: "Sarah Johnson",
+      region: "Palawan",
       email: "sarah.johnson@email.com",
       scholarship: "Merit Excellence Scholarship",
       amount: "$5,000",
@@ -181,6 +193,7 @@ export default function Component() {
     {
       id: "APP002",
       name: "Michael Chen",
+      region: "Mindoro Occidental",
       email: "michael.chen@email.com",
       scholarship: "STEM Innovation Grant",
       amount: "$7,500",
@@ -192,6 +205,7 @@ export default function Component() {
     {
       id: "APP003",
       name: "Emily Rodriguez",
+      region: "Mindoro Oriental",
       email: "emily.rodriguez@email.com",
       scholarship: "Community Leadership Award",
       amount: "$3,000",
@@ -203,6 +217,7 @@ export default function Component() {
     {
       id: "APP004",
       name: "David Kim",
+      region: "Marinduque",
       email: "david.kim@email.com",
       scholarship: "Athletic Excellence Scholarship",
       amount: "$4,000",
@@ -228,6 +243,13 @@ export default function Component() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
 
+config
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteApplication, setDeleteApplication] = useState<Application | null>(null);
+  const [trashBin, setTrashBin] = useState<Application[]>([]);
+  const [trashBinOpen, setTrashBinOpen] = useState(false);
+
+  const [rankingDialogOpen, setRankingDialogOpen] = useState(false);
   // Add requirements per scholarship (customizable)
   const scholarshipRequirements: Record<string, string[]> = {
     "Merit Excellence Scholarship": [
@@ -318,6 +340,7 @@ export default function Component() {
   const reserve = ranked.slice(102, 150);
   const pending = applications.filter(app => app.status === 'pending');
   const rejected = applications.filter(app => app.status === 'rejected');
+main
 
   // Fetch users from API on mount
   useEffect(() => {
@@ -581,6 +604,7 @@ export default function Component() {
       { 
         id: newId, 
         name: data.name,
+        region: data.region,
         email: data.email,
         scholarship: data.scholarship,
         amount: data.amount,
@@ -639,6 +663,30 @@ export default function Component() {
     }
   }
 
+config
+  function handleDeleteApplicant(app: Application) {
+    setDeleteApplication(app);
+    setDeleteDialogOpen(true);
+  }
+
+  function handleConfirmDeleteApplicant() {
+    if (deleteApplication) {
+      setApplications(prev => prev.filter(a => a.id !== deleteApplication.id));
+      setTrashBin(prev => [...prev, deleteApplication]);
+      setDeleteDialogOpen(false);
+      setDeleteApplication(null);
+    }
+  }
+
+  function handleRestoreApplicant(app: Application) {
+    setApplications(prev => [...prev, app]);
+    setTrashBin(prev => prev.filter(a => a.id !== app.id));
+  }
+
+  function handlePermanentDeleteApplicant(app: Application) {
+    setTrashBin(prev => prev.filter(a => a.id !== app.id));
+  }
+
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   // Add a handler to remove a scholarship
@@ -653,11 +701,12 @@ export default function Component() {
     if (isNaN(num)) return "₱ 0";
     return `₱ ${num.toLocaleString()}`;
   };
+main
 
   return (
-    <div className="min-h-screen bg-[#F4F0FA]">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-gray-200 fixed top-0 w-full z-10">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -684,9 +733,9 @@ export default function Component() {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex mt-[64px] min-h-[calc(100vh-64px)] bg-[#F4F0FA] overflow-y-auto">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen">
+        <aside className="w-64 bg-white border-r border-gray-200 fixed top-[64px] left-0 h-[calc(100vh-64px)] overflow-y-auto z-30 shadow-lg">
           <nav className="p-4 space-y-2">
             <Button
               variant={activeTab === "dashboard" ? "default" : "ghost"}
@@ -732,7 +781,7 @@ export default function Component() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 bg-[#F4F0FA]">
+        <main className="flex-1 p-8 ml-64 overflow-x-auto">
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               <div>
@@ -885,28 +934,28 @@ export default function Component() {
                     <CardTitle>Student Ranking (by GWA)</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="w-full h-[450px] flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={ranking.map((app, idx) => ({
-                            rank: idx + 1,
-                            name: app.name,
-                            gwa: app.gpa,
-                          }))}
-                          layout="vertical"
-                          margin={{ top: 30, right: 30, left: 40, bottom: 30 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" domain={[0, 4]} tick={{ fontSize: 12 }} />
-                          <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 14 }} />
-                          <Tooltip formatter={(value) => value} labelFormatter={(label) => `Name: ${label}`} />
-                          <Bar dataKey="gwa" fill="#7C3AED" radius={[0, 8, 8, 0]}
-                            isAnimationActive={true}
-                          >
-                            <LabelList dataKey="gwa" position="right" formatter={(v: number) => v?.toFixed(2)} />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="w-full h-[450px] flex flex-col items-center justify-center">
+                      <Table className="w-full">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">#</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead className="w-24 text-right">GWA</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ranking.slice(0, 7).map((app, idx) => (
+                            <TableRow key={app.id}>
+                              <TableCell className="font-bold">{idx + 1}</TableCell>
+                              <TableCell>{app.name}</TableCell>
+                              <TableCell className="text-right">{app.gpa?.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <Button className="mt-4 w-full max-w-xs" variant="outline" onClick={() => setActiveTab("ranking")}>
+                        See more
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -921,15 +970,21 @@ export default function Component() {
                   <h2 className="text-3xl font-bold text-gray-900">Applications</h2>
                   <p className="text-gray-600">Manage and review scholarship applications</p>
                 </div>
-                <Button onClick={() => setModalMode("createApplication")}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  New Application
-                </Button>
+                <div className="flex items-center space-x-4"> {/* Added a div to group buttons */}
+                  <Button variant="outline" onClick={() => setTrashBinOpen(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
+                  </Button>
+                  <Button onClick={() => setModalMode("createApplication")}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    New Application
+                  </Button>
+                </div>
               </div>
 
               {/* Filters */}
               <Card>
-                <CardContent className="pt-6">
+                <CardContent className="pt-6 overflow-x-auto">
                   <div className="flex items-center space-x-4">
                     <div className="flex-1">
                       <div className="relative">
@@ -973,11 +1028,12 @@ export default function Component() {
 
               {/* Applications Table */}
               <Card>
-                <CardContent className="pt-6">
+                <CardContent className="pt-6 overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Applicant</TableHead>
+                        <TableHead>Region</TableHead>
                         <TableHead>Scholarship</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
@@ -995,6 +1051,7 @@ export default function Component() {
                           const q = searchQuery.toLowerCase();
                           return (
                             app.name.toLowerCase().includes(q) ||
+                            app.region?.toLowerCase().includes(q) ||
                             app.email.toLowerCase().includes(q) ||
                             app.scholarship.toLowerCase().includes(q) ||
                             app.amount.toLowerCase().includes(q) ||
@@ -1023,6 +1080,7 @@ export default function Component() {
                                 </div>
                               </div>
                             </TableCell>
+                            <TableCell>{app.region}</TableCell>
                             <TableCell>{app.scholarship}</TableCell>
                             <TableCell>{app.amount}</TableCell>
                             <TableCell>{app.gpa}</TableCell>
@@ -1031,6 +1089,18 @@ export default function Component() {
                                 {getStatusIcon(app.status)}
                                 {getStatusBadge(app.status)}
                               </div>
+config
+                            </TableCell>
+                            <TableCell>
+                              {app.score !== null && app.score !== undefined ? (
+                                <div className="flex flex-col items-start gap-1">
+                                  <span className="font-medium">{app.score}</span>
+                                  <Progress value={app.score} className="h-2 w-24" indicatorClassName={getScoreColor(app.score || 0)} />
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">Not scored</span>
+                              )}
+main
                             </TableCell>
                             <TableCell>{app.submittedDate}</TableCell>
                             <TableCell className="text-right">
@@ -1057,6 +1127,10 @@ export default function Component() {
                                   <DropdownMenuItem onClick={() => handleDownloadDocuments(app)}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download Documents
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteApplicant(app)}>
+                                    <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                    Delete Applicant
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1090,6 +1164,7 @@ export default function Component() {
                   {selectedApplication && (
                     <div className="space-y-2 text-sm">
                       <p><strong>Applicant Name:</strong> {selectedApplication.name}</p>
+                      <p><strong>Region:</strong> {selectedApplication.region}</p>
                       <p><strong>Email:</strong> {selectedApplication.email}</p>
                       <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
                       <p><strong>Amount:</strong> {selectedApplication.amount}</p>
@@ -1112,11 +1187,17 @@ export default function Component() {
                     <DialogTitle>Review Application</DialogTitle>
                   </DialogHeader>
                   {selectedApplication && (
-                    <ApplicationReviewForm
-                      application={selectedApplication}
-                      onSave={handleSaveApplicationReview}
-                      onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
-                    />
+                    <div className="space-y-2 text-sm mb-4">
+                      <p><strong>Applicant Name:</strong> {selectedApplication.name}</p>
+                      <p><strong>Region:</strong> {selectedApplication.region}</p>
+                      <p><strong>Email:</strong> {selectedApplication.email}</p>
+                      <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
+                      <p><strong>Amount:</strong> {selectedApplication.amount}</p>
+                      <p><strong>GPA:</strong> {selectedApplication.gpa}</p>
+                      <p><strong>Status:</strong> {selectedApplication.status}</p>
+                      <p><strong>Score:</strong> {selectedApplication.score ?? "N/A"}</p>
+                      <p><strong>Submitted Date:</strong> {selectedApplication.submittedDate}</p>
+                    </div>
                   )}
                   <DialogFooter>
                     <DialogClose asChild>
@@ -1161,6 +1242,53 @@ export default function Component() {
                     <Button variant="outline" onClick={() => setDownloadDialogOpen(false)}>Cancel</Button>
                     <Button onClick={handleConfirmDownloadPDF}>Download PDF</Button>
                     <Button onClick={handleConfirmDownloadDOCX} variant="secondary">Download DOCX</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              {/* Delete Applicant Confirmation Modal */}
+              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="max-w-md w-full p-6 rounded-xl">
+                  <DialogHeader>
+                    <DialogTitle>Delete Applicant</DialogTitle>
+                  </DialogHeader>
+                  {deleteApplication && (
+                    <div className="space-y-2 text-sm">
+                      <p>Are you sure you want to delete the application of <span className="font-semibold">{deleteApplication.name}</span>?</p>
+                      <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+                    <Button variant="destructive" onClick={handleConfirmDeleteApplicant}>Delete</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              {/* Trash Bin Modal */}
+              <Dialog open={trashBinOpen} onOpenChange={setTrashBinOpen}>
+                <DialogContent className="max-w-lg w-full p-6 rounded-xl">
+                  <DialogHeader>
+                    <DialogTitle>Trash Bin</DialogTitle>
+                  </DialogHeader>
+                  {trashBin.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">No deleted applicants.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {trashBin.map(app => (
+                        <div key={app.id} className="flex items-center justify-between border-b pb-2">
+                          <div>
+                            <div className="font-medium">{app.name}</div>
+                            <div className="text-xs text-gray-500">{app.email} | {app.scholarship}</div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => handleRestoreApplicant(app)}>Restore</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handlePermanentDeleteApplicant(app)}>Delete Permanently</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setTrashBinOpen(false)}>Close</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -1399,84 +1527,82 @@ export default function Component() {
               </div>
 
               <Card>
-                <CardContent className="pt-6">
-                  {loadingUsers ? (
-                    <div className="text-center py-8">Loading users...</div>
-                  ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Last Active</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map(user => (
-                        <TableRow key={user.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <Avatar>
-                                <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                                <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{user.name}</p>
-                                <p className="text-sm text-gray-500">{user.email}</p>
-                              </div>
+                {loadingUsers ? (
+                  <div className="text-center py-8">Loading users...</div>
+                ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Last Active</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map(user => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <Avatar>
+                              <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                              <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{user.name}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge>{user.role}</Badge>
-                          </TableCell>
-                          <TableCell>{user.department}</TableCell>
-                          <TableCell>{user.lastActive}</TableCell>
-                          <TableCell>
-                            <span className="flex items-center gap-2">
-                              {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                              {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-gray-400" />}
-                              <Badge variant="default">{user.status}</Badge>
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>Edit User</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenChangeRole(user)}>Change Role</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>Reset Password</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {user.status === 'Active' ? (
-                                  <DropdownMenuItem className="text-red-600" onClick={() => handleOpenDeactivate(user)}>
-                                    <XCircle className="h-4 w-4 mr-2 text-red-600" />
-                                    Deactivate
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem className="text-green-600" onClick={() => handleReactivate(user)}>
-                                    <UserPlus className="h-4 w-4 mr-2 text-green-600" />
-                                    Reactivate
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
-                                  <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-                                  Delete
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge>{user.role}</Badge>
+                        </TableCell>
+                        <TableCell>{user.department}</TableCell>
+                        <TableCell>{user.lastActive}</TableCell>
+                        <TableCell>
+                          <span className="flex items-center gap-2">
+                            {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                            {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-gray-400" />}
+                            <Badge variant="default">{user.status}</Badge>
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>Edit User</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenChangeRole(user)}>Change Role</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>Reset Password</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {user.status === 'Active' ? (
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleOpenDeactivate(user)}>
+                                  <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                  Deactivate
                                 </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  )}
-                </CardContent>
+                              ) : (
+                                <DropdownMenuItem className="text-green-600" onClick={() => handleReactivate(user)}>
+                                  <UserPlus className="h-4 w-4 mr-2 text-green-600" />
+                                  Reactivate
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
+                                <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                )}
               </Card>
             </div>
           )}
@@ -1573,6 +1699,83 @@ export default function Component() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Student Ranking Dialog */}
+      <Dialog open={rankingDialogOpen} onOpenChange={setRankingDialogOpen}>
+        <>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay />
+            <DialogPrimitive.Content
+              className="fixed left-1/2 top-1/2 z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] rounded-2xl overflow-hidden bg-background border p-0 shadow-lg"
+            >
+              <div className="flex flex-col w-full h-[500px]"> {/* Adjusted height to match other modal */}
+                {/* Header */}
+                <div className="flex items-center justify-between px-8 py-6 border-b bg-white">
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl font-bold">Student Ranking (by GWA)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" className="font-semibold px-4 py-2">Manage</Button>
+                    <DialogClose asChild>
+                      <button title="Close" className="ml-2 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                        <XCircle className="h-6 w-6 text-gray-400 hover:text-gray-600" />
+                      </button>
+                    </DialogClose>
+                  </div>
+                </div>
+                {/* Content */}
+                <div className="flex-1 flex flex-row bg-white">
+                  {/* Bar Chart */}
+                  <div className="flex-1 flex items-center justify-center min-w-[320px] max-w-[420px] border-r">
+                    <ResponsiveContainer width="100%" height={340}>
+                      <BarChart
+                        data={ranking.slice(0, 5).map((app, idx) => ({
+                          rank: idx + 1,
+                          name: app.name,
+                          gwa: app.gpa,
+                        }))}
+                        layout="vertical"
+                        margin={{ top: 30, right: 30, left: 40, bottom: 30 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" domain={[0, 4]} tick={{ fontSize: 12 }} />
+                        <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 14 }} />
+                        <Tooltip formatter={(value) => value} labelFormatter={(label) => `Name: ${label}`} />
+                        <Bar dataKey="gwa" fill="#7C3AED" radius={[0, 8, 8, 0]} isAnimationActive={true}>
+                          <LabelList dataKey="gwa" position="right" formatter={(v: number) => v?.toFixed(2)} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Scrollable Table */}
+                  <div className="flex-1 flex flex-col p-8 min-w-[320px] max-w-[520px]">
+                    <div className="flex-1 overflow-y-auto" style={{ maxHeight: 340 }}>
+                      <Table className="w-full">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Rank</TableHead>
+                            <TableHead>Applicant Name</TableHead>
+                            <TableHead className="w-24 text-right">GWA</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ranking.map((app, idx) => (
+                            <TableRow key={app.id}>
+                              <TableCell className="font-bold">{idx + 1}</TableCell>
+                              <TableCell>{app.name}</TableCell>
+                              <TableCell className="text-right">{app.gpa?.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </>
+      </Dialog>
     </div>
   )
 }
@@ -1582,7 +1785,11 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
   const form = useForm<Omit<Scholarship, 'id'>>({
     defaultValues: {
       name: scholarship.name,
+config
+      amount: scholarship.amount.replace('$', ''),
+=======
       amount: scholarship.amount.replace(/[^\d.,₱]/g, ''), // Remove all except digits, dot, comma, peso
+main
       deadline: scholarship.deadline,
       status: scholarship.status,
       applicants: scholarship.applicants,
@@ -1590,7 +1797,11 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
   })
 
   function onSubmit(values: Omit<Scholarship, 'id'>) {
+config
+    onSave({ ...scholarship, ...values, amount: `$${values.amount}` }) // Add '$' back on save
+=======
     onSave({ ...scholarship, ...values, amount: values.amount })
+main
   }
 
   return (
@@ -1835,6 +2046,7 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
   const form = useForm<Omit<Application, 'id' | 'avatar'>>({
     defaultValues: {
       name: "",
+      region: "",
       email: "",
       scholarship: "",
       amount: "",
@@ -1860,6 +2072,29 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
             <FormMessage />
           </FormItem>
         )} />
+config
+        {/* Region Dropdown */}
+        <FormField name="region" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Region</FormLabel>
+            <FormControl>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Palawan">Palawan</SelectItem>
+                  <SelectItem value="Mindoro Occidental">Mindoro Occidental</SelectItem>
+                  <SelectItem value="Mindoro Oriental">Mindoro Oriental</SelectItem>
+                  <SelectItem value="Marinduque">Marinduque</SelectItem>
+                  <SelectItem value="Romblon">Romblon</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+main
         <FormField name="email" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Email</FormLabel>
@@ -1902,7 +2137,10 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
+config
+              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+main
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -1926,6 +2164,20 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
             <FormMessage />
           </FormItem>
         )} />
+config
+        <FormField name="score" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Score</FormLabel>
+            <FormControl>
+              <ProgressBarInput
+                value={field.value}
+                onChange={field.onChange}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+main
         <FormField name="submittedDate" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Submitted Date</FormLabel>
@@ -2048,6 +2300,7 @@ function SendMessageForm({ application, onSend, onCancel }: { application: Appli
       </form>
     </Form>
   )
+config
 }
 
 // ChangePasswordForm component
@@ -2095,4 +2348,5 @@ function ChangePasswordForm({ user, onCancel }: { user: User, onCancel: () => vo
       </div>
     </form>
   );
+main
 }
