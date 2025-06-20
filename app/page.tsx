@@ -1128,39 +1128,29 @@ export default function Component() {
                   )}
                   <Table>
                     <TableHeader>
- config
-                      {selectionMode && (
-                        <TableHead>
-                          <input
-                            type="checkbox"
-                            ref={el => {
-                              if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
-                            }}
-                            checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
-                            onChange={e => handleSelectAll(e.target.checked)}
-                            aria-label="Select all applications"
-                          />
-                        </TableHead>
-                      )}
-                      <TableHead>Applicant</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>Scholarship</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>GPA</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
                       <TableRow>
+                        {selectionMode && (
+                          <TableHead>
+                            <input
+                              type="checkbox"
+                              ref={el => {
+                                if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
+                              }}
+                              checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
+                              onChange={e => handleSelectAll(e.target.checked)}
+                              aria-label="Select all applications"
+                            />
+                          </TableHead>
+                        )}
                         <TableHead>Applicant</TableHead>
                         <TableHead>Region</TableHead>
                         <TableHead>Scholarship</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Submitted</TableHead>
+                        <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
- main
                     </TableHeader>
                     <TableBody>
                       {applications
@@ -1228,10 +1218,7 @@ export default function Component() {
                                   : getStatusBadge(app.status)}
                               </div>
                             </TableCell>
- config
                             <TableCell>{app.submittedDate}</TableCell>
-                            <TableCell className="text-right">{app.submittedDate}</TableCell>
- main
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
