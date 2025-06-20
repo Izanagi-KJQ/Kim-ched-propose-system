@@ -67,7 +67,7 @@ export function LoginForm() {
                 <Checkbox id="remember" {...register("remember")}/>
                 <Label htmlFor="remember">Remember me</Label>
               </div>
-              <a href="#" className="text-sm text-primary hover:underline">Forgot password?</a>
+              <a href="/forgot-password" className="text-sm text-primary hover:underline">Forgot password?</a>
             </div>
             {authError && <p className="text-sm text-destructive mt-1">{authError}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -84,7 +84,7 @@ export function LoginForm() {
             </div>
           </CardContent>
           <CardFooter className="justify-center">
-            <span className="text-sm text-muted-foreground">Don't have an account? <a href="#" className="text-primary hover:underline">Sign up</a></span>
+            <span className="text-sm text-muted-foreground">Don't have an account? <a href="/register" className="text-primary hover:underline">Sign up</a></span>
           </CardFooter>
         </form>
       </Card>
