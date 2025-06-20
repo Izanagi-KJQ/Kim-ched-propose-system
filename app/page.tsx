@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,12 +36,14 @@ import {
   Mail,
   GraduationCap,
   DollarSign,
+  LogOut,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 type Scholarship = {
   id: string;
@@ -53,10 +55,14 @@ type Scholarship = {
 };
 
 export default function Component() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("dashboard")
   const [selectedApplication, setSelectedApplication] = useState<any>(null)
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
   const [modalMode, setModalMode] = useState<"view" | "edit" | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState("/placeholder-user.jpg");
+  const [userName, setUserName] = useState("Admin User");
+  const [userEmail, setUserEmail] = useState("admin@example.com");
   const [scholarships, setScholarships] = useState<Scholarship[]>([
     {
       id: "SCH001",
@@ -153,6 +159,15 @@ export default function Component() {
 
   const [showAddUserModal, setShowAddUserModal] = useState(false);
 
+  useEffect(() => {
+    const savedAvatar = localStorage.getItem('user-avatar');
+    const savedName = localStorage.getItem('user-name');
+    const savedEmail = localStorage.getItem('user-email');
+    if (savedAvatar) setAvatarUrl(savedAvatar);
+    if (savedName) setUserName(savedName);
+    if (savedEmail) setUserEmail(savedEmail);
+  }, []);
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending: { label: "Pending", variant: "secondary" as const },
@@ -201,7 +216,12 @@ export default function Component() {
     )
     setModalMode(null)
     setSelectedScholarship(null)
+    router.push("/");
   }
+
+  const handleLogout = () => {
+    router.push('/login');
+  };
 
   const handleExport = () => {
     // Example data, replace with your actual data source
@@ -264,10 +284,32 @@ export default function Component() {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Avatar>
-              <AvatarImage src="/placeholder.svg?height=32&width=32" />
-              <AvatarFallback>AD</AvatarFallback>
-            </Avatar>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="cursor-pointer">
+                  <AvatarImage src={avatarUrl} />
+                  <AvatarFallback>AD</AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{userName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {userEmail}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push('/profile')}>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
