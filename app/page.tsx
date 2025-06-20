@@ -59,6 +59,7 @@ interface Scholarship {
   deadline: string;
   applicants: number;
   status: string;
+  type?: 'Full' | 'Half';
 }
 
 interface Application {
@@ -170,6 +171,7 @@ export default function Component() {
     totalScholarships: 24,
   }
 
+  //Mock data for applications
   const [applications, setApplications] = useState<Application[]>([
     {
       id: "APP001",
@@ -428,32 +430,46 @@ export default function Component() {
 
   const [showAddUserModal, setShowAddUserModal] = useState(false);
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { label: "Pending", variant: "pending" as const },
-      under_review: { label: "Under Review", variant: "underReview" as const },
-      approved: { label: "Approved", variant: "approved" as const },
-      rejected: { label: "Rejected", variant: "destructive" as const },
-    }
+  // Add state for status workflow dialog
+  const [statusWorkflowDialog, setStatusWorkflowDialog] = useState<{ open: boolean, app: Application | null, step: 'pending' | 'under_review' | null }>({ open: false, app: null, step: null });
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending
-    return <Badge variant={config.variant}>{config.label}</Badge>
-  }
+  // Update getStatusBadge to handle new workflow
+  const getStatusBadge = (status: string, onClick?: () => void) => {
+    const statusConfig = {
+      pending: { label: "Pending", variant: "pending" as const, clickable: true },
+      under_review: { label: "Under Review", variant: "underReview" as const, clickable: true },
+      approved: { label: "Approved", variant: "approved" as const, clickable: false },
+      accepted: { label: "Accepted", variant: "approved" as const, clickable: false },
+      rejected: { label: "Rejected", variant: "destructive" as const, clickable: false },
+    } as const;
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    return (
+      <Badge
+        variant={config.variant}
+        style={config.clickable ? { cursor: 'pointer' } : {}}
+        onClick={config.clickable && onClick ? onClick : undefined}
+      >
+        {config.label}
+      </Badge>
+    );
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "pending":
-        return <Clock className="h-4 w-4 text-yellow-500" />
+        return <Clock className="h-4 w-4 text-yellow-500" />;
       case "under_review":
-        return <Eye className="h-4 w-4 text-blue-500" />
+        return <Eye className="h-4 w-4 text-blue-500" />;
       case "approved":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "accepted":
+        return <CheckCircle className="h-4 w-4 text-green-700" />;
       case "rejected":
-        return <XCircle className="h-4 w-4 text-red-500" />
+        return <XCircle className="h-4 w-4 text-red-500" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
-  }
+  };
 
   const pieData = [
     { name: 'Total Applications', value: stats.totalApplications },
@@ -585,6 +601,7 @@ export default function Component() {
       { id: newId, ...data, applicants: parseInt(data.applicants.toString()), amount: `$${data.amount}` },
     ]);
     setModalMode(null);
+    setPendingScholarshipType(null);
   }
 
   // Handler for creating new application
@@ -690,6 +707,87 @@ export default function Component() {
     const num = parseFloat(amount.replace(/[^\d.]/g, ""));
     if (isNaN(num)) return "₱ 0";
     return `₱ ${num.toLocaleString()}`;
+  };
+
+  // Add state for the custom delete-all confirmation dialog
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+
+  // Add state for status action dialog
+  const [statusActionDialog, setStatusActionDialog] = useState<{ open: boolean, app: Application | null }>({ open: false, app: null });
+
+  // Add state for scholarship type selection dialog
+  const [scholarshipTypeDialog, setScholarshipTypeDialog] = useState(false);
+  const [pendingScholarshipType, setPendingScholarshipType] = useState<'Full' | 'Half' | null>(null);
+
+  // Add state for scholarship delete confirmation
+  const [deleteScholarshipDialog, setDeleteScholarshipDialog] = useState<{ open: boolean, scholarship: Scholarship | null }>({ open: false, scholarship: null });
+
+  // Add state for status modal in ranking section
+  const [rankingStatusModal, setRankingStatusModal] = useState<{ open: boolean, status: string | null }>({ open: false, status: null });
+
+  // Add state for highlighted applicant
+  const [highlightedApplicantId, setHighlightedApplicantId] = useState<string | null>(null);
+
+  // When switching away from Applications tab, clear highlightedApplicantId
+  useEffect(() => {
+    if (activeTab !== 'applications' && highlightedApplicantId) {
+      setHighlightedApplicantId(null);
+    }
+  }, [activeTab]);
+
+  // Add state for selected applications
+  const [selectedAppIds, setSelectedAppIds] = useState<string[]>([]);
+
+  // Add state for selection mode
+  const [selectionMode, setSelectionMode] = useState(false);
+
+  // When selectionMode is turned off, clear selectedAppIds
+  useEffect(() => {
+    if (!selectionMode) setSelectedAppIds([]);
+  }, [selectionMode]);
+
+  // Helper to get filtered applications (for select all)
+  const filteredApplications = applications
+    .filter(app => statusFilter === "all" || app.status === statusFilter)
+    .filter(app => scholarshipFilter === "all" || app.scholarship === scholarshipFilter)
+    .filter(app => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        app.name.toLowerCase().includes(q) ||
+        app.region?.toLowerCase().includes(q) ||
+        app.email.toLowerCase().includes(q) ||
+        app.scholarship.toLowerCase().includes(q) ||
+        app.amount.toLowerCase().includes(q) ||
+        (app.gpa !== null && app.gpa.toString().toLowerCase().includes(q)) ||
+        app.status.toLowerCase().includes(q) ||
+        app.submittedDate.toLowerCase().includes(q) ||
+        (app.review && app.review.toLowerCase().includes(q))
+      );
+    });
+
+  // Handler for select all
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAppIds(filteredApplications.map(app => app.id));
+    } else {
+      setSelectedAppIds([]);
+    }
+  };
+
+  // Handler for select one
+  const handleSelectOne = (id: string, checked: boolean) => {
+    setSelectedAppIds(prev => checked ? [...prev, id] : prev.filter(appId => appId !== id));
+  };
+
+  // Handler for bulk delete
+  const handleBulkDelete = () => {
+    if (selectedAppIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedAppIds.length} selected applications?`)) return;
+    const toTrash = applications.filter(app => selectedAppIds.includes(app.id));
+    setApplications(prev => prev.filter(app => !selectedAppIds.includes(app.id)));
+    setTrashBin(prev => [...prev, ...toTrash]);
+    setSelectedAppIds([]);
   };
 
   return (
@@ -933,7 +1031,7 @@ export default function Component() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {ranking.slice(0, 7).map((app, idx) => (
+                          {ranking.slice(0, 8).map((app, idx) => (
                             <TableRow key={app.id}>
                               <TableCell className="font-bold">{idx + 1}</TableCell>
                               <TableCell>{app.name}</TableCell>
@@ -964,7 +1062,10 @@ export default function Component() {
                     <Trash2 className="h-4 w-4 mr-2" />
                     Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
                   </Button>
-                  <Button onClick={() => setModalMode("createApplication")}>
+                  <Button variant={selectionMode ? "default" : "outline"} onClick={() => setSelectionMode(m => !m)}>
+                    Select
+                  </Button>
+                  <Button onClick={() => setModalMode("createApplication")}> 
                     <FileText className="h-4 w-4 mr-2" />
                     New Application
                   </Button>
@@ -1017,9 +1118,38 @@ export default function Component() {
 
               {/* Applications Table */}
               <Card>
-                <CardContent className="pt-6 overflow-x-auto">
+                <CardContent className="pt-6 overflow-x-auto" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  {selectionMode && selectedAppIds.length > 0 && (
+                    <div className="mb-2 flex items-center gap-4">
+                      <span className="text-sm font-medium">{selectedAppIds.length} selected</span>
+                      <Button variant="destructive" size="sm" onClick={handleBulkDelete}>Move to Trash Bin</Button>
+                      <Button variant="outline" size="sm" onClick={() => setSelectionMode(false)}>Cancel Selection</Button>
+                    </div>
+                  )}
                   <Table>
                     <TableHeader>
+ config
+                      {selectionMode && (
+                        <TableHead>
+                          <input
+                            type="checkbox"
+                            ref={el => {
+                              if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
+                            }}
+                            checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
+                            onChange={e => handleSelectAll(e.target.checked)}
+                            aria-label="Select all applications"
+                          />
+                        </TableHead>
+                      )}
+                      <TableHead>Applicant</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead>Scholarship</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>GPA</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Submitted</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                       <TableRow>
                         <TableHead>Applicant</TableHead>
                         <TableHead>Region</TableHead>
@@ -1030,6 +1160,7 @@ export default function Component() {
                         <TableHead className="text-right">Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
+ main
                     </TableHeader>
                     <TableBody>
                       {applications
@@ -1051,7 +1182,23 @@ export default function Component() {
                           );
                         })
                         .map((app) => (
-                          <TableRow key={app.id} className="focus:outline-none">
+                          <TableRow key={app.id} className={`focus:outline-none ${highlightedApplicantId === app.id ? 'ring-2 ring-orange-400 bg-orange-50 animate-pulse' : ''}`}
+                            ref={el => {
+                              if (highlightedApplicantId === app.id && el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }
+                            }}
+                          >
+                            {selectionMode && (
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedAppIds.includes(app.id)}
+                                  onChange={e => handleSelectOne(app.id, e.target.checked)}
+                                  aria-label={`Select application for ${app.name}`}
+                                />
+                              </TableCell>
+                            )}
                             <TableCell>
                               <div className="flex items-center space-x-3">
                                 <Avatar className="h-8 w-8">
@@ -1076,10 +1223,15 @@ export default function Component() {
                             <TableCell>
                               <div className="flex items-center space-x-2">
                                 {getStatusIcon(app.status)}
-                                {getStatusBadge(app.status)}
+                                {app.status === 'pending' ? getStatusBadge(app.status, () => setStatusWorkflowDialog({ open: true, app, step: 'pending' }))
+                                  : app.status === 'under_review' ? getStatusBadge(app.status, () => setStatusWorkflowDialog({ open: true, app, step: 'under_review' }))
+                                  : getStatusBadge(app.status)}
                               </div>
                             </TableCell>
+ config
+                            <TableCell>{app.submittedDate}</TableCell>
                             <TableCell className="text-right">{app.submittedDate}</TableCell>
+ main
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1243,7 +1395,10 @@ export default function Component() {
                   {trashBin.length === 0 ? (
                     <div className="text-center text-gray-500 py-8">No deleted applicants.</div>
                   ) : (
-                    <div className="space-y-4">
+                    <div
+                      className="space-y-4"
+                      style={trashBin.length >= 5 ? { maxHeight: '320px', overflowY: 'auto' } : {}}
+                    >
                       {trashBin.map(app => (
                         <div key={app.id} className="flex items-center justify-between border-b pb-2">
                           <div>
@@ -1256,6 +1411,17 @@ export default function Component() {
                           </div>
                         </div>
                       ))}
+                      {trashBin.length > 1 && (
+                        <div className="flex justify-end mt-4">
+                          <Button
+                            size="lg"
+                            variant="destructive"
+                            onClick={() => setDeleteAllDialogOpen(true)}
+                          >
+                            Delete All Permanently
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                   <DialogFooter>
@@ -1274,10 +1440,50 @@ export default function Component() {
               </div>
               {/* Slot Summary */}
               <div className="flex gap-4 mb-4">
-                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{approved.length} / 102</div><div className="text-green-700">Approved</div></CardContent></Card>
-                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{reserve.length} / 48</div><div className="text-yellow-700">Reserve</div></CardContent></Card>
-                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{pending.length}</div><div className="text-orange-700">Pending</div></CardContent></Card>
-                <Card className="flex-1 text-center"><CardContent className="py-2"><div className="font-bold text-lg">{rejected.length}</div><div className="text-red-700">Rejected</div></CardContent></Card>
+                <div
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-green-100 focus:bg-green-200"
+                  onClick={() => setRankingStatusModal({ open: true, status: 'approved' })}
+                  tabIndex={0}
+                  style={{ outline: 'none' }}
+                >
+                  <CardContent className="py-2">
+                    <div className="font-bold text-lg">{approved.length} / 102</div>
+                    <div className="text-green-700">Approved</div>
+                  </CardContent>
+                </div>
+                <div
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-yellow-100 focus:bg-yellow-200"
+                  onClick={() => setRankingStatusModal({ open: true, status: 'reserve' })}
+                  tabIndex={0}
+                  style={{ outline: 'none' }}
+                >
+                  <CardContent className="py-2">
+                    <div className="font-bold text-lg">{reserve.length} / 48</div>
+                    <div className="text-yellow-700">Reserve</div>
+                  </CardContent>
+                </div>
+                <div
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-orange-100 focus:bg-orange-200"
+                  onClick={() => setRankingStatusModal({ open: true, status: 'pending' })}
+                  tabIndex={0}
+                  style={{ outline: 'none' }}
+                >
+                  <CardContent className="py-2">
+                    <div className="font-bold text-lg">{pending.length}</div>
+                    <div className="text-orange-700">Pending</div>
+                  </CardContent>
+                </div>
+                <div
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-red-100 focus:bg-red-200"
+                  onClick={() => setRankingStatusModal({ open: true, status: 'rejected' })}
+                  tabIndex={0}
+                  style={{ outline: 'none' }}
+                >
+                  <CardContent className="py-2">
+                    <div className="font-bold text-lg">{rejected.length}</div>
+                    <div className="text-red-700">Rejected</div>
+                  </CardContent>
+                </div>
               </div>
               <Button className="mb-4" onClick={() => setShowAddModal(true)}>Reserve Slot</Button>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1297,7 +1503,11 @@ export default function Component() {
                             onClick={() => setSelectedStudentId(app.id)}
                           >
                             <div className="flex items-center space-x-4">
-                              <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold ${index < 102 ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>{index + 1}</div>
+                              <div
+                                className={`flex items-center justify-center w-8 h-8 rounded-full font-bold ${index === 0 ? 'bg-amber-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-yellow-800 text-white' : 'bg-green-100 text-green-600'}`}
+                              >
+                                {index + 1}
+                              </div>
                               <Avatar>
                                 <AvatarImage src={app.avatar || "/placeholder.svg"} />
                                 <AvatarFallback>{app.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
@@ -1309,7 +1519,23 @@ export default function Component() {
                               </div>
                             </div>
                             <div className="flex items-center space-x-4">
-                              {getStatusBadge(app.status)}
+                              {app.status === 'pending' ? (
+                                <Badge
+                                  variant="pending"
+                                  className="cursor-pointer hover:bg-orange-600 focus:ring-2 focus:ring-orange-400 transition"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setActiveTab('applications');
+                                    setStatusFilter('pending');
+                                    setHighlightedApplicantId(app.id);
+                                  }}
+                                  tabIndex={0}
+                                  role="button"
+                                  aria-label="Go to applicant in Applications"
+                                >
+                                  Pending
+                                </Badge>
+                              ) : getStatusBadge(app.status)}
                               <Button size="sm" variant="destructive" onClick={e => { e.stopPropagation(); handleRemoveStudent(app.id); }}>Remove</Button>
                             </div>
                           </div>
@@ -1372,7 +1598,7 @@ export default function Component() {
                       <SelectItem value="status_closed">Status: Closed</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button onClick={() => setModalMode("create")}> 
+                  <Button onClick={() => setScholarshipTypeDialog(true)}>
                     <Award className="h-4 w-4 mr-2" />
                     Create Scholarship
                   </Button>
@@ -1415,6 +1641,9 @@ export default function Component() {
                             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-700"><Lock className="h-4 w-4 mr-1 text-red-500" /> Closed</span>
                           )}
                         </div>
+                        {scholarship.type && (
+                          <div className="mt-1 text-xs font-bold text-purple-700">{scholarship.type} Scholarship</div>
+                        )}
                         <CardDescription>
                           <div className="flex items-center space-x-2">
                             <span className="text-xl">₱</span>
@@ -1441,7 +1670,7 @@ export default function Component() {
                               <Edit className="h-4 w-4" />
                               <span>Edit</span>
                             </Button>
-                            <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => handleRemoveScholarship(scholarship.id)}>
+                            <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => setDeleteScholarshipDialog({ open: true, scholarship })}>
                               <Trash2 className="h-4 w-4" />
                               <span>Remove</span>
                             </Button>
@@ -1472,7 +1701,7 @@ export default function Component() {
                       )}
                     </div>
                   ) : modalMode === "create" ? (
-                    <ScholarshipCreateForm onSave={handleCreateScholarship} onCancel={() => setModalMode(null)} />
+                    <ScholarshipCreateForm onSave={handleCreateScholarship} onCancel={() => { setModalMode(null); setPendingScholarshipType(null); }} type={pendingScholarshipType || undefined} />
                   ) : null}
                   <DialogFooter>
                     <DialogClose asChild>
@@ -1747,6 +1976,232 @@ export default function Component() {
           </DialogPrimitive.Portal>
         </>
       </Dialog>
+
+      {/* Delete All Permanently Confirmation Dialog */}
+      <Dialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <DialogContent className="max-w-md w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Delete All Permanently</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center text-lg text-red-700 font-semibold">
+            Are you sure you want to permanently delete <b>ALL</b> records in the trash bin? This action cannot be undone.
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAllDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                trashBin.forEach(app => handlePermanentDeleteApplicant(app));
+                setDeleteAllDialogOpen(false);
+              }}
+            >
+              Delete All Permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Action Dialog */}
+      <Dialog open={statusActionDialog.open} onOpenChange={open => setStatusActionDialog({ open, app: open ? statusActionDialog.app : null })}>
+        <DialogContent className="max-w-md w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Update Application Status</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center text-lg font-semibold">
+            Do you want to Accept or Reject this application?
+          </div>
+          <DialogFooter>
+            <Button
+              variant="default"
+              onClick={() => {
+                if (statusActionDialog.app) {
+                  setApplications(prev => prev.map(a => a.id === statusActionDialog.app!.id ? { ...a, status: 'accepted' } : a));
+                }
+                setStatusActionDialog({ open: false, app: null });
+              }}
+            >
+              Accept
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (statusActionDialog.app) {
+                  setApplications(prev => prev.map(a => a.id === statusActionDialog.app!.id ? { ...a, status: 'rejected' } : a));
+                }
+                setStatusActionDialog({ open: false, app: null });
+              }}
+            >
+              Reject
+            </Button>
+            <Button variant="outline" onClick={() => setStatusActionDialog({ open: false, app: null })}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scholarship Type Selection Dialog */}
+      <Dialog open={scholarshipTypeDialog} onOpenChange={setScholarshipTypeDialog}>
+        <DialogContent className="max-w-md w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Select Scholarship Type</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center text-lg font-semibold">
+            Is this a Full Scholarship or a Half Scholarship?
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setPendingScholarshipType('Full');
+                setScholarshipTypeDialog(false);
+                setModalMode('create');
+              }}
+            >
+              Full Scholarship
+            </Button>
+            <Button
+              onClick={() => {
+                setPendingScholarshipType('Half');
+                setScholarshipTypeDialog(false);
+                setModalMode('create');
+              }}
+              variant="secondary"
+            >
+              Half Scholarship
+            </Button>
+            <Button variant="outline" onClick={() => setScholarshipTypeDialog(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scholarship Delete Confirmation Dialog */}
+      <Dialog open={deleteScholarshipDialog.open} onOpenChange={open => setDeleteScholarshipDialog({ open, scholarship: open ? deleteScholarshipDialog.scholarship : null })}>
+        <DialogContent className="max-w-md w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Remove Scholarship</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center text-lg font-semibold">
+            Are you sure you want to remove the scholarship <b>{deleteScholarshipDialog.scholarship?.name}</b>? This action cannot be undone.
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteScholarshipDialog({ open: false, scholarship: null })}>Cancel</Button>
+            <Button variant="destructive" onClick={() => {
+              if (deleteScholarshipDialog.scholarship) handleRemoveScholarship(deleteScholarshipDialog.scholarship.id);
+              setDeleteScholarshipDialog({ open: false, scholarship: null });
+            }}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Modal */}
+      <Dialog open={rankingStatusModal.open} onOpenChange={open => setRankingStatusModal({ open, status: open ? rankingStatusModal.status : null })}>
+        <DialogContent className="max-w-lg w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle>{rankingStatusModal.status ? `${rankingStatusModal.status.charAt(0).toUpperCase() + rankingStatusModal.status.slice(1)} Applicants` : ''}</DialogTitle>
+          </DialogHeader>
+          <div
+            className="overflow-y-auto"
+            style={(() => {
+              const currentApplicants = (
+                rankingStatusModal.status === 'approved' ? approved :
+                rankingStatusModal.status === 'reserve' ? reserve :
+                rankingStatusModal.status === 'pending' ? pending :
+                rankingStatusModal.status === 'rejected' ? rejected :
+                []
+              );
+              return currentApplicants.length >= 5 ? { maxHeight: '320px' } : {};
+            })()}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>GPA</TableHead>
+                  <TableHead>Scholarship</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(rankingStatusModal.status === 'approved' ? approved :
+                  rankingStatusModal.status === 'reserve' ? reserve :
+                  rankingStatusModal.status === 'pending' ? pending :
+                  rankingStatusModal.status === 'rejected' ? rejected :
+                  []).map(app => (
+                  <TableRow key={app.id}>
+                    <TableCell>{app.name}</TableCell>
+                    <TableCell>{app.gpa}</TableCell>
+                    <TableCell>{app.scholarship}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {((rankingStatusModal.status === 'approved' && approved.length === 0) ||
+              (rankingStatusModal.status === 'reserve' && reserve.length === 0) ||
+              (rankingStatusModal.status === 'pending' && pending.length === 0) ||
+              (rankingStatusModal.status === 'rejected' && rejected.length === 0)) && (
+              <div className="text-center text-gray-500 py-8">No applicants found.</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRankingStatusModal({ open: false, status: null })}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Workflow Dialog */}
+      <Dialog open={statusWorkflowDialog.open} onOpenChange={open => setStatusWorkflowDialog({ open, app: open ? statusWorkflowDialog.app : null, step: open ? statusWorkflowDialog.step : null })}>
+        <DialogContent className="max-w-md w-full p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Update Application Status</DialogTitle>
+          </DialogHeader>
+          {statusWorkflowDialog.step === 'pending' && statusWorkflowDialog.app && (
+            <div className="py-4 text-center text-lg font-semibold">
+              Move this application to <span className="text-blue-600 font-bold">Under Review</span>?
+            </div>
+          )}
+          {statusWorkflowDialog.step === 'under_review' && statusWorkflowDialog.app && (
+            <div className="py-4 text-center text-lg font-semibold">
+              Do you want to <span className="text-green-600 font-bold">Accept</span> or <span className="text-red-600 font-bold">Reject</span> this application?
+            </div>
+          )}
+          <DialogFooter>
+            {statusWorkflowDialog.step === 'pending' && statusWorkflowDialog.app && (
+              <>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setApplications(prev => prev.map(a => a.id === statusWorkflowDialog.app!.id ? { ...a, status: 'under_review' } : a));
+                    setStatusWorkflowDialog({ open: false, app: null, step: null });
+                  }}
+                >
+                  Move to Under Review
+                </Button>
+                <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })}>Cancel</Button>
+              </>
+            )}
+            {statusWorkflowDialog.step === 'under_review' && statusWorkflowDialog.app && (
+              <>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setApplications(prev => prev.map(a => a.id === statusWorkflowDialog.app!.id ? { ...a, status: 'accepted' } : a));
+                    setStatusWorkflowDialog({ open: false, app: null, step: null });
+                  }}
+                >
+                  Accept
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setApplications(prev => prev.map(a => a.id === statusWorkflowDialog.app!.id ? { ...a, status: 'rejected' } : a));
+                    setStatusWorkflowDialog({ open: false, app: null, step: null });
+                  }}
+                >
+                  Reject
+                </Button>
+                <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })}>Cancel</Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -1833,7 +2288,7 @@ function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: S
 }
 
 // ScholarshipCreateForm component
-function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Scholarship, 'id'>) => void, onCancel: () => void }) {
+function ScholarshipCreateForm({ onSave, onCancel, type }: { onSave: (data: Omit<Scholarship, 'id'>) => void, onCancel: () => void, type?: 'Full' | 'Half' }) {
   const form = useForm<Omit<Scholarship, 'id'>>({
     defaultValues: {
       name: "",
@@ -1841,11 +2296,12 @@ function ScholarshipCreateForm({ onSave, onCancel }: { onSave: (data: Omit<Schol
       deadline: "",
       status: "active", // Default status
       applicants: 0,
+      type: type || 'Full',
     },
   })
 
   function onSubmit(values: Omit<Scholarship, 'id'>) {
-    onSave(values)
+    onSave({ ...values, type: type || 'Full' })
   }
 
   return (
@@ -2099,7 +2555,6 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
           <FormItem>
             <FormLabel>GPA</FormLabel>
             <FormControl>
-              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} />
               <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
             </FormControl>
             <FormMessage />
@@ -2120,18 +2575,6 @@ function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (da
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="score" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Score</FormLabel>
-            <FormControl>
-              <ProgressBarInput
-                value={typeof field.value === 'number' ? field.value : 0}
-                onChange={field.onChange}
-              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -2288,15 +2731,15 @@ function ChangePasswordForm({ user, onCancel }: { user: User, onCancel: () => vo
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block font-medium mb-1">Old Password</label>
-        <input type="password" className="w-full border rounded p-2" value={oldPassword} onChange={e => setOldPassword(e.target.value)} required />
+        <input type="password" className="w-full border rounded p-2" value={oldPassword} onChange={e => setOldPassword(e.target.value)} required placeholder="Enter old password" />
       </div>
       <div>
         <label className="block font-medium mb-1">New Password</label>
-        <input type="password" className="w-full border rounded p-2" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+        <input type="password" className="w-full border rounded p-2" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="Enter new password" />
       </div>
       <div>
         <label className="block font-medium mb-1">Re-type Password</label>
-        <input type="password" className="w-full border rounded p-2" value={retypePassword} onChange={e => setRetypePassword(e.target.value)} required />
+        <input type="password" className="w-full border rounded p-2" value={retypePassword} onChange={e => setRetypePassword(e.target.value)} required placeholder="Re-type new password" />
       </div>
       {error && <div className="text-red-600 text-sm">{error}</div>}
       {success && <div className="text-green-600 text-sm">{success}</div>}
