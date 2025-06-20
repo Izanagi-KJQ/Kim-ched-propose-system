@@ -47,7 +47,6 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogC
 import { useRouter } from "next/navigation";
 import { Slider } from "@/components/ui/slider";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-config
 import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
 import AddStudentModal from "@/components/ranking/AddStudentModal";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
@@ -59,86 +58,6 @@ import UserForm from "@/components/forms/UserForm";
 import ApplicationReviewForm from "@/components/forms/ApplicationReviewForm";
 import SendMessageForm from "@/components/forms/SendMessageForm";
 import ChangePasswordForm from "@/components/forms/ChangePasswordForm";
-
-type Scholarship = {
-  id: string;
-  name: string;
-  amount: string;
-  deadline: string;
-  applicants: number;
-  status: string;
-  type?: 'Full' | 'Half';
-}
-
-interface Application {
-  id: string;
-  name: string;
-  email: string;
-  scholarship: string;
-  amount: string;
-  gpa: number | null;
-  status: string;
-  submittedDate: string;
-  avatar: string;
-  review?: string;
-  requirements?: Record<string, boolean>;
-  score?: number | null;
-}
- main
-
-type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
-
-type ProgressBarInputProps = {
-  value: number | null;
-  onChange: (value: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-};
-
-// Utility to get color class based on score
-function getScoreColor(score: number) {
-  if (score <= 65) return "bg-red-500";
-  if (score <= 75) return "bg-orange-400";
-  if (score <= 85) return "bg-yellow-300";
-  if (score <= 95) return "bg-lime-400";
-  return "bg-green-500";
-}
-
-// Enhanced ProgressBarInput component for interactive score selection with color
-function ProgressBarInput({ value, onChange, min = 0, max = 100, step = 1 }: ProgressBarInputProps) {
-  const colorClass = getScoreColor(value || 0);
-  return (
-    <div className="flex flex-col gap-2 w-full">
-      <Slider
-        min={min}
-        max={max}
-        step={step}
-        value={[value || 0]}
-        onValueChange={([v]) => onChange(v)}
-        className="mb-2"
-      />
-      <Progress value={value || 0} className="h-4" indicatorClassName={colorClass} />
-      <div className="text-xs text-center text-gray-500">{value || 0} / {max}</div>
-    </div>
-  );
-}
-
-function getHighlightClass(status?: string): string {
-  switch (status) {
-    case 'approved':
-    case 'accepted':
-      return 'ring-2 ring-green-500 bg-green-500/10 dark:ring-green-600';
-    case 'rejected':
-      return 'ring-2 ring-red-500 bg-red-500/10 dark:ring-red-600';
-    case 'under_review':
-      return 'ring-2 ring-blue-500 bg-blue-500/10 dark:ring-blue-600';
-    case 'pending':
-      return 'ring-2 ring-orange-500 bg-orange-500/10 dark:ring-orange-600';
-    default:
-      return 'ring-2 ring-gray-500 bg-gray-500/10 dark:ring-gray-600';
-  }
-}
 
 export default function Component() {
   const router = useRouter();
@@ -196,6 +115,8 @@ export default function Component() {
       submittedDate: "2024-01-15",
       score: null,
       avatar: "/placeholder.svg?height=32&width=32",
+      region: "Region A",
+      requirementsStatus: "Incomplete",
     },
     {
       id: "APP002",
@@ -208,6 +129,8 @@ export default function Component() {
       submittedDate: "2024-01-14",
       score: 85,
       avatar: "/placeholder.svg?height=32&width=32",
+      region: "Region B",
+      requirementsStatus: "Disqualified",
     },
     {
       id: "APP003",
@@ -220,6 +143,8 @@ export default function Component() {
       submittedDate: "2024-01-12",
       score: 92,
       avatar: "/placeholder.svg?height=32&width=32",
+      region: "Region C",
+      requirementsStatus: "Incomplete",
     },
     {
       id: "APP004",
@@ -232,6 +157,8 @@ export default function Component() {
       submittedDate: "2024-01-10",
       score: 68,
       avatar: "/placeholder.svg?height=32&width=32",
+      region: "Region D",
+      requirementsStatus: "Disqualified",
     },
   ]);
 
@@ -260,6 +187,8 @@ export default function Component() {
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
+
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   useEffect(() => {
     const savedAvatar = localStorage.getItem('user-avatar');
@@ -541,14 +470,12 @@ export default function Component() {
     setSelectedAppIds([]);
   };
   return (
- config
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border fixed top-0 w-full z-10">
     <div className="min-h-screen bg-[#F4F0FA]">
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
- main
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -567,7 +494,6 @@ export default function Component() {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
- config
             <ThemeSwitcher />
             <Avatar>
               <AvatarImage src="/placeholder.svg?height=32&width=32" />
@@ -599,20 +525,16 @@ export default function Component() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
- main
           </div>
         </div>
       </header>
 
- config
       <div className="flex mt-[64px] min-h-[calc(100vh-64px)] bg-background overflow-y-auto">
         {/* Sidebar */}
         <aside className="w-64 bg-card border-r border-border fixed top-[64px] left-0 h-[calc(100vh-64px)] overflow-y-auto z-30 shadow-lg">
-
       <div className="flex">
         {/* Sidebar */}
         <aside className="w-64 bg-white border-r border-gray-200 min-h-screen">
- main
           <nav className="p-4 space-y-2">
             <Button
               variant={activeTab === "dashboard" ? "default" : "ghost"}
@@ -667,78 +589,46 @@ export default function Component() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="bg-purple-50 border-0">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
- config
                     <CardTitle className="text-sm font-medium text-muted-foreground">Total Applications</CardTitle>
                     <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-foreground">{stats.totalApplications}</div>
-                    <CardTitle className="text-sm font-medium text-purple-700">Total Applications</CardTitle>
-                    <FileText className="h-6 w-6 text-purple-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-purple-700">{stats.totalApplications}</div>
- main
                   </CardContent>
                 </Card>
                 <Card className="bg-indigo-50 border-0">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
- config
                     <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
                     <Clock className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-foreground">{stats.pendingReview}</div>
-
-                    <CardTitle className="text-sm font-medium text-indigo-700">Pending Review</CardTitle>
-                    <Clock className="h-6 w-6 text-indigo-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-indigo-700">{stats.pendingReview}</div>
- main
                   </CardContent>
                 </Card>
                 <Card className="bg-yellow-50 border-0">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
- config
                     <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
                     <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-foreground">{stats.approved}</div>
-                    <CardTitle className="text-sm font-medium text-yellow-700">Approved</CardTitle>
-                    <CheckCircle className="h-6 w-6 text-yellow-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-yellow-700">{stats.approved}</div>
- main
                   </CardContent>
                 </Card>
                 <Card className="bg-green-50 border-0">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
- config
                     <CardTitle className="text-sm font-medium text-muted-foreground">Active Scholarships</CardTitle>
                     <Award className="h-6 w-6 text-teal-600 dark:text-teal-400" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-foreground">{stats.totalScholarships}</div>
-
-                    <CardTitle className="text-sm font-medium text-green-700">Active Scholarships</CardTitle>
-                    <Award className="h-6 w-6 text-green-400" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-700">{stats.totalScholarships}</div>
- main
                   </CardContent>
                 </Card>
               </div>
               {/* Charts and Ranking */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Pie Chart */}
- config
                 <Card className="lg:col-span-1 bg-card border-0 shadow-md">
                 <Card className="col-span-1 bg-white border-0 shadow-md">
- main
                   <CardHeader>
                     <CardTitle>Applications Overview</CardTitle>
                   </CardHeader>
@@ -755,7 +645,6 @@ export default function Component() {
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
- config
                       {/* Floating card/tooltip for hovered slice */}
                       {activeIndex !== -1 && (() => {
                         // Calculate the position for the floating card
@@ -821,15 +710,40 @@ export default function Component() {
                       ))}
                     </div>
                   </CardContent>
+                          </Card>
                 </Card>
                 {/* Ranking Table (replace with BarChart) */}
                 <Card className="lg:col-span-1 bg-card border-0 shadow-md">
+                          <Card className="col-span-1 bg-white border-0 shadow-md">
+                            <CardHeader>
+                              <CardTitle>Student Ranking (by GWA)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="w-full">
+                                <Table className="w-full">
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="w-16">#</TableHead>
+                                      <TableHead>Name</TableHead>
+                                      <TableHead className="w-24 text-right">GWA</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {ranking.slice(0, 8).map((app, idx) => (
+                                      <TableRow key={app.id}>
+                                        <TableCell className="font-bold">{idx + 1}</TableCell>
+                                        <TableCell>{app.name}</TableCell>
+                                        <TableCell className="text-right">{app.gpa?.toFixed(2)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
                     </div>
                   </CardContent>
+                          </Card>
                 </Card>
                 {/* Ranking Table */}
                 <Card className="col-span-2 bg-white border-0 shadow-md">
- main
                   <CardHeader>
                     <CardTitle>Student Ranking (by GWA)</CardTitle>
                   </CardHeader>
@@ -889,7 +803,6 @@ export default function Component() {
                     <div className="flex-1">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
- config
                         <Input
                           placeholder="Search applications..."
                           className="pl-10 border border-gray-300 hover:border-purple-500 focus:border-purple-600 focus:border-2 hover:border focus:outline-none transition-colors dark:hover:border-purple-400 dark:focus:border-purple-500"
@@ -897,7 +810,6 @@ export default function Component() {
                           onChange={e => setSearchQuery(e.target.value)}
                         />
                         <Input placeholder="Search applications..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
- main
                       </div>
                     </div>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -941,7 +853,6 @@ export default function Component() {
                   )}
                   <Table>
                     <TableHeader>
- config
                       {selectionMode && (
                         <TableHead>
                           <input
@@ -969,20 +880,17 @@ export default function Component() {
                             />
                           </TableHead>
                         )}
- main
                         <TableHead>Applicant</TableHead>
                         <TableHead>Scholarship</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
                         <TableHead>Status</TableHead>
- config
                         <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                         <TableHead>Score</TableHead>
                         <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
- main
                     </TableHeader>
                     <TableBody>
                       {filteredApplications
@@ -1032,7 +940,6 @@ export default function Component() {
                                   : getStatusBadge(app.status)}
                               </div>
                             </TableCell>
- config
                             <TableCell>
                               {app.score ? (
                                 <div className="flex items-center space-x-2">
@@ -1053,7 +960,6 @@ export default function Component() {
                                 <span className="text-gray-400">Not scored</span>
                               )}
                             </TableCell>
- main
                             <TableCell>{app.submittedDate}</TableCell>
                             <TableCell className="text-right">
                               <DropdownMenu>
@@ -1257,13 +1163,11 @@ export default function Component() {
           {activeTab === "ranking" && (
             <div className="space-y-6">
               <div>
- config
                 <h2 className="text-3xl font-bold text-foreground">Application Ranking</h2>
                 <p className="text-muted-foreground">Review and rank scholarship applications by GWA (GPA)</p>
 
                 <h2 className="text-3xl font-bold text-gray-900">Application Ranking</h2>
                 <p className="text-gray-600">Review and rank scholarship applications by score</p>
- main
               </div>
               {/* Slot Summary */}
               <div className="flex gap-4 mb-4">
@@ -1322,7 +1226,6 @@ export default function Component() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
- config
                         {[...approved, ...reserve].map((app, index) => (
                           <div
                             key={app.id}
@@ -1333,7 +1236,6 @@ export default function Component() {
                               <div
                                 className={`flex items-center justify-center w-8 h-8 rounded-full font-bold ${index === 0 ? 'bg-amber-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-yellow-800 text-white' : 'bg-green-100 text-green-600 dark:bg-green-900/80 dark:text-green-300'}`}
                               >
-
                         {applications
                           .filter((app) => app.score)
                           .sort((a, b) => (b.score || 0) - (a.score || 0))
@@ -1341,12 +1243,10 @@ export default function Component() {
                             <div key={app.id} className="flex items-center justify-between p-4 border rounded-lg">
                               <div className="flex items-center space-x-4">
                                 <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-bold">
- main
                                   {index + 1}
                                 </div>
                                 <Avatar>
                                   <AvatarImage src={app.avatar || "/placeholder.svg"} />
- config
                                 <AvatarFallback>{app.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
                                 </Avatar>
                                 <div>
@@ -1399,10 +1299,8 @@ export default function Component() {
                                       .map((n) => n[0])
                                       .join("")}
                                   </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{app.name}</p>
-                                  <p className="text-sm text-gray-500">GPA: {app.gpa}</p>
+                                            </div>
+                                          ))}
                                 </div>
                               </div>
                               <div className="flex items-center space-x-4">
@@ -1422,10 +1320,8 @@ export default function Component() {
                                 </div>
                                 {getStatusBadge(app.status)}
                               </div>
- main
                             </div>
                           ))}
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1437,7 +1333,6 @@ export default function Component() {
                       <CardTitle>Quick Score</CardTitle>
                       <CardDescription>Score applications quickly</CardDescription>
                     </CardHeader>
- config
                     <CardContent className="space-y-6">
                       {selectedStudentId ? (
                         (() => {
@@ -1539,7 +1434,7 @@ export default function Component() {
                           Save Score & Review
                         </Button>
                       </div>
- main
+                              </CardContent>
                     </CardContent>
                   </Card>
                 </div>
@@ -1575,7 +1470,6 @@ export default function Component() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
- config
                 {scholarships
                   .slice()
                   // Filter for status if needed
@@ -1601,16 +1495,6 @@ export default function Component() {
                     return 0;
                   })
                   .map((scholarship) => (
-                    <Card key={scholarship.id}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">{scholarship.name}</CardTitle>
-                          {scholarship.status === "active" ? (
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-700 dark:bg-green-900/80 dark:text-green-300"><CheckCircle className="h-4 w-4 mr-1 text-green-500" /> Active</span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-700 dark:bg-red-900/80 dark:text-red-300"><Lock className="h-4 w-4 mr-1 text-red-500" /> Closed</span>
-                          )}
-                {scholarships.map((scholarship) => (
                   <Card key={scholarship.id}>
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -1623,17 +1507,10 @@ export default function Component() {
                         <div className="flex items-center space-x-2">
                           <DollarSign className="h-4 w-4" />
                           <span>{scholarship.amount}</span>
- main
                         </div>
                         {scholarship.type && (
                           <div className="mt-1 text-xs font-bold text-purple-700 dark:text-purple-400">{scholarship.type} Scholarship</div>
                         )}
- config
-                        <CardDescription>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xl">₱</span>
-                            <span>{formatPeso(scholarship.amount)}</span>
-                          </div>
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -1644,33 +1521,6 @@ export default function Component() {
                           </div>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Applicants:</span>
-                            <span className="font-medium">{scholarship.applicants}</span>
-                          </div>
-                          <div className="pt-3 border-t flex space-x-2">
-                            <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
-                              <Eye className="h-4 w-4" />
-                              <span>View</span>
-                              </Button>
-                            <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
-                              <Edit className="h-4 w-4" />
-                              <span>Edit</span>
-                            </Button>
-                            <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => setDeleteScholarshipDialog({ open: true, scholarship })}>
-                              <Trash2 className="h-4 w-4" />
-                              <span>Remove</span>
-                              </Button>
-                          </div>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Deadline:</span>
-                          <span className="font-medium">{scholarship.deadline}</span>
- main
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Applicants:</span>
                           <span className="font-medium">{scholarship.applicants}</span>
                         </div>
                         <div className="pt-3 border-t flex space-x-2">
@@ -1760,12 +1610,10 @@ export default function Component() {
                               <AvatarFallback>JD</AvatarFallback>
                             </Avatar>
                             <div>
- config
                               <p className="font-medium">{user.name}</p>
                               <p className="text-sm text-muted-foreground">{user.email}</p>
                               <p className="font-medium">John Doe</p>
                               <p className="text-sm text-gray-500">john.doe@university.edu</p>
- main
                             </div>
                           </div>
                         </TableCell>
@@ -1775,7 +1623,6 @@ export default function Component() {
                         <TableCell>Financial Aid</TableCell>
                         <TableCell>2 hours ago</TableCell>
                         <TableCell>
- config
                           <span className="flex items-center gap-2">
                             {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
                             {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-muted-foreground" />}
@@ -1785,7 +1632,6 @@ export default function Component() {
                           </span>
 
                           <Badge variant="default">Active</Badge>
- main
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
@@ -1799,7 +1645,6 @@ export default function Component() {
                               <DropdownMenuItem>Change Role</DropdownMenuItem>
                               <DropdownMenuItem>Reset Password</DropdownMenuItem>
                               <DropdownMenuSeparator />
- config
                               {user.status === 'Active' ? (
                                 <DropdownMenuItem className="text-red-600 dark:text-red-500" onClick={() => handleOpenDeactivate(user)}>
                                   <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
@@ -1817,7 +1662,6 @@ export default function Component() {
                               </DropdownMenuItem>
 
                               <DropdownMenuItem className="text-red-600">Deactivate</DropdownMenuItem>
- main
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -1864,7 +1708,6 @@ export default function Component() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
- config
 
       {/* User Modals */}
       <Dialog open={!!userModal} onOpenChange={handleCloseUserModal}>
@@ -2073,7 +1916,7 @@ export default function Component() {
               onClick={() => {
                 setPendingScholarshipType('Full');
                 setScholarshipTypeDialog(false);
-                setModalMode('create');
+                        setModalMode('createApplication');
               }}
             >
               Full Scholarship
@@ -2082,7 +1925,7 @@ export default function Component() {
               onClick={() => {
                 setPendingScholarshipType('Half');
                 setScholarshipTypeDialog(false);
-                setModalMode('create');
+                        setModalMode('createApplication');
               }}
               variant="secondary"
             >
@@ -2224,431 +2067,9 @@ export default function Component() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
     </div>
-  )
-}
-
-// ScholarshipEditForm component
-function ScholarshipEditForm({
-  scholarship,
-  onSave,
-  onCancel,
-}: {
-  scholarship: Scholarship;
-  onSave: (data: Scholarship) => void;
-  onCancel: () => void;
-}) {
-  const form = useForm<Scholarship>({
-    defaultValues: {
-      ...scholarship
-    },
-  })
-
-  function onSubmit(values: Scholarship) {
-    onSave({ ...scholarship, ...values })
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField name="name" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Name</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="amount" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl>
-              <Input {...field} type="text" inputMode="decimal" pattern="[₱0-9,. ]*" placeholder="₱ 5,000" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="deadline" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Deadline</FormLabel>
-            <FormControl>
-              <Input type="date" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="applicants" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Applicants</FormLabel>
-            <FormControl>
-              <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
-      </form>
-    </Form>
-  )
-}
-
-function ScholarshipCreateForm({ onSave, onCancel, type }: { onSave: (data: Omit<Scholarship, 'id'>) => void, onCancel: () => void, type?: 'Full' | 'Half' }) {
-  const form = useForm<Omit<Scholarship, 'id'>>({
-    defaultValues: {
-      name: "",
-      amount: "",
-      deadline: "",
-      status: "active", // Default status
-      applicants: 0,
-      type: type || 'Full',
-    },
-  })
-
-  function onSubmit(values: Omit<Scholarship, 'id'>) {
-    onSave({ ...values, type: type || 'Full' })
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-        <FormField name="name" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Name</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="amount" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="deadline" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Deadline</FormLabel>
-            <FormControl>
-              <Input type="date" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="applicants" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Applicants</FormLabel>
-            <FormControl>
-              <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
-      </form>
-    </Form>
-  )
-}
-
-function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (data: Omit<Application, 'id' | 'avatar'>) => void, onCancel: () => void, scholarships: Scholarship[] }) {
-  const form = useForm<Omit<Application, 'id' | 'avatar'>>({
-    defaultValues: {
-      name: "",
-      email: "",
-      scholarship: "",
-      amount: "",
-      gpa: 0,
-      status: "pending",
-      submittedDate: "",
-      score: null,
-    },
-  })
-
-  function onSubmit(values: Omit<Application, 'id' | 'avatar'>) {
-    onSave(values)
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-        <FormField name="name" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Applicant Name</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="email" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Email</FormLabel>
-            <FormControl>
-              <Input {...field} type="email" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="scholarship" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Scholarship</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a scholarship" />
-                </SelectTrigger>
-                <SelectContent>
-                  {scholarships.map((sch) => (
-                    <SelectItem key={sch.id} value={sch.name}>
-                      {sch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="amount" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="gpa" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>GPA</FormLabel>
-            <FormControl>
-              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="submittedDate" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Submitted Date</FormLabel>
-            <FormControl>
-              <Input {...field} type="date" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Create Application</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
-      </form>
-    </Form>
   )
 }
-
-function ApplicationReviewForm({ application, onSave, onCancel }: { application: Application, onSave: (data: { score: number | null, status: string, review: string }) => void, onCancel: () => void }) {
-  const form = useForm<{ score: number | null, status: string, review: string }>({
-    defaultValues: {
-      score: application.score ?? null,
-      review: application.review || "",
-      status: application.status,
-    },
-  })
-
-  function onSubmit(values: { score: number | null, status: string, review: string }) {
-    onSave(values)
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="review" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Review Comments</FormLabel>
-            <FormControl>
-              <Textarea {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save Review</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-function SendMessageForm({ application, onSend, onCancel }: { application: Application, onSend: (data: { recipientEmail: string, subject: string, message: string }) => void, onCancel: () => void }) {
-  const form = useForm<{ recipientEmail: string, subject: string, message: string }>({ // Update type
-    defaultValues: {
-      recipientEmail: application.email,
-      subject: "",
-      message: "",
-    },
-  })
-
-  function onSubmit(values: { recipientEmail: string, subject: string, message: string }) {
-    onSend(values)
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full"> {/* Added w-full for full width */}
-        <FormField name="recipientEmail" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Recipient Email</FormLabel>
-            <FormControl>
-              <Input {...field} readOnly />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="subject" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Subject</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="message" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Message</FormLabel>
-            <FormControl>
-              <Textarea {...field} rows={5} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Send Message</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-function ChangePasswordForm({ user, onCancel }: { user: User, onCancel: () => void }) {
-  const [oldPassword, setOldPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [retypePassword, setRetypePassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (!oldPassword || !newPassword || !retypePassword) {
-      setError('All fields are required.');
-      return;
-    }
-    if (newPassword !== retypePassword) {
-      setError('New passwords do not match.');
-      return;
-    }
-    setSuccess('Password changed successfully!');
-    setTimeout(onCancel, 1200);
-  };
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block font-medium mb-1">Old Password</label>
-        <input type="password" className="w-full border rounded p-2" value={oldPassword} onChange={e => setOldPassword(e.target.value)} required placeholder="Enter old password" />
-      </div>
-      <div>
-        <label className="block font-medium mb-1">New Password</label>
-        <input type="password" className="w-full border rounded p-2" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="Enter new password" />
-      </div>
-      <div>
-        <label className="block font-medium mb-1">Re-type Password</label>
-        <input type="password" className="w-full border rounded p-2" value={retypePassword} onChange={e => setRetypePassword(e.target.value)} required placeholder="Re-type new password" />
-      </div>
-      {error && <div className="text-red-600 text-sm">{error}</div>}
-      {success && <div className="text-green-600 text-sm">{success}</div>}
-      <div className="flex gap-2 mt-2">
-        <button type="submit" className="flex-1 bg-black text-white rounded p-2" disabled={!oldPassword || !newPassword || !retypePassword || newPassword !== retypePassword}>Confirm</button>
-        <button type="button" className="flex-1 border rounded p-2" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
-  );
-}
- main
