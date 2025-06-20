@@ -104,7 +104,7 @@ html, body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #F4F0FA; /* Match main content background */
+  background: hsl(var(--background)); /* Match main content background */
   border-radius: 10px;
 }
 

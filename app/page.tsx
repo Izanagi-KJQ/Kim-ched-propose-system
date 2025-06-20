@@ -51,32 +51,15 @@ import { Slider } from "@/components/ui/slider";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
 import AddStudentModal from "@/components/ranking/AddStudentModal";
-
-interface Scholarship {
-  id: string;
-  name: string;
-  amount: string;
-  deadline: string;
-  applicants: number;
-  status: string;
-  type?: 'Full' | 'Half';
-}
-
-interface Application {
-  id: string;
-  name: string;
-  region: string;
-  email: string;
-  scholarship: string;
-  amount: string;
-  gpa: number | null;
-  status: string;
-  submittedDate: string;
-  avatar: string;
-  review?: string;
-  requirements?: Record<string, boolean>;
-  score?: number | null;
-}
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { Scholarship, Application, User } from "@/lib/types";
+import ApplicationCreateForm from "@/components/forms/ApplicationCreateForm";
+import ScholarshipEditForm from "@/components/forms/ScholarshipEditForm";
+import ScholarshipCreateForm from "@/components/forms/ScholarshipCreateForm";
+import UserForm from "@/components/forms/UserForm";
+import ApplicationReviewForm from "@/components/forms/ApplicationReviewForm";
+import SendMessageForm from "@/components/forms/SendMessageForm";
+import ChangePasswordForm from "@/components/forms/ChangePasswordForm";
 
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
 
@@ -116,15 +99,21 @@ function ProgressBarInput({ value, onChange, min = 0, max = 100, step = 1 }: Pro
   );
 }
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  department: string;
-  lastActive: string;
-  status: string;
-};
+function getHighlightClass(status?: string): string {
+  switch (status) {
+    case 'approved':
+    case 'accepted':
+      return 'ring-2 ring-green-500 bg-green-500/10 dark:ring-green-600';
+    case 'rejected':
+      return 'ring-2 ring-red-500 bg-red-500/10 dark:ring-red-600';
+    case 'under_review':
+      return 'ring-2 ring-blue-500 bg-blue-500/10 dark:ring-blue-600';
+    case 'pending':
+      return 'ring-2 ring-orange-500 bg-orange-500/10 dark:ring-orange-600';
+    default:
+      return 'ring-2 ring-gray-500 bg-gray-500/10 dark:ring-gray-600';
+  }
+}
 
 export default function Component() {
   const [activeTab, setActiveTab] = useState<TabName>("dashboard");
@@ -609,17 +598,17 @@ export default function Component() {
     const newId = `APP00${applications.length + 1}`; // Simple ID generation
     setApplications((prev) => [
       ...prev,
-      { 
-        id: newId, 
+      {
+        id: newId,
         name: data.name,
         region: data.region,
         email: data.email,
         scholarship: data.scholarship,
         amount: data.amount,
-        gpa: parseFloat(data.gpa?.toString() || '0'), 
+        gpa: parseFloat(data.gpa?.toString() || '0'),
         status: data.status,
         submittedDate: data.submittedDate,
-        avatar: "/placeholder.svg?height=32&width=32" 
+        avatar: "/placeholder.svg?height=32&width=32"
       },
     ]);
     setModalMode(null);
@@ -791,27 +780,28 @@ export default function Component() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 fixed top-0 w-full z-10">
+      <header className="bg-card border-b border-border fixed top-0 w-full z-10">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <GraduationCap className="h-8 w-8 text-purple-600" />
-              <h1 className="text-2xl font-bold text-purple-700">SAMRS</h1>
+              <GraduationCap className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+              <h1 className="text-2xl font-bold text-purple-700 dark:text-purple-300">SAMRS</h1>
             </div>
-            <span className="text-sm text-gray-500 hidden md:block">Scholarship Application Management & Ranking System</span>
+            <span className="text-sm text-muted-foreground hidden md:block">Scholarship Application Management & Ranking System</span>
           </div>
           <div className="flex items-center space-x-4">
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center border-purple-200 text-purple-700"
+              className="flex items-center"
               onClick={handleExport}
             >
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
+            <ThemeSwitcher />
             <Avatar>
               <AvatarImage src="/placeholder.svg?height=32&width=32" />
               <AvatarFallback>AD</AvatarFallback>
@@ -820,13 +810,13 @@ export default function Component() {
         </div>
       </header>
 
-      <div className="flex mt-[64px] min-h-[calc(100vh-64px)] bg-[#F4F0FA] overflow-y-auto">
+      <div className="flex mt-[64px] min-h-[calc(100vh-64px)] bg-background overflow-y-auto">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 fixed top-[64px] left-0 h-[calc(100vh-64px)] overflow-y-auto z-30 shadow-lg">
+        <aside className="w-64 bg-card border-r border-border fixed top-[64px] left-0 h-[calc(100vh-64px)] overflow-y-auto z-30 shadow-lg">
           <nav className="p-4 space-y-2">
             <Button
               variant={activeTab === "dashboard" ? "default" : "ghost"}
-              className={`w-full justify-start ${activeTab === 'dashboard' ? 'bg-purple-100 text-purple-700' : ''}`}
+              className={`w-full justify-start ${activeTab === 'dashboard' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
               onClick={() => setActiveTab("dashboard")}
             >
               <TrendingUp className="h-4 w-4 mr-2" />
@@ -834,7 +824,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "applications" ? "default" : "ghost"}
-              className={`w-full justify-start ${activeTab === 'applications' ? 'bg-purple-100 text-purple-700' : ''}`}
+              className={`w-full justify-start ${activeTab === 'applications' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
               onClick={() => setActiveTab("applications")}
             >
               <FileText className="h-4 w-4 mr-2" />
@@ -842,7 +832,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "scholarships" ? "default" : "ghost"}
-              className={`w-full justify-start ${activeTab === 'scholarships' ? 'bg-purple-100 text-purple-700' : ''}`}
+              className={`w-full justify-start ${activeTab === 'scholarships' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
               onClick={() => setActiveTab("scholarships")}
             >
               <Award className="h-4 w-4 mr-2" />
@@ -850,7 +840,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "ranking" ? "default" : "ghost"}
-              className={`w-full justify-start ${activeTab === 'ranking' ? 'bg-purple-100 text-purple-700' : ''}`}
+              className={`w-full justify-start ${activeTab === 'ranking' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
               onClick={() => setActiveTab("ranking")}
             >
               <Star className="h-4 w-4 mr-2" />
@@ -858,7 +848,7 @@ export default function Component() {
             </Button>
             <Button
               variant={activeTab === "users" ? "default" : "ghost"}
-              className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700' : ''}`}
+              className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
               onClick={() => setActiveTab("users")}
             >
               <Users className="h-4 w-4 mr-2" />
@@ -872,51 +862,51 @@ export default function Component() {
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               <div>
-                <h2 className="text-3xl font-bold text-purple-700">Admin Dashboard</h2>
+                <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">Admin Dashboard</h2>
               </div>
               {/* Stat Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="border shadow-sm hover:shadow-md transition-shadow duration-300">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-gray-700">Total Applications</CardTitle>
-                    <FileText className="h-6 w-6 text-purple-600" />
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Applications</CardTitle>
+                    <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalApplications}</div>
+                    <div className="text-2xl font-bold text-foreground">{stats.totalApplications}</div>
                   </CardContent>
                 </Card>
                 <Card className="border shadow-sm hover:shadow-md transition-shadow duration-300">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-gray-700">Pending Review</CardTitle>
-                    <Clock className="h-6 w-6 text-indigo-600" />
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
+                    <Clock className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-gray-900">{stats.pendingReview}</div>
+                    <div className="text-2xl font-bold text-foreground">{stats.pendingReview}</div>
                   </CardContent>
                 </Card>
                 <Card className="border shadow-sm hover:shadow-md transition-shadow duration-300">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-gray-700">Approved</CardTitle>
-                    <CheckCircle className="h-6 w-6 text-green-600" />
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
+                    <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-gray-900">{stats.approved}</div>
+                    <div className="text-2xl font-bold text-foreground">{stats.approved}</div>
                   </CardContent>
                 </Card>
                 <Card className="border shadow-sm hover:shadow-md transition-shadow duration-300">
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-gray-700">Active Scholarships</CardTitle>
-                    <Award className="h-6 w-6 text-teal-600" />
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Active Scholarships</CardTitle>
+                    <Award className="h-6 w-6 text-teal-600 dark:text-teal-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalScholarships}</div>
+                    <div className="text-2xl font-bold text-foreground">{stats.totalScholarships}</div>
                   </CardContent>
                 </Card>
               </div>
               {/* Charts and Ranking */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Pie Chart */}
-                <Card className="lg:col-span-1 bg-white border-0 shadow-md">
+                <Card className="lg:col-span-1 bg-card border-0 shadow-md">
                   <CardHeader>
                     <CardTitle>Applications Overview</CardTitle>
                   </CardHeader>
@@ -988,16 +978,15 @@ export default function Component() {
                             }}
                           >
                             <div
-                              className="rounded-xl shadow-xl px-5 py-3 border border-gray-200 text-center animate-fade-in"
+                              className="bg-card rounded-xl shadow-xl px-5 py-3 border border-border text-center animate-fade-in"
                               style={{
-                                background: 'white',
                                 boxShadow: '0 6px 24px 0 rgba(80, 80, 80, 0.13)',
                                 borderTop: `4px solid ${pieColors[activeIndex]}`,
                                 filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.10))',
                               }}
                             >
                               <div className="text-lg font-bold mb-1" style={{ color: pieColors[activeIndex] }}>{entry.value}</div>
-                              <div className="text-xs font-semibold text-gray-700">{percent}%</div>
+                              <div className="text-xs font-semibold text-muted-foreground">{percent}%</div>
                             </div>
                           </div>
                         );
@@ -1008,15 +997,15 @@ export default function Component() {
                       {pieData.map((entry, index) => (
                         <div key={entry.name} className="flex items-center space-x-2">
                           <span className="inline-block w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: pieColors[index % pieColors.length] }}></span>
-                          <span className="text-sm font-medium text-gray-700">{entry.name}:</span>
-                          <span className="text-sm text-gray-900 font-semibold">{entry.value}</span>
+                          <span className="text-sm font-medium text-muted-foreground">{entry.name}:</span>
+                          <span className="text-sm text-foreground font-semibold">{entry.value}</span>
                         </div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
                 {/* Ranking Table (replace with BarChart) */}
-                <Card className="lg:col-span-1 bg-white border-0 shadow-md">
+                <Card className="lg:col-span-1 bg-card border-0 shadow-md">
                   <CardHeader>
                     <CardTitle>Student Ranking (by GWA)</CardTitle>
                   </CardHeader>
@@ -1054,8 +1043,8 @@ export default function Component() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">Applications</h2>
-                  <p className="text-gray-600">Manage and review scholarship applications</p>
+                  <h2 className="text-3xl font-bold text-foreground">Applications</h2>
+                  <p className="text-muted-foreground">Manage and review scholarship applications</p>
                 </div>
                 <div className="flex items-center space-x-4"> {/* Added a div to group buttons */}
                   <Button variant="outline" onClick={() => setTrashBinOpen(true)}>
@@ -1065,7 +1054,7 @@ export default function Component() {
                   <Button variant={selectionMode ? "default" : "outline"} onClick={() => setSelectionMode(m => !m)}>
                     Select
                   </Button>
-                  <Button onClick={() => setModalMode("createApplication")}> 
+                  <Button onClick={() => setModalMode("createApplication")}>
                     <FileText className="h-4 w-4 mr-2" />
                     New Application
                   </Button>
@@ -1081,7 +1070,7 @@ export default function Component() {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
                           placeholder="Search applications..."
-                          className="pl-10 border border-gray-300 hover:border-purple-500 focus:border-purple-600 focus:border-2 hover:border focus:outline-none transition-colors"
+                          className="pl-10 border border-gray-300 hover:border-purple-500 focus:border-purple-600 focus:border-2 hover:border focus:outline-none transition-colors dark:hover:border-purple-400 dark:focus:border-purple-500"
                           value={searchQuery}
                           onChange={e => setSearchQuery(e.target.value)}
                         />
@@ -1128,7 +1117,6 @@ export default function Component() {
                   )}
                   <Table>
                     <TableHeader>
- config
                       {selectionMode && (
                         <TableHead>
                           <input
@@ -1142,25 +1130,14 @@ export default function Component() {
                           />
                         </TableHead>
                       )}
-                      <TableHead>Applicant</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>Scholarship</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>GPA</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                      <TableRow>
                         <TableHead>Applicant</TableHead>
                         <TableHead>Region</TableHead>
                         <TableHead>Scholarship</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Submitted</TableHead>
+                        <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
- main
                     </TableHeader>
                     <TableBody>
                       {applications
@@ -1182,7 +1159,7 @@ export default function Component() {
                           );
                         })
                         .map((app) => (
-                          <TableRow key={app.id} className={`focus:outline-none ${highlightedApplicantId === app.id ? 'ring-2 ring-orange-400 bg-orange-50 animate-pulse' : ''}`}
+                          <TableRow key={app.id} className={`transition-colors duration-300 ${highlightedApplicantId === app.id ? getHighlightClass(app.status) : ''}`}
                             ref={el => {
                               if (highlightedApplicantId === app.id && el) {
                                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1212,7 +1189,7 @@ export default function Component() {
                                 </Avatar>
                                 <div>
                                   <p className="font-medium">{app.name}</p>
-                                  <p className="text-sm text-gray-500">{app.email}</p>
+                                  <p className="text-sm text-muted-foreground">{app.email}</p>
                                 </div>
                               </div>
                             </TableCell>
@@ -1228,10 +1205,7 @@ export default function Component() {
                                   : getStatusBadge(app.status)}
                               </div>
                             </TableCell>
- config
                             <TableCell>{app.submittedDate}</TableCell>
-                            <TableCell className="text-right">{app.submittedDate}</TableCell>
- main
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1257,8 +1231,8 @@ export default function Component() {
                                     <Download className="h-4 w-4 mr-2" />
                                     Download Documents
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteApplicant(app)}>
-                                    <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                  <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500" onClick={() => handleDeleteApplicant(app)}>
+                                    <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
                                     Delete Applicant
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -1403,7 +1377,7 @@ export default function Component() {
                         <div key={app.id} className="flex items-center justify-between border-b pb-2">
                           <div>
                             <div className="font-medium">{app.name}</div>
-                            <div className="text-xs text-gray-500">{app.email} | {app.scholarship}</div>
+                            <div className="text-xs text-muted-foreground">{app.email} | {app.scholarship}</div>
                           </div>
                           <div className="flex space-x-2">
                             <Button size="sm" variant="outline" onClick={() => handleRestoreApplicant(app)}>Restore</Button>
@@ -1435,53 +1409,53 @@ export default function Component() {
           {activeTab === "ranking" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-3xl font-bold text-gray-900">Application Ranking</h2>
-                <p className="text-gray-600">Review and rank scholarship applications by GWA (GPA)</p>
+                <h2 className="text-3xl font-bold text-foreground">Application Ranking</h2>
+                <p className="text-muted-foreground">Review and rank scholarship applications by GWA (GPA)</p>
               </div>
               {/* Slot Summary */}
               <div className="flex gap-4 mb-4">
                 <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-green-100 focus:bg-green-200"
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-green-100 dark:hover:bg-green-900/50 focus:bg-green-200"
                   onClick={() => setRankingStatusModal({ open: true, status: 'approved' })}
                   tabIndex={0}
                   style={{ outline: 'none' }}
                 >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{approved.length} / 102</div>
-                    <div className="text-green-700">Approved</div>
+                    <div className="text-green-700 dark:text-green-400">Approved</div>
                   </CardContent>
                 </div>
                 <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-yellow-100 focus:bg-yellow-200"
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-yellow-100 dark:hover:bg-yellow-900/50 focus:bg-yellow-200"
                   onClick={() => setRankingStatusModal({ open: true, status: 'reserve' })}
                   tabIndex={0}
                   style={{ outline: 'none' }}
                 >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{reserve.length} / 48</div>
-                    <div className="text-yellow-700">Reserve</div>
+                    <div className="text-yellow-700 dark:text-yellow-400">Reserve</div>
                   </CardContent>
                 </div>
                 <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-orange-100 focus:bg-orange-200"
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-orange-100 dark:hover:bg-orange-900/50 focus:bg-orange-200"
                   onClick={() => setRankingStatusModal({ open: true, status: 'pending' })}
                   tabIndex={0}
                   style={{ outline: 'none' }}
                 >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{pending.length}</div>
-                    <div className="text-orange-700">Pending</div>
+                    <div className="text-orange-700 dark:text-orange-400">Pending</div>
                   </CardContent>
                 </div>
                 <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-red-100 focus:bg-red-200"
+                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-red-100 dark:hover:bg-red-900/50 focus:bg-red-200"
                   onClick={() => setRankingStatusModal({ open: true, status: 'rejected' })}
                   tabIndex={0}
                   style={{ outline: 'none' }}
                 >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{rejected.length}</div>
-                    <div className="text-red-700">Rejected</div>
+                    <div className="text-red-700 dark:text-red-400">Rejected</div>
                   </CardContent>
                 </div>
               </div>
@@ -1499,47 +1473,65 @@ export default function Component() {
                         {[...approved, ...reserve].map((app, index) => (
                           <div
                             key={app.id}
-                            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-purple-50 ${selectedStudentId === app.id ? 'ring-2 ring-purple-400' : ''}`}
+                            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/50 ${selectedStudentId === app.id ? 'ring-2 ring-purple-400 dark:ring-purple-500' : ''}`}
                             onClick={() => setSelectedStudentId(app.id)}
                           >
-                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-4">
                               <div
-                                className={`flex items-center justify-center w-8 h-8 rounded-full font-bold ${index === 0 ? 'bg-amber-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-yellow-800 text-white' : 'bg-green-100 text-green-600'}`}
+                                className={`flex items-center justify-center w-8 h-8 rounded-full font-bold ${index === 0 ? 'bg-amber-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-yellow-800 text-white' : 'bg-green-100 text-green-600 dark:bg-green-900/80 dark:text-green-300'}`}
                               >
-                                {index + 1}
-                              </div>
-                              <Avatar>
-                                <AvatarImage src={app.avatar || "/placeholder.svg"} />
+                                  {index + 1}
+                                </div>
+                                <Avatar>
+                                  <AvatarImage src={app.avatar || "/placeholder.svg"} />
                                 <AvatarFallback>{app.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{app.name}</p>
-                                <p className="text-sm text-gray-500">GPA: {app.gpa}</p>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{app.name}</p>
+                                  <p className="text-sm text-muted-foreground">GPA: {app.gpa}</p>
                                 <span className={`text-xs font-bold ${app.requirementsStatus === 'Disqualified' ? 'text-red-600' : app.requirementsStatus === 'Incomplete' ? 'text-yellow-600' : 'text-green-600'}`}>{app.requirementsStatus}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                              {app.status === 'pending' ? (
-                                <Badge
-                                  variant="pending"
-                                  className="cursor-pointer hover:bg-orange-600 focus:ring-2 focus:ring-orange-400 transition"
-                                  onClick={e => {
+                              <div className="flex items-center space-x-4">
+                              {(() => {
+                                const status = app.status;
+                                const clickHandler = (e: React.MouseEvent) => {
                                     e.stopPropagation();
                                     setActiveTab('applications');
-                                    setStatusFilter('pending');
+                                    setStatusFilter(status);
                                     setHighlightedApplicantId(app.id);
-                                  }}
-                                  tabIndex={0}
-                                  role="button"
-                                  aria-label="Go to applicant in Applications"
-                                >
-                                  Pending
-                                </Badge>
-                              ) : getStatusBadge(app.status)}
+                                };
+
+                                const clickableBadges: { [key: string]: { variant: any; label: string; className: string } } = {
+                                    pending: { variant: 'pending', label: 'Pending', className: 'cursor-pointer hover:bg-orange-600 focus:ring-2 focus:ring-orange-400 transition' },
+                                    accepted: { variant: 'approved', label: 'Accepted', className: 'cursor-pointer hover:bg-green-600 focus:ring-2 focus:ring-green-400 transition' },
+                                    approved: { variant: 'approved', label: 'Approved', className: 'cursor-pointer hover:bg-green-600 focus:ring-2 focus:ring-green-400 transition' },
+                                    rejected: { variant: 'destructive', label: 'Rejected', className: 'cursor-pointer hover:bg-red-700 focus:ring-2 focus:ring-red-500 transition' },
+                                    under_review: { variant: 'underReview', label: 'Under Review', className: 'cursor-pointer hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 transition' },
+                                };
+
+                                if (clickableBadges[status]) {
+                                    const { variant, label, className } = clickableBadges[status];
+                                    return (
+                                        <Badge
+                                          variant={variant}
+                                          className={className}
+                                          onClick={clickHandler}
+                                          tabIndex={0}
+                                          role="button"
+                                          aria-label="Go to applicant in Applications"
+                                        >
+                                          {label}
+                                        </Badge>
+                                    );
+                                }
+
+                                return getStatusBadge(status);
+                              })()}
                               <Button size="sm" variant="destructive" onClick={e => { e.stopPropagation(); handleRemoveStudent(app.id); }}>Remove</Button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     </CardContent>
                   </Card>
@@ -1553,13 +1545,30 @@ export default function Component() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       {selectedStudentId ? (
-                        <RequirementsChecklist
-                          requirements={getRequirements(applications.find(a => a.id === selectedStudentId)?.scholarship || '')}
-                          validated={requirementsMap[selectedStudentId] || {}}
-                          onValidate={(req, value) => handleValidateRequirement(selectedStudentId, req, value)}
-                        />
+                        (() => {
+                          const selectedStudent = applications.find(a => a.id === selectedStudentId);
+                          const currentRequirements = getRequirements(selectedStudent?.scholarship || '');
+                          const validatedRequirements = requirementsMap[selectedStudentId] || {};
+                          const areAllValidated = currentRequirements.length > 0 && currentRequirements.every(req => validatedRequirements[req]?.valid);
+
+                          if (areAllValidated) {
+                            return (
+                              <div className="text-center text-green-600 dark:text-green-400 font-semibold p-4 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900/30">
+                                All Requirements have been completed
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <RequirementsChecklist
+                              requirements={currentRequirements}
+                              validated={validatedRequirements}
+                              onValidate={(req, value) => handleValidateRequirement(selectedStudentId, req, value)}
+                            />
+                          );
+                        })()
                       ) : (
-                        <p className="text-gray-600 text-sm">Select a student to view their requirements.</p>
+                        <p className="text-muted-foreground text-sm">Select a student to view their requirements.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1581,8 +1590,8 @@ export default function Component() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">Scholarships</h2>
-                  <p className="text-gray-600">Manage scholarship programs and deadlines</p>
+                  <h2 className="text-3xl font-bold text-foreground">Scholarships</h2>
+                  <p className="text-muted-foreground">Manage scholarship programs and deadlines</p>
                 </div>
                 <div className="flex items-center space-x-4">
                   <Select value={scholarshipSort} onValueChange={setScholarshipSort}>
@@ -1636,13 +1645,13 @@ export default function Component() {
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-lg">{scholarship.name}</CardTitle>
                           {scholarship.status === "active" ? (
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-700"><CheckCircle className="h-4 w-4 mr-1 text-green-500" /> Active</span>
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-700 dark:bg-green-900/80 dark:text-green-300"><CheckCircle className="h-4 w-4 mr-1 text-green-500" /> Active</span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-700"><Lock className="h-4 w-4 mr-1 text-red-500" /> Closed</span>
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-700 dark:bg-red-900/80 dark:text-red-300"><Lock className="h-4 w-4 mr-1 text-red-500" /> Closed</span>
                           )}
                         </div>
                         {scholarship.type && (
-                          <div className="mt-1 text-xs font-bold text-purple-700">{scholarship.type} Scholarship</div>
+                          <div className="mt-1 text-xs font-bold text-purple-700 dark:text-purple-400">{scholarship.type} Scholarship</div>
                         )}
                         <CardDescription>
                           <div className="flex items-center space-x-2">
@@ -1654,18 +1663,18 @@ export default function Component() {
                       <CardContent>
                         <div className="space-y-3">
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-500">Deadline:</span>
+                            <span className="text-muted-foreground">Deadline:</span>
                             <span className="font-medium">{scholarship.deadline}</span>
                           </div>
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-500">Applicants:</span>
+                            <span className="text-muted-foreground">Applicants:</span>
                             <span className="font-medium">{scholarship.applicants}</span>
                           </div>
                           <div className="pt-3 border-t flex space-x-2">
                             <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
                               <Eye className="h-4 w-4" />
                               <span>View</span>
-                            </Button>
+                              </Button>
                             <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
                               <Edit className="h-4 w-4" />
                               <span>Edit</span>
@@ -1673,7 +1682,7 @@ export default function Component() {
                             <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => setDeleteScholarshipDialog({ open: true, scholarship })}>
                               <Trash2 className="h-4 w-4" />
                               <span>Remove</span>
-                            </Button>
+                              </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -1717,8 +1726,8 @@ export default function Component() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">User Management</h2>
-                  <p className="text-gray-600">Manage system users and permissions</p>
+                  <h2 className="text-3xl font-bold text-foreground">User Management</h2>
+                  <p className="text-muted-foreground">Manage system users and permissions</p>
                 </div>
                 <Button onClick={handleOpenAddUser}>
                   <Users className="h-4 w-4 mr-2" />
@@ -1752,7 +1761,7 @@ export default function Component() {
                             </Avatar>
                             <div>
                               <p className="font-medium">{user.name}</p>
-                              <p className="text-sm text-gray-500">{user.email}</p>
+                              <p className="text-sm text-muted-foreground">{user.email}</p>
                             </div>
                           </div>
                         </TableCell>
@@ -1764,8 +1773,10 @@ export default function Component() {
                         <TableCell>
                           <span className="flex items-center gap-2">
                             {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                            {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-gray-400" />}
-                            <Badge variant="default">{user.status}</Badge>
+                            {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-muted-foreground" />}
+                            <Badge variant={user.status === 'Active' ? 'default' : 'destructive'} className={user.status === 'Active' ? 'bg-green-600 hover:bg-green-600/80 dark:bg-green-700 dark:text-white' : ''}>
+                              {user.status}
+                            </Badge>
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
@@ -1781,8 +1792,8 @@ export default function Component() {
                               <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>Reset Password</DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {user.status === 'Active' ? (
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleOpenDeactivate(user)}>
-                                  <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                <DropdownMenuItem className="text-red-600 dark:text-red-500" onClick={() => handleOpenDeactivate(user)}>
+                                  <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
                                   Deactivate
                                 </DropdownMenuItem>
                               ) : (
@@ -1791,8 +1802,8 @@ export default function Component() {
                                   Reactivate
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
-                                <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                              <DropdownMenuItem className="text-red-600 dark:text-red-500" onClick={() => handleDeleteUser(user)}>
+                                <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
                                 Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -1847,7 +1858,7 @@ export default function Component() {
 
       {/* User Modals */}
       <Dialog open={!!userModal} onOpenChange={handleCloseUserModal}>
-        <DialogContent className="max-w-md w-full p-6">
+        <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
           <DialogHeader>
             <DialogTitle>
               {userModal?.mode === 'add' && 'Add User'}
@@ -1858,13 +1869,13 @@ export default function Component() {
             </DialogTitle>
           </DialogHeader>
           {/* Modal Content */}
-          {userModal && userModal.mode === 'add' && (
+          {userModal?.mode === 'add' && (
             <UserForm onSave={handleSaveUser} onCancel={handleCloseUserModal} />
           )}
-          {userModal && userModal.mode === 'edit' && userModal.user && (
+          {userModal?.mode === 'edit' && userModal.user && (
             <UserForm user={userModal.user} onSave={handleSaveUser} onCancel={handleCloseUserModal} />
           )}
-          {userModal && userModal.mode === 'role' && userModal.user && (
+          {userModal?.mode === 'role' && userModal.user && (
             <div>
               <Label>Role</Label>
               <Select defaultValue={userModal.user.role} onValueChange={role => handleChangeRole(userModal.user!, role)}>
@@ -1880,10 +1891,10 @@ export default function Component() {
               <Button variant="outline" onClick={handleCloseUserModal}>Cancel</Button>
             </div>
           )}
-          {userModal && userModal.mode === 'reset' && userModal.user && (
+          {userModal?.mode === 'reset' && userModal.user && (
             <ChangePasswordForm user={userModal.user} onCancel={handleCloseUserModal} />
           )}
-          {userModal && userModal.mode === 'deactivate' && userModal.user && (
+          {userModal?.mode === 'deactivate' && userModal.user && (
             <div>
               <p>Are you sure you want to deactivate <b>{userModal.user.name}</b>?</p>
               <div className="flex space-x-2 mt-4">
@@ -1924,7 +1935,7 @@ export default function Component() {
                   </div>
                 </div>
                 {/* Content */}
-                <div className="flex-1 flex flex-row bg-white">
+                <div className="flex-1 flex flex-row bg-card">
                   {/* Bar Chart */}
                   <div className="flex-1 flex items-center justify-center min-w-[320px] max-w-[420px] border-r">
                     <ResponsiveContainer width="100%" height={340}>
@@ -1983,7 +1994,7 @@ export default function Component() {
           <DialogHeader>
             <DialogTitle>Delete All Permanently</DialogTitle>
           </DialogHeader>
-          <div className="py-4 text-center text-lg text-red-700 font-semibold">
+          <div className="py-4 text-center text-lg text-red-700 dark:text-red-500 font-semibold">
             Are you sure you want to permanently delete <b>ALL</b> records in the trash bin? This action cannot be undone.
           </div>
           <DialogFooter>
@@ -2153,12 +2164,12 @@ export default function Component() {
           </DialogHeader>
           {statusWorkflowDialog.step === 'pending' && statusWorkflowDialog.app && (
             <div className="py-4 text-center text-lg font-semibold">
-              Move this application to <span className="text-blue-600 font-bold">Under Review</span>?
+              Move this application to <span className="text-blue-600 dark:text-blue-400 font-bold">Under Review</span>?
             </div>
           )}
           {statusWorkflowDialog.step === 'under_review' && statusWorkflowDialog.app && (
             <div className="py-4 text-center text-lg font-semibold">
-              Do you want to <span className="text-green-600 font-bold">Accept</span> or <span className="text-red-600 font-bold">Reject</span> this application?
+              Do you want to <span className="text-green-600 dark:text-green-400 font-bold">Accept</span> or <span className="text-red-600 dark:text-red-500 font-bold">Reject</span> this application?
             </div>
           )}
           <DialogFooter>
@@ -2204,549 +2215,4 @@ export default function Component() {
       </Dialog>
     </div>
   )
-}
-
-// ScholarshipEditForm component
-function ScholarshipEditForm({ scholarship, onSave, onCancel }: { scholarship: Scholarship, onSave: (data: Scholarship) => void, onCancel: () => void }) {
-  const form = useForm<Omit<Scholarship, 'id'>>({
-    defaultValues: {
-      name: scholarship.name,
-      amount: scholarship.amount.replace('$', ''),
-      deadline: scholarship.deadline,
-      status: scholarship.status,
-      applicants: scholarship.applicants,
-    },
-  })
-
-  function onSubmit(values: Omit<Scholarship, 'id'>) {
-    onSave({ ...scholarship, ...values, amount: `$${values.amount}` }) // Add '$' back on save
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField name="name" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Name</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="amount" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl>
-              <Input {...field} type="text" inputMode="decimal" pattern="[₱0-9,. ]*" placeholder="₱ 5,000" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="deadline" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Deadline</FormLabel>
-            <FormControl>
-              <Input type="date" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="applicants" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Applicants</FormLabel>
-            <FormControl>
-              <Input type="number" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-// ScholarshipCreateForm component
-function ScholarshipCreateForm({ onSave, onCancel, type }: { onSave: (data: Omit<Scholarship, 'id'>) => void, onCancel: () => void, type?: 'Full' | 'Half' }) {
-  const form = useForm<Omit<Scholarship, 'id'>>({
-    defaultValues: {
-      name: "",
-      amount: "",
-      deadline: "",
-      status: "active", // Default status
-      applicants: 0,
-      type: type || 'Full',
-    },
-  })
-
-  function onSubmit(values: Omit<Scholarship, 'id'>) {
-    onSave({ ...values, type: type || 'Full' })
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-        <FormField name="name" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Name</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="amount" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl>
-              <Input {...field} type="number" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="deadline" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Deadline</FormLabel>
-            <FormControl>
-              <Input type="date" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="applicants" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Applicants</FormLabel>
-            <FormControl>
-              <Input type="number" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Create</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-// UserForm component
-function UserForm({ user, onSave, onCancel }: { user?: User, onSave: (user: User) => void, onCancel: () => void }) {
-  const form = useForm<User>({
-    defaultValues: user || { name: '', email: '', role: 'Staff', department: '', lastActive: 'Just now', status: 'Active', id: '' },
-  });
-  function onSubmit(values: User) {
-    onSave({ ...user, ...values, id: user?.id || '' });
-  }
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField name="name" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Name</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="email" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Email</FormLabel>
-            <FormControl>
-              <Input {...field} type="email" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="role" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Role</FormLabel>
-            <FormControl>
-              <Select defaultValue={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Administrator">Administrator</SelectItem>
-                  <SelectItem value="Staff">Staff</SelectItem>
-                  <SelectItem value="Viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="department" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Department</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="lastActive" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Last Active</FormLabel>
-            <FormControl>
-              <Input {...field} type="datetime-local" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-// ApplicationCreateForm component
-function ApplicationCreateForm({ onSave, onCancel, scholarships }: { onSave: (data: Omit<Application, 'id' | 'avatar'>) => void, onCancel: () => void, scholarships: Scholarship[] }) {
-  const form = useForm<Omit<Application, 'id' | 'avatar'>>({
-    defaultValues: {
-      name: "",
-      region: "",
-      email: "",
-      scholarship: "",
-      amount: "",
-      gpa: 0,
-      status: "pending",
-      submittedDate: "",
-      score: null,
-    },
-  })
-
-  function onSubmit(values: Omit<Application, 'id' | 'avatar'>) {
-    onSave(values)
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-        <FormField name="name" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Applicant Name</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        {/* Region Dropdown */}
-        <FormField name="region" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Region</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a region" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Palawan">Palawan</SelectItem>
-                  <SelectItem value="Mindoro Occidental">Mindoro Occidental</SelectItem>
-                  <SelectItem value="Mindoro Oriental">Mindoro Oriental</SelectItem>
-                  <SelectItem value="Marinduque">Marinduque</SelectItem>
-                  <SelectItem value="Romblon">Romblon</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="email" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Email</FormLabel>
-            <FormControl>
-              <Input {...field} type="email" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="scholarship" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Scholarship</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a scholarship" />
-                </SelectTrigger>
-                <SelectContent>
-                  {scholarships.map((sch) => (
-                    <SelectItem key={sch.id} value={sch.name}>
-                      {sch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="amount" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Amount</FormLabel>
-            <FormControl>
-              <Input {...field} type="number" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="gpa" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>GPA</FormLabel>
-            <FormControl>
-              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="submittedDate" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Submitted Date</FormLabel>
-            <FormControl>
-              <Input {...field} type="date" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Create Application</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-// ApplicationReviewForm component
-function ApplicationReviewForm({ application, onSave, onCancel }: { application: Application, onSave: (data: { score: number | null, status: string, review: string }) => void, onCancel: () => void }) {
-  const form = useForm<{ score: number | null, status: string, review: string }>({
-    defaultValues: {
-      score: application.score ?? null,
-      review: application.review || "",
-      status: application.status,
-    },
-  })
-
-  function onSubmit(values: { score: number | null, status: string, review: string }) {
-    onSave(values)
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="review" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Review Comments</FormLabel>
-            <FormControl>
-              <Textarea {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save Review</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-// SendMessageForm component
-function SendMessageForm({ application, onSend, onCancel }: { application: Application, onSend: (data: { recipientEmail: string, subject: string, message: string }) => void, onCancel: () => void }) {
-  const form = useForm<{ recipientEmail: string, subject: string, message: string }>({ // Update type
-    defaultValues: {
-      recipientEmail: application.email,
-      subject: "",
-      message: "",
-    },
-  })
-
-  function onSubmit(values: { recipientEmail: string, subject: string, message: string }) {
-    onSend(values)
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full"> {/* Added w-full for full width */}
-        <FormField name="recipientEmail" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Recipient Email</FormLabel>
-            <FormControl>
-              <Input {...field} readOnly />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="subject" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Subject</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField name="message" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Message</FormLabel>
-            <FormControl>
-              <Textarea {...field} rows={5} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Send Message</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-// ChangePasswordForm component
-function ChangePasswordForm({ user, onCancel }: { user: User, onCancel: () => void }) {
-  const [oldPassword, setOldPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [retypePassword, setRetypePassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (!oldPassword || !newPassword || !retypePassword) {
-      setError('All fields are required.');
-      return;
-    }
-    if (newPassword !== retypePassword) {
-      setError('New passwords do not match.');
-      return;
-    }
-    // Simulate password change
-    setSuccess('Password changed successfully!');
-    setTimeout(onCancel, 1200);
-  };
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block font-medium mb-1">Old Password</label>
-        <input type="password" className="w-full border rounded p-2" value={oldPassword} onChange={e => setOldPassword(e.target.value)} required placeholder="Enter old password" />
-      </div>
-      <div>
-        <label className="block font-medium mb-1">New Password</label>
-        <input type="password" className="w-full border rounded p-2" value={newPassword} onChange={e => setNewPassword(e.target.value)} required placeholder="Enter new password" />
-      </div>
-      <div>
-        <label className="block font-medium mb-1">Re-type Password</label>
-        <input type="password" className="w-full border rounded p-2" value={retypePassword} onChange={e => setRetypePassword(e.target.value)} required placeholder="Re-type new password" />
-      </div>
-      {error && <div className="text-red-600 text-sm">{error}</div>}
-      {success && <div className="text-green-600 text-sm">{success}</div>}
-      <div className="flex gap-2 mt-2">
-        <button type="submit" className="flex-1 bg-black text-white rounded p-2" disabled={!oldPassword || !newPassword || !retypePassword || newPassword !== retypePassword}>Confirm</button>
-        <button type="button" className="flex-1 border rounded p-2" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
-  );
 }

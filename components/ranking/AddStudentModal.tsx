@@ -1,4 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AddStudentModalProps {
   open: boolean;
@@ -11,64 +17,107 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ open, onClose, onAdd,
   const [name, setName] = useState('');
   const [gpa, setGpa] = useState('');
   const [scholarship, setScholarship] = useState(scholarships[0]?.name || '');
-  const [requirements, setRequirements] = useState<Record<string, boolean>>({});
+  const [requirements, setRequirements] = useState<Record<string, { valid: boolean; falseDoc: boolean }>>({});
 
   const selectedScholarship = scholarships.find(s => s.name === scholarship);
   const reqList = selectedScholarship?.requirements || [];
 
+  useEffect(() => {
+    // Reset requirements when scholarship changes
+    const newReqs: Record<string, { valid: boolean; falseDoc: boolean }> = {};
+    reqList.forEach(req => {
+      newReqs[req] = { valid: false, falseDoc: false };
+    });
+    setRequirements(newReqs);
+  }, [scholarship]);
+
   const handleReqChange = (req: string, checked: boolean) => {
-    setRequirements(prev => ({ ...prev, [req]: checked }));
+    setRequirements(prev => ({ ...prev, [req]: { ...prev[req], valid: checked } }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name || !gpa || !scholarship) {
+      // Basic validation
+      return;
+    }
     onAdd({
-      id: Date.now().toString(),
+      id: `APP${Date.now()}`, // More consistent ID
       name,
       gpa: parseFloat(gpa),
       scholarship,
-      requirements,
+      requirements, // Pass the new requirements structure
       status: 'pending',
       avatar: '/placeholder.svg',
     });
     onClose();
+    // Reset form
+    setName('');
+    setGpa('');
+    setScholarship(scholarships[0]?.name || '');
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md space-y-4">
-        <h3 className="text-xl font-bold mb-2">Add Student</h3>
-        <input className="w-full border p-2 rounded" placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
-        <input className="w-full border p-2 rounded" placeholder="GPA" type="number" step="0.01" value={gpa} onChange={e => setGpa(e.target.value)} required />
-        <select className="w-full border p-2 rounded" value={scholarship} onChange={e => setScholarship(e.target.value)}>
-          {scholarships.map(s => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </select>
-        <div>
-          <h4 className="font-semibold mb-2">Requirements</h4>
-          <div className="flex flex-col gap-2">
-            {reqList.map(req => (
-              <label key={req} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={!!requirements[req]}
-                  onChange={e => handleReqChange(req, e.target.checked)}
-                  className="accent-purple-600 w-4 h-4 rounded border-gray-300"
-                />
-                {req}
-              </label>
-            ))}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add Student to Reserve List</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input id="name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" required />
           </div>
-        </div>
-        <div className="flex gap-2 mt-4">
-          <button type="submit" className="flex-1 bg-purple-600 text-white rounded p-2">Add</button>
-          <button type="button" className="flex-1 border rounded p-2" onClick={onClose}>Cancel</button>
-        </div>
-      </form>
-    </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="gpa" className="text-right">
+              GPA
+            </Label>
+            <Input id="gpa" type="number" step="0.01" value={gpa} onChange={e => setGpa(e.target.value)} className="col-span-3" required />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="scholarship" className="text-right">
+              Scholarship
+            </Label>
+            <Select value={scholarship} onValueChange={setScholarship}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a scholarship" />
+              </SelectTrigger>
+              <SelectContent>
+                {scholarships.map(s => (
+                  <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="font-semibold mb-2 block text-center">Requirements Submitted</Label>
+            <div className="flex flex-col gap-3 p-2 rounded-md border">
+              {reqList.map(req => (
+                <div key={req} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`req-${req}`}
+                    checked={requirements[req]?.valid || false}
+                    onCheckedChange={checked => handleReqChange(req, !!checked)}
+                  />
+                  <Label htmlFor={`req-${req}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    {req}
+                  </Label>
+                </div>
+              ))}
+              {reqList.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center">Select a scholarship to see requirements.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Add Student</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 
