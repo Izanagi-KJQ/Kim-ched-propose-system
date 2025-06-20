@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "./card";
 import { Input } from "./input";
@@ -14,18 +15,21 @@ interface LoginFormInputs {
 }
 
 export function LoginForm() {
+  const router = useRouter();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
   const [authError, setAuthError] = useState<string | null>(null);
 
   const onSubmit = async (data: LoginFormInputs) => {
     setAuthError(null);
-    // Simulate API call
+    // In a real app, you'd fetch user data from an API
+    const storedEmail = localStorage.getItem('user-email') || 'admin@example.com';
+    const storedPassword = localStorage.getItem('user-password') || 'password';
+
     await new Promise((r) => setTimeout(r, 1000));
-    if (data.email !== "admin@example.com" || data.password !== "password") {
+    if (data.email !== storedEmail || data.password !== storedPassword) {
       setAuthError("Invalid email or password");
     } else {
-      // Redirect or set auth state here
-      alert("Login successful!");
+      router.push("/");
     }
   };
 
@@ -67,7 +71,7 @@ export function LoginForm() {
                 <Checkbox id="remember" {...register("remember")}/>
                 <Label htmlFor="remember">Remember me</Label>
               </div>
-              <a href="#" className="text-sm text-primary hover:underline">Forgot password?</a>
+              <a href="/forgot-password" className="text-sm text-primary hover:underline">Forgot password?</a>
             </div>
             {authError && <p className="text-sm text-destructive mt-1">{authError}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -84,7 +88,7 @@ export function LoginForm() {
             </div>
           </CardContent>
           <CardFooter className="justify-center">
-            <span className="text-sm text-muted-foreground">Don't have an account? <a href="#" className="text-primary hover:underline">Sign up</a></span>
+            <span className="text-sm text-muted-foreground">Don't have an account? <a href="/register" className="text-primary hover:underline">Sign up</a></span>
           </CardFooter>
         </form>
       </Card>
