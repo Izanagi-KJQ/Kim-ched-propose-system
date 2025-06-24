@@ -44,11 +44,11 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
         )} />
         <FormField name="region" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Region</FormLabel>
+            <FormLabel>Province</FormLabel>
             <FormControl>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a region" />
+                  <SelectValue placeholder="Change Province" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Palawan">Palawan</SelectItem>
@@ -95,7 +95,17 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
           <FormItem>
             <FormLabel>Amount</FormLabel>
             <FormControl>
-              <Input {...field} type="number" />
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-gray-500 select-none pointer-events-none">₱</span>
+                <Input
+                  {...field}
+                  type="number"
+                  className="pl-7"
+                  placeholder="₱ 0.00"
+                  value={field.value?.replace(/^₱\s*/, "")}
+                  onChange={e => field.onChange(e.target.value)}
+                />
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>
