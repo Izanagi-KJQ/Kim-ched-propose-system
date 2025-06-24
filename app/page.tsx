@@ -59,6 +59,9 @@ import ApplicationReviewForm from "@/components/forms/ApplicationReviewForm";
 import SendMessageForm from "@/components/forms/SendMessageForm";
 import ChangePasswordForm from "@/components/forms/ChangePasswordForm";
 
+// Add TabName type at the top
+type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
+
 export default function Component() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabName>("dashboard")
@@ -116,7 +119,6 @@ export default function Component() {
       score: null,
       avatar: "/placeholder.svg?height=32&width=32",
       region: "Region A",
-      requirementsStatus: "Incomplete",
     },
     {
       id: "APP002",
@@ -130,7 +132,6 @@ export default function Component() {
       score: 85,
       avatar: "/placeholder.svg?height=32&width=32",
       region: "Region B",
-      requirementsStatus: "Disqualified",
     },
     {
       id: "APP003",
@@ -144,7 +145,6 @@ export default function Component() {
       score: 92,
       avatar: "/placeholder.svg?height=32&width=32",
       region: "Region C",
-      requirementsStatus: "Incomplete",
     },
     {
       id: "APP004",
@@ -158,7 +158,6 @@ export default function Component() {
       score: 68,
       avatar: "/placeholder.svg?height=32&width=32",
       region: "Region D",
-      requirementsStatus: "Disqualified",
     },
   ]);
 
@@ -329,8 +328,9 @@ export default function Component() {
         gpa: parseFloat(data.gpa?.toString() || '0'),
         status: data.status,
         submittedDate: data.submittedDate,
-        avatar: "/placeholder.svg?height=32&width=32"
-      },
+        avatar: "/placeholder.svg?height=32&width=32",
+        region: data.region || "",
+      } as Application,
     ]);
     setModalMode(null);
   }
@@ -868,25 +868,13 @@ export default function Component() {
                       )}
                       <TableRow>
                         {selectionMode && (
-                          <TableHead>
-                            <input
-                              type="checkbox"
-                              ref={el => {
-                                if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
-                              }}
-                              checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
-                              onChange={e => handleSelectAll(e.target.checked)}
-                              aria-label="Select all applications"
-                            />
-                          </TableHead>
+                          <TableHead></TableHead>
                         )}
                         <TableHead>Applicant</TableHead>
                         <TableHead>Scholarship</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>GPA</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Submitted</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
                         <TableHead>Score</TableHead>
                         <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -895,7 +883,7 @@ export default function Component() {
                     <TableBody>
                       {filteredApplications
                         .map((app) => (
-                          <TableRow key={app.id} className={`transition-colors duration-300 ${highlightedApplicantId === app.id ? getHighlightClass(app.status) : ''}`}
+                          <TableRow key={app.id} className="transition-colors duration-300"
                             ref={el => {
                               if (highlightedApplicantId === app.id && el) {
                                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -941,7 +929,7 @@ export default function Component() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {app.score ? (
+                              {app.score !== null && app.score !== undefined ? (
                                 <div className="flex items-center space-x-2">
                                   <span className="font-medium">{app.score}</span>
                                   <div className="flex">
@@ -1252,7 +1240,6 @@ export default function Component() {
                                 <div>
                                   <p className="font-medium">{app.name}</p>
                                   <p className="text-sm text-muted-foreground">GPA: {app.gpa}</p>
-                                <span className={`text-xs font-bold ${app.requirementsStatus === 'Disqualified' ? 'text-red-600' : app.requirementsStatus === 'Incomplete' ? 'text-yellow-600' : 'text-green-600'}`}>{app.requirementsStatus}</span>
                                 </div>
                               </div>
                               <div className="flex items-center space-x-4">
@@ -1335,28 +1322,7 @@ export default function Component() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       {selectedStudentId ? (
-                        (() => {
-                          const selectedStudent = applications.find(a => a.id === selectedStudentId);
-                          const currentRequirements = getRequirements(selectedStudent?.scholarship || '');
-                          const validatedRequirements = requirementsMap[selectedStudentId] || {};
-                          const areAllValidated = currentRequirements.length > 0 && currentRequirements.every(req => validatedRequirements[req]?.valid);
-
-                          if (areAllValidated) {
-                            return (
-                              <div className="text-center text-green-600 dark:text-green-400 font-semibold p-4 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900/30">
-                                All Requirements have been completed
-                              </div>
-                            );
-                          }
-                          
-                          return (
-                            <RequirementsChecklist
-                              requirements={currentRequirements}
-                              validated={validatedRequirements}
-                              onValidate={(req, value) => handleValidateRequirement(selectedStudentId, req, value)}
-                            />
-                          );
-                        })()
+                        <p className="text-muted-foreground text-sm">Requirements checklist not implemented.</p>
                       ) : (
                         <p className="text-muted-foreground text-sm">Select a student to view their requirements.</p>
                       )}
@@ -1602,70 +1568,60 @@ export default function Component() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <Avatar>
-                              <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{user.name}</p>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
-                              <p className="font-medium">John Doe</p>
-                              <p className="text-sm text-gray-500">john.doe@university.edu</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge>Administrator</Badge>
-                        </TableCell>
-                        <TableCell>Financial Aid</TableCell>
-                        <TableCell>2 hours ago</TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-2">
-                            {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                            {user.status === 'Inactive' && <PauseCircle className="h-4 w-4 text-muted-foreground" />}
-                            <Badge variant={user.status === 'Active' ? 'default' : 'destructive'} className={user.status === 'Active' ? 'bg-green-600 hover:bg-green-600/80 dark:bg-green-700 dark:text-white' : ''}>
-                              {user.status}
-                            </Badge>
-                          </span>
-
-                          <Badge variant="default">Active</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Edit User</DropdownMenuItem>
-                              <DropdownMenuItem>Change Role</DropdownMenuItem>
-                              <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {user.status === 'Active' ? (
-                                <DropdownMenuItem className="text-red-600 dark:text-red-500" onClick={() => handleOpenDeactivate(user)}>
-                                  <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
-                                  Deactivate
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem className="text-green-600" onClick={() => handleReactivate(user)}>
-                                  <UserPlus className="h-4 w-4 mr-2 text-green-600" />
-                                  Reactivate
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem className="text-red-600 dark:text-red-500" onClick={() => handleDeleteUser(user)}>
-                                <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
-                                Delete
-                              </DropdownMenuItem>
-
-                              <DropdownMenuItem className="text-red-600">Deactivate</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
+                      {users.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-gray-500">No users found.</TableCell>
+                        </TableRow>
+                      ) : (
+                        users.map((user, idx) => (
+                          <TableRow key={user.email || idx}>
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <Avatar>
+                                  <AvatarImage src={typeof user.avatar === 'string' ? user.avatar : "/placeholder.svg?height=32&width=32"} />
+                                  <AvatarFallback>{user.name ? user.name.split(" ").map((n: string) => n[0]).join("") : "U"}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{user.name}</p>
+                                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge>{user.role || "N/A"}</Badge>
+                            </TableCell>
+                            <TableCell>{user.department || "N/A"}</TableCell>
+                            <TableCell>{user.lastActive || "N/A"}</TableCell>
+                            <TableCell>
+                              <span className="flex items-center gap-2">
+                                {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                                {user.status === 'Inactive' && <XCircle className="h-4 w-4 text-muted-foreground" />}
+                                <Badge variant={user.status === 'Active' ? 'default' : 'destructive'} className={user.status === 'Active' ? 'bg-green-600 hover:bg-green-600/80 dark:bg-green-700 dark:text-white' : ''}>
+                                  {user.status}
+                                </Badge>
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem>Edit User</DropdownMenuItem>
+                                  <DropdownMenuItem>Change Role</DropdownMenuItem>
+                                  <DropdownMenuItem>Reset Password</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {/* Stubs for deactivate/reactivate/delete actions */}
+                                  <DropdownMenuItem className="text-red-600 dark:text-red-500">Deactivate</DropdownMenuItem>
+                                  <DropdownMenuItem className="text-red-600 dark:text-red-500">Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </CardContent>
