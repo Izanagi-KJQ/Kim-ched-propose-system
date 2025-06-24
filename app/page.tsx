@@ -63,9 +63,6 @@ import { cn } from "@/lib/utils";
 // Add TabName type
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
 
-// Add TabName type at the top
-type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
-
 export default function Component() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabName>("dashboard")
@@ -122,12 +119,8 @@ export default function Component() {
       submittedDate: "2024-01-15",
       score: null,
       avatar: "/placeholder.svg?height=32&width=32",
-<<<<<<< HEAD
-      region: "Region A",
-=======
       region: "Palawan",
       requirements: {},
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
     },
     {
       id: "APP002",
@@ -140,12 +133,8 @@ export default function Component() {
       submittedDate: "2024-01-14",
       score: 85,
       avatar: "/placeholder.svg?height=32&width=32",
-<<<<<<< HEAD
-      region: "Region B",
-=======
       region: "Mindoro Occidental",
       requirements: {},
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
     },
     {
       id: "APP003",
@@ -158,12 +147,8 @@ export default function Component() {
       submittedDate: "2024-01-12",
       score: 92,
       avatar: "/placeholder.svg?height=32&width=32",
-<<<<<<< HEAD
-      region: "Region C",
-=======
       region: "Marinduque",
       requirements: {},
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
     },
     {
       id: "APP004",
@@ -176,12 +161,8 @@ export default function Component() {
       submittedDate: "2024-01-10",
       score: 68,
       avatar: "/placeholder.svg?height=32&width=32",
-<<<<<<< HEAD
-      region: "Region D",
-=======
       region: "Romblon",
       requirements: {},
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
     },
   ]);
 
@@ -370,16 +351,11 @@ export default function Component() {
         status: data.status,
         submittedDate: data.submittedDate,
         avatar: "/placeholder.svg?height=32&width=32",
-<<<<<<< HEAD
         region: data.region || "",
-      } as Application,
-=======
-        region: data.region || '',
         requirements: data.requirements || {},
         score: data.score || null,
         review: data.review || '',
-      },
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
+      } as Application,
     ]);
     setModalMode(null);
   }
@@ -775,7 +751,6 @@ export default function Component() {
                   </div>
                 </CardContent>
               </Card>
-<<<<<<< HEAD
 
               {/* Applications Table */}
               <Card>
@@ -917,34 +892,10 @@ export default function Component() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
-=======
-              {/* Student Ranking Table */}
-              <Card className="bg-card border-0 shadow-md flex flex-col h-full dark:bg-[#23232a] dark:text-gray-100">
-                <CardHeader>
-                  <CardTitle>Student Ranking (by GWA)</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col justify-center">
-                  <div className={ranking.length >= 8 ? "w-full max-h-[300px] overflow-y-auto" : "w-full"}>
-                    <Table className="w-full">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">#</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead className="w-24 text-right">GWA</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ranking.map((app, idx) => (
-                          <TableRow key={app.id}>
-                            <TableCell className="font-bold">{idx + 1}</TableCell>
-                            <TableCell>{app.name}</TableCell>
-                            <TableCell className="text-right">{app.gpa?.toFixed(2)}</TableCell>
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
                           </TableRow>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </div>
@@ -958,7 +909,6 @@ export default function Component() {
                 <h2 className="text-3xl font-bold text-foreground">Applications</h2>
                 <p className="text-muted-foreground">Manage and review scholarship applications</p>
               </div>
-<<<<<<< HEAD
               {/* Slot Summary */}
               <div className="flex gap-4 mb-4">
                 <div
@@ -1080,7 +1030,6 @@ export default function Component() {
 
                                 return getStatusBadge(status);
                               })()}
-                              <Button size="sm" variant="destructive" onClick={e => { e.stopPropagation(); handleRemoveStudent(app.id); }}>Remove</Button>
                               </div>
                                   <AvatarFallback>
                                     {app.name
@@ -1206,7 +1155,6 @@ export default function Component() {
                     </CardContent>
                   </Card>
                 </div>
-=======
               <div className="flex items-center space-x-4">
                 <Button variant="outline" onClick={() => setTrashBinOpen(true)}>
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -1219,7 +1167,6 @@ export default function Component() {
                   <FileText className="h-4 w-4 mr-2" />
                   New Application
                 </Button>
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
               </div>
             </div>
 
@@ -1611,7 +1558,7 @@ export default function Component() {
               </DialogContent>
             </Dialog>
           </div>
-        )}
+        }
 
         {activeTab === "ranking" && (
           <div className="space-y-6">
@@ -2048,7 +1995,6 @@ export default function Component() {
                 <h2 className="text-3xl font-bold text-foreground">User Management</h2>
                 <p className="text-muted-foreground">Manage system users and permissions</p>
               </div>
-<<<<<<< HEAD
 
               <Card>
                 <CardContent className="pt-6">
@@ -2122,14 +2068,12 @@ export default function Component() {
                   </Table>
                 </CardContent>
               </Card>
-=======
               <Button
                 onClick={() => setShowAddUserModal(true)}
               >
                 <Users className="h-4 w-4 mr-2" />
                 Add User
               </Button>
->>>>>>> d1d59b93b40851a610fc3b62981d452fcd3fc550
             </div>
 
             <Card className="dark:bg-[#23232a] dark:text-gray-100">
