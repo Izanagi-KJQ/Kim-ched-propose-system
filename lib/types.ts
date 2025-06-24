@@ -32,4 +32,5 @@ export interface User {
   department: string;
   lastActive: string;
   status: string;
+  avatar?: string;
 } 

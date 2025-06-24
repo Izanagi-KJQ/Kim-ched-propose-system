@@ -548,6 +548,26 @@ export default function Component() {
     setStatusWorkflowDialog({ open: false, app: null, step: null });
   };
 
+  // Add after the useState for users
+  useEffect(() => {
+    async function fetchUsers() {
+      setLoadingUsers(true);
+      try {
+        const res = await fetch('/api/users');
+        if (!res.ok) throw new Error('Failed to fetch users');
+        const data = await res.json();
+        setUsers(data);
+      } catch (err) {
+        setUsers([]);
+      } finally {
+        setLoadingUsers(false);
+      }
+    }
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab]);
+
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
       {/* Header */}
@@ -602,49 +622,49 @@ export default function Component() {
       </header>
       {/* Sidebar - fixed, not scrollable */}
       <aside className="bg-white border-r border-gray-200 dark:bg-[#18181b] dark:border-gray-800 h-[calc(100vh-64px)] sticky top-[64px] flex-shrink-0 z-20 col-start-1 row-start-2" style={{ gridArea: 'sidebar' }}>
-        <nav className="p-4 space-y-2">
-          <Button
-            variant={activeTab === "dashboard" ? "default" : "ghost"}
-            className={`w-full justify-start ${activeTab === 'dashboard' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
-            onClick={() => setActiveTab("dashboard")}
-          >
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Dashboard
-          </Button>
-          <Button
-            variant={activeTab === "applications" ? "default" : "ghost"}
-            className={`w-full justify-start ${activeTab === 'applications' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
-            onClick={() => setActiveTab("applications")}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Applications
-          </Button>
-          <Button
-            variant={activeTab === "scholarships" ? "default" : "ghost"}
-            className={`w-full justify-start ${activeTab === 'scholarships' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
-            onClick={() => setActiveTab("scholarships")}
-          >
-            <Award className="h-4 w-4 mr-2" />
-            Scholarships
-          </Button>
-          <Button
-            variant={activeTab === "ranking" ? "default" : "ghost"}
-            className={`w-full justify-start ${activeTab === 'ranking' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
-            onClick={() => setActiveTab("ranking")}
-          >
-            <Star className="h-4 w-4 mr-2" />
-            Ranking
-          </Button>
-          <Button
-            variant={activeTab === "users" ? "default" : "ghost"}
-            className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
-            onClick={() => setActiveTab("users")}
-          >
-            <Users className="h-4 w-4 mr-2" />
-            Users
-          </Button>
-        </nav>
-      </aside>
+          <nav className="p-4 space-y-2">
+            <Button
+              variant={activeTab === "dashboard" ? "default" : "ghost"}
+              className={`w-full justify-start ${activeTab === 'dashboard' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
+              onClick={() => setActiveTab("dashboard")}
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Dashboard
+            </Button>
+            <Button
+              variant={activeTab === "applications" ? "default" : "ghost"}
+              className={`w-full justify-start ${activeTab === 'applications' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
+              onClick={() => setActiveTab("applications")}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Applications
+            </Button>
+            <Button
+              variant={activeTab === "scholarships" ? "default" : "ghost"}
+              className={`w-full justify-start ${activeTab === 'scholarships' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
+              onClick={() => setActiveTab("scholarships")}
+            >
+              <Award className="h-4 w-4 mr-2" />
+              Scholarships
+            </Button>
+            <Button
+              variant={activeTab === "ranking" ? "default" : "ghost"}
+              className={`w-full justify-start ${activeTab === 'ranking' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
+              onClick={() => setActiveTab("ranking")}
+            >
+              <Star className="h-4 w-4 mr-2" />
+              Ranking
+            </Button>
+            <Button
+              variant={activeTab === "users" ? "default" : "ghost"}
+              className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
+              onClick={() => setActiveTab("users")}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Users
+            </Button>
+          </nav>
+        </aside>
       {/* Main Content - only this scrolls */}
       <main className="p-8 bg-[#F4F0FA] dark:bg-[#18181b] overflow-y-auto h-[calc(100vh-64px)] z-10 col-start-2 row-start-2" style={{ gridArea: 'main' }}>
         {activeTab === "dashboard" && (
@@ -654,14 +674,14 @@ export default function Component() {
             </div>
             {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Total Applications */}
-              <Card
-                className="bg-purple-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-purple-200 dark:hover:bg-purple-800"
-                onClick={() => { setActiveTab('applications'); setStatusFilter('all'); }}
-                tabIndex={0}
-                role="button"
-                aria-label="Go to Applications"
-              >
+            {/* Total Applications */}
+            <Card
+              className="bg-purple-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-purple-200 dark:hover:bg-purple-800"
+              onClick={() => { setActiveTab('applications'); setStatusFilter('all'); }}
+              tabIndex={0}
+              role="button"
+              aria-label="Go to Applications"
+            >
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Total Applications</CardTitle>
                   <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -670,30 +690,30 @@ export default function Component() {
                   <div className="text-2xl font-bold text-foreground">{stats.totalApplications}</div>
                 </CardContent>
               </Card>
-              {/* Under Review (was Pending Review) */}
-              <Card
-                className="bg-blue-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-blue-200 dark:hover:bg-blue-800"
-                onClick={() => { setActiveTab('applications'); setStatusFilter('under_review'); }}
-                tabIndex={0}
-                role="button"
-                aria-label="Go to Under Review Applications"
-              >
+            {/* Under Review (was Pending Review) */}
+            <Card
+              className="bg-blue-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-blue-200 dark:hover:bg-blue-800"
+              onClick={() => { setActiveTab('applications'); setStatusFilter('under_review'); }}
+              tabIndex={0}
+              role="button"
+              aria-label="Go to Under Review Applications"
+            >
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Under Review</CardTitle>
-                  <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Under Review</CardTitle>
+                <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-foreground">{stats.pendingReview}</div>
                 </CardContent>
               </Card>
-              {/* Approved */}
-              <Card
-                className="bg-green-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-green-200 dark:hover:bg-green-800"
-                onClick={() => { setActiveTab('applications'); setStatusFilter('approved'); }}
-                tabIndex={0}
-                role="button"
-                aria-label="Go to Approved Applications"
-              >
+            {/* Approved */}
+            <Card
+              className="bg-green-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-green-200 dark:hover:bg-green-800"
+              onClick={() => { setActiveTab('applications'); setStatusFilter('approved'); }}
+              tabIndex={0}
+              role="button"
+              aria-label="Go to Approved Applications"
+            >
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
                   <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -702,17 +722,17 @@ export default function Component() {
                   <div className="text-2xl font-bold text-foreground">{stats.approved}</div>
                 </CardContent>
               </Card>
-              {/* Active Scholarships */}
-              <Card
-                className="bg-yellow-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-yellow-200 dark:hover:bg-yellow-800"
-                onClick={() => { setActiveTab('scholarships'); setScholarshipSort('status_active'); }}
-                tabIndex={0}
-                role="button"
-                aria-label="Go to Active Scholarships"
-              >
+            {/* Active Scholarships */}
+            <Card
+              className="bg-yellow-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-yellow-200 dark:hover:bg-yellow-800"
+              onClick={() => { setActiveTab('scholarships'); setScholarshipSort('status_active'); }}
+              tabIndex={0}
+              role="button"
+              aria-label="Go to Active Scholarships"
+            >
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Active Scholarships</CardTitle>
-                  <Award className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                <Award className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-foreground">{stats.totalScholarships}</div>
@@ -752,150 +772,32 @@ export default function Component() {
                 </CardContent>
               </Card>
 
-              {/* Applications Table */}
-              <Card>
-                <CardContent className="pt-6 overflow-x-auto" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                  {selectionMode && selectedAppIds.length > 0 && (
-                    <div className="mb-2 flex items-center gap-4">
-                      <span className="text-sm font-medium">{selectedAppIds.length} selected</span>
-                      <Button variant="destructive" size="sm" onClick={handleBulkDelete}>Move to Trash Bin</Button>
-                      <Button variant="outline" size="sm" onClick={() => setSelectionMode(false)}>Cancel Selection</Button>
-                    </div>
-                  )}
-                  <Table>
-                    <TableHeader>
-                      {selectionMode && (
-                        <TableHead>
-                          <input
-                            type="checkbox"
-                            ref={el => {
-                              if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
-                            }}
-                            checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
-                            onChange={e => handleSelectAll(e.target.checked)}
-                            aria-label="Select all applications"
-                          />
-                        </TableHead>
-                      )}
-                      <TableRow>
-                        {selectionMode && (
-                          <TableHead></TableHead>
-                        )}
-                        <TableHead>Applicant</TableHead>
-                        <TableHead>Scholarship</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>GPA</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Submitted</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredApplications
-                        .map((app) => (
-                          <TableRow key={app.id} className="transition-colors duration-300"
-                            ref={el => {
-                              if (highlightedApplicantId === app.id && el) {
-                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              }
-                            }}
-                          >
-                            {selectionMode && (
-                              <TableCell>
-                                <input
-                                  type="checkbox"
-                                  checked={selectedAppIds.includes(app.id)}
-                                  onChange={e => handleSelectOne(app.id, e.target.checked)}
-                                  aria-label={`Select application for ${app.name}`}
-                                />
-                              </TableCell>
-                            )}
-                            <TableCell>
-                              <div className="flex items-center space-x-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={app.avatar || "/placeholder.svg"} />
-                                  <AvatarFallback>
-                                    {app.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{app.name}</p>
-                                  <p className="text-sm text-muted-foreground">{app.email}</p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{app.scholarship}</TableCell>
-                            <TableCell>{app.amount}</TableCell>
-                            <TableCell>{app.gpa}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                {getStatusIcon(app.status)}
-                                {app.status === 'pending' ? getStatusBadge(app.status, () => setStatusWorkflowDialog({ open: true, app, step: 'pending' }))
-                                  : app.status === 'under_review' ? getStatusBadge(app.status, () => setStatusWorkflowDialog({ open: true, app, step: 'under_review' }))
-                                  : getStatusBadge(app.status)}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {app.score !== null && app.score !== undefined ? (
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-medium">{app.score}</span>
-                                  <div className="flex">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`h-4 w-4 ${i < Math.floor((app.score || 0) / 20)
-                                            ? "text-yellow-400 fill-current"
-                                            : "text-gray-300"
-                                          }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">Not scored</span>
-                              )}
-                            </TableCell>
-                            <TableCell>{app.submittedDate}</TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem onClick={() => setSelectedApplication(app)}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View Details
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setSelectedApplication(app); setModalMode("reviewApplication"); }}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Review & Score
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setSelectedApplication(app); setModalMode("sendMessage"); }}>
-                                    <Mail className="h-4 w-4 mr-2" />
-                                    Send Message
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDownloadDocuments(app)}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download Documents
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500" onClick={() => handleDeleteApplicant(app)}>
-                                    <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
-                                    Delete Applicant
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
+              {/* Student Ranking (by GWA) */}
+              <Card className="bg-card border-0 shadow-md flex flex-col h-full dark:bg-[#23232a] dark:text-gray-100">
+                <CardHeader>
+                  <CardTitle>Student Ranking (by GWA)</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-x-auto">
+                  <div className={`overflow-y-auto ${ranking.length > 8 ? 'max-h-[340px]' : ''}`}>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>#</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>GWA</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ranking.slice(0, 8).map((app, idx) => (
+                          <TableRow key={app.id}>
+                            <TableCell>{idx + 1}</TableCell>
+                            <TableCell>{app.name}</TableCell>
+                            <TableCell>{app.gpa?.toFixed(2)}</TableCell>
                           </TableRow>
                         ))}
-                    </TableBody>
-                  </Table>
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -909,311 +811,62 @@ export default function Component() {
                 <h2 className="text-3xl font-bold text-foreground">Applications</h2>
                 <p className="text-muted-foreground">Manage and review scholarship applications</p>
               </div>
-              {/* Slot Summary */}
-              <div className="flex gap-4 mb-4">
-                <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-green-100 dark:hover:bg-green-900/50 focus:bg-green-200"
-                  onClick={() => setRankingStatusModal({ open: true, status: 'approved' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{approved.length} / 102</div>
-                    <div className="text-green-700 dark:text-green-400">Approved</div>
-                  </CardContent>
-                </div>
-                <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-yellow-100 dark:hover:bg-yellow-900/50 focus:bg-yellow-200"
-                  onClick={() => setRankingStatusModal({ open: true, status: 'reserve' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{reserve.length} / 48</div>
-                    <div className="text-yellow-700 dark:text-yellow-400">Reserve</div>
-                  </CardContent>
-                </div>
-                <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-orange-100 dark:hover:bg-orange-900/50 focus:bg-orange-200"
-                  onClick={() => setRankingStatusModal({ open: true, status: 'pending' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{pending.length}</div>
-                    <div className="text-orange-700 dark:text-orange-400">Pending</div>
-                  </CardContent>
-                </div>
-                <div
-                  className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-red-100 dark:hover:bg-red-900/50 focus:bg-red-200"
-                  onClick={() => setRankingStatusModal({ open: true, status: 'rejected' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{rejected.length}</div>
-                    <div className="text-red-700 dark:text-red-400">Rejected</div>
-                  </CardContent>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Ranking List */}
-                <div className="lg:col-span-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Merit Excellence Scholarship Rankings</CardTitle>
-                      <CardDescription>Applications ranked by overall score</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {[...approved, ...reserve].map((app, index) => (
-                          <div
-                            key={app.id}
-                            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/50 ${selectedStudentId === app.id ? 'ring-2 ring-purple-400 dark:ring-purple-500' : ''}`}
-                            onClick={() => setSelectedStudentId(app.id)}
-                          >
-                              <div className="flex items-center space-x-4">
-                              <div
-                                className={`flex items-center justify-center w-8 h-8 rounded-full font-bold ${index === 0 ? 'bg-amber-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-yellow-800 text-white' : 'bg-green-100 text-green-600 dark:bg-green-900/80 dark:text-green-300'}`}
-                              >
-                        {applications
-                          .filter((app) => app.score)
-                          .sort((a, b) => (b.score || 0) - (a.score || 0))
-                          .map((app, index) => (
-                            <div key={app.id} className="flex items-center justify-between p-4 border rounded-lg">
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-bold">
-                                  {index + 1}
-                                </div>
-                                <Avatar>
-                                  <AvatarImage src={app.avatar || "/placeholder.svg"} />
-                                <AvatarFallback>{app.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{app.name}</p>
-                                  <p className="text-sm text-muted-foreground">GPA: {app.gpa}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                              {(() => {
-                                const status = app.status;
-                                const clickHandler = (e: React.MouseEvent) => {
-                                    e.stopPropagation();
-                                    setActiveTab('applications');
-                                    setStatusFilter(status);
-                                    setHighlightedApplicantId(app.id);
-                                };
-
-                                const clickableBadges: { [key: string]: { variant: any; label: string; className: string } } = {
-                                    pending: { variant: 'pending', label: 'Pending', className: 'cursor-pointer hover:bg-orange-600 focus:ring-2 focus:ring-orange-400 transition' },
-                                    accepted: { variant: 'approved', label: 'Accepted', className: 'cursor-pointer hover:bg-green-600 focus:ring-2 focus:ring-green-400 transition' },
-                                    approved: { variant: 'approved', label: 'Approved', className: 'cursor-pointer hover:bg-green-600 focus:ring-2 focus:ring-green-400 transition' },
-                                    rejected: { variant: 'destructive', label: 'Rejected', className: 'cursor-pointer hover:bg-red-700 focus:ring-2 focus:ring-red-500 transition' },
-                                    under_review: { variant: 'underReview', label: 'Under Review', className: 'cursor-pointer hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 transition' },
-                                };
-
-                                if (clickableBadges[status]) {
-                                    const { variant, label, className } = clickableBadges[status];
-                                    return (
-                                        <Badge
-                                          variant={variant}
-                                          className={className}
-                                          onClick={clickHandler}
-                                          tabIndex={0}
-                                          role="button"
-                                          aria-label="Go to applicant in Applications"
-                                        >
-                                          {label}
-                                        </Badge>
-                                    );
-                                }
-
-                                return getStatusBadge(status);
-                              })()}
-                              </div>
-                                  <AvatarFallback>
-                                    {app.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </AvatarFallback>
-                                            </div>
-                                          ))}
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <div className="text-right">
-                                  <p className="font-bold text-lg">{app.score}</p>
-                                  <div className="flex">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`h-4 w-4 ${i < Math.floor((app.score || 0) / 20)
-                                            ? "text-yellow-400 fill-current"
-                                            : "text-gray-300"
-                                          }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                                {getStatusBadge(app.status)}
-                              </div>
-                            </div>
-                          ))}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Scoring Panel */}
-                <div>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Quick Score</CardTitle>
-                      <CardDescription>Score applications quickly</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {selectedStudentId ? (
-                        <p className="text-muted-foreground text-sm">Requirements checklist not implemented.</p>
-                      ) : (
-                        <p className="text-muted-foreground text-sm">Select a student to view their requirements.</p>
-                      )}
-
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label htmlFor="academic">Academic Performance (40%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="40"
-                            placeholder="0-40"
-                            value={academic}
-                            onChange={e => setAcademic(Number(e.target.value))}
-                          />
-                          <span className="text-sm text-gray-500">/40</span>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="extracurricular">Extracurricular (30%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="30"
-                            placeholder="0-30"
-                            value={extracurricular}
-                            onChange={e => setExtracurricular(Number(e.target.value))}
-                          />
-                          <span className="text-sm text-gray-500">/30</span>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="essay">Essay Quality (20%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="20"
-                            placeholder="0-20"
-                            value={essay}
-                            onChange={e => setEssay(Number(e.target.value))}
-                          />
-                          <span className="text-sm text-gray-500">/20</span>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="financial">Financial Need (10%)</Label>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="10"
-                            placeholder="0-10"
-                            value={financial}
-                            onChange={e => setFinancial(Number(e.target.value))}
-                          />
-                          <span className="text-sm text-gray-500">/10</span>
-                        </div>
-                      </div>
-                      <div className="pt-4 border-t">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Total Score</span>
-                          <span className="text-2xl font-bold">{totalScore}</span>
-                        </div>
-                        <Progress value={totalScore} className="mb-4" />
-                        <Textarea
-                          placeholder="Add review comments..."
-                          className="mb-4"
-                          value={review}
-                          onChange={e => setReview(e.target.value)}
-                        />
-                        <Button className="w-full" onClick={handleSaveScore}>
-                          Save Score & Review
-                        </Button>
-                      </div>
-                              </CardContent>
-                    </CardContent>
-                  </Card>
-                </div>
               <div className="flex items-center space-x-4">
-                <Button variant="outline" onClick={() => setTrashBinOpen(true)}>
+                <Button variant="outline" onClick={() => setTrashBinOpen(true)} aria-label="Open Trash Bin">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
                 </Button>
-                <Button variant={selectionMode ? "default" : "outline"} onClick={() => setSelectionMode(m => !m)}>
+                <Button variant={selectionMode ? "default" : "outline"} onClick={() => setSelectionMode(m => !m)} aria-label={selectionMode ? "Cancel Selection" : "Select Applications"}>
                   {selectionMode ? "Cancel" : "Select"}
                 </Button>
-                <Button onClick={() => setModalMode("createApplication")}>
+                <Button onClick={() => setModalMode("createApplication")}
+                  className="bg-black text-white border-2 border-black hover:bg-white hover:text-black transition-colors"
+                  aria-label="New Application">
                   <FileText className="h-4 w-4 mr-2" />
                   New Application
                 </Button>
               </div>
             </div>
-
             {/* Filters */}
-            <Card className="dark:bg-[#23232a] dark:text-gray-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-1">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Search applications..."
-                        className="pl-10 border border-gray-300 hover:border-purple-500 focus:border-purple-600 focus:border-2 hover:border focus:outline-none transition-colors dark:hover:border-purple-400 dark:focus:border-purple-500"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="under_review">Under Review</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={scholarshipFilter} onValueChange={setScholarshipFilter}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Filter by scholarship" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Scholarships</SelectItem>
-                      {scholarships.map((scholarship) => (
-                        <SelectItem key={scholarship.id} value={scholarship.name}>
-                          {scholarship.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex-1 min-w-[220px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search applications..."
+                    className="pl-10 border border-gray-300 hover:border-purple-500 focus:border-purple-600 focus:border-2 hover:border focus:outline-none transition-colors dark:hover:border-purple-400 dark:focus:border-purple-500"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    aria-label="Search applications"
+                  />
                 </div>
-              </CardContent>
-            </Card>
-
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48" aria-label="Filter by status">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={scholarshipFilter} onValueChange={setScholarshipFilter}>
+                <SelectTrigger className="w-48" aria-label="Filter by scholarship">
+                  <SelectValue placeholder="Filter by scholarship" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Scholarships</SelectItem>
+                  {scholarships.map((scholarship) => (
+                    <SelectItem key={scholarship.id} value={scholarship.name}>
+                      {scholarship.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {/* Applications Table */}
             <Card className="dark:bg-[#23232a] dark:text-gray-100">
               <CardContent className="pt-6 overflow-x-auto" style={{ maxHeight: '420px', overflowY: 'auto' }}>
@@ -1239,19 +892,20 @@ export default function Component() {
                         />
                       </TableHead>
                     )}
-                      <TableHead>Applicant</TableHead>
-                    <TableHead>Province</TableHead>
-                      <TableHead>Scholarship</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>GPA</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Applicant</TableHead>
+                    <TableHead>Region</TableHead>
+                    <TableHead>Scholarship</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>GPA</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Review</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableHeader>
                   <TableBody>
                     {filteredApplications
                       .map((app) => (
-                        <TableRow key={app.id} className={`transition-colors duration-300`}
+                        <TableRow key={app.id} className="transition-colors duration-300"
                           ref={el => {
                             if (highlightedApplicantId === app.id && el) {
                               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1297,6 +951,13 @@ export default function Component() {
                                 : getStatusBadge(app.status)}
                             </div>
                           </TableCell>
+                          <TableCell>
+                            {app.review && app.review.trim() !== '' ? (
+                              <span>{app.review}</span>
+                            ) : (
+                              <span className="text-gray-400">None</span>
+                            )}
+                          </TableCell>
                           <TableCell>{app.submittedDate}</TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -1306,6 +967,7 @@ export default function Component() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => setSelectedApplication(app)}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
@@ -1558,7 +1220,7 @@ export default function Component() {
               </DialogContent>
             </Dialog>
           </div>
-        }
+        )}
 
         {activeTab === "ranking" && (
           <div className="space-y-6">
@@ -1727,10 +1389,10 @@ export default function Component() {
                 <p className="text-muted-foreground">Manage scholarship programs and deadlines</p>
               </div>
               <div className="flex items-center space-x-4">
-                <Button variant="outline" onClick={() => setScholarshipTrashOpen(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Trash Bin {scholarshipTrash.length > 0 && <span className="ml-1">({scholarshipTrash.length})</span>}
-                </Button>
+              <Button variant="outline" onClick={() => setScholarshipTrashOpen(true)}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Trash Bin {scholarshipTrash.length > 0 && <span className="ml-1">({scholarshipTrash.length})</span>}
+              </Button>
                 <Select value={scholarshipSort} onValueChange={setScholarshipSort}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Sort by" />
@@ -1793,34 +1455,34 @@ export default function Component() {
                           <span className="font-bold text-lg text-green-700">₱</span>
                           <span>{scholarship.amount.replace(/[$₱]/g, "")}</span>
                         </div>
-                        {scholarship.type && (
-                          <div className="mt-1 text-xs font-bold text-purple-700 dark:text-purple-400">{scholarship.type} Scholarship</div>
-                        )}
+                      {scholarship.type && (
+                        <div className="mt-1 text-xs font-bold text-purple-700 dark:text-purple-400">{scholarship.type} Scholarship</div>
+                      )}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Deadline:</span>
+                        <span className="text-muted-foreground">Deadline:</span>
                           <span className="font-medium">{scholarship.deadline}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Applicants:</span>
+                        <span className="text-muted-foreground">Applicants:</span>
                           <span className="font-medium">{scholarship.applicants}</span>
                         </div>
-                        <div className="pt-3 border-t flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
-                            <Eye className="h-4 w-4" />
-                            <span>View</span>
-                          </Button>
-                          <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
-                            <Edit className="h-4 w-4" />
-                            <span>Edit</span>
-                          </Button>
-                          <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => setDeleteScholarshipDialog({ open: true, scholarship })}>
-                            <Trash2 className="h-4 w-4" />
-                            <span>Remove</span>
-                          </Button>
+                      <div className="pt-3 border-t flex space-x-2">
+                        <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
+                          <Eye className="h-4 w-4" />
+                          <span>View</span>
+                            </Button>
+                        <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
+                          <Edit className="h-4 w-4" />
+                          <span>Edit</span>
+                        </Button>
+                        <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => setDeleteScholarshipDialog({ open: true, scholarship })}>
+                          <Trash2 className="h-4 w-4" />
+                          <span>Remove</span>
+                            </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -1844,26 +1506,26 @@ export default function Component() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            {/* Scholarship Create Modal (floating window) */}
-            <Dialog open={!!pendingScholarshipType} onOpenChange={open => { if (!open) { setPendingScholarshipType(null); setScholarshipTypeDialog(false); } }}>
-              <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
-                <DialogHeader>
-                  <DialogTitle>Create {pendingScholarshipType} Scholarship</DialogTitle>
-                </DialogHeader>
-                {pendingScholarshipType && (
-                  <ScholarshipCreateForm
-                    onSave={data => { handleCreateScholarship({ ...data, type: pendingScholarshipType }); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
-                    onCancel={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
-                    type={pendingScholarshipType}
-                  />
-                )}
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline" onClick={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}>Cancel</Button>
-                  </DialogClose>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+          {/* Scholarship Create Modal (floating window) */}
+          <Dialog open={!!pendingScholarshipType} onOpenChange={open => { if (!open) { setPendingScholarshipType(null); setScholarshipTypeDialog(false); } }}>
+            <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Create {pendingScholarshipType} Scholarship</DialogTitle>
+              </DialogHeader>
+              {pendingScholarshipType && (
+              <ScholarshipCreateForm
+                onSave={data => { handleCreateScholarship({ ...data, type: pendingScholarshipType }); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
+                onCancel={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
+                type={pendingScholarshipType}
+              />
+            )}
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" onClick={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}>Cancel</Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
             {/* Scholarship Remove Confirmation Modal */}
             <Dialog open={deleteScholarshipDialog.open} onOpenChange={open => setDeleteScholarshipDialog(d => ({ ...d, open }))}>
               <DialogContent className="max-w-md w-full p-6 rounded-xl">
@@ -1873,14 +1535,14 @@ export default function Component() {
                 {deleteScholarshipDialog.scholarship && (
                   <div className="space-y-2 text-sm">
                     <p>Are you sure you want to remove <span className="font-semibold">{deleteScholarshipDialog.scholarship.name}</span>?</p>
-                    <p className="text-xs text-muted-foreground">This will move the scholarship to the Trash Bin. All related rankings will also be removed.</p>
+                  <p className="text-xs text-muted-foreground">This will move the scholarship to the Trash Bin. All related rankings will also be removed.</p>
                   </div>
                 )}
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setDeleteScholarshipDialog({ open: false, scholarship: null })}>Cancel</Button>
                   <Button variant="destructive" onClick={() => {
                     if (deleteScholarshipDialog.scholarship) {
-                      handleRemoveScholarship(deleteScholarshipDialog.scholarship);
+                    handleRemoveScholarship(deleteScholarshipDialog.scholarship);
                       setDeleteScholarshipDialog({ open: false, scholarship: null });
                     }
                   }}>Remove</Button>
@@ -1915,76 +1577,76 @@ export default function Component() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            {/* Scholarship Trash Bin Modal */}
-            <Dialog open={scholarshipTrashOpen} onOpenChange={setScholarshipTrashOpen}>
-              <DialogContent className="max-w-lg w-full p-6 rounded-xl">
-                <DialogHeader>
-                  <DialogTitle>Scholarship Trash Bin</DialogTitle>
-                </DialogHeader>
-                {scholarshipTrash.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">No deleted scholarships.</div>
-                ) : (
-                  <div className="space-y-4" style={scholarshipTrash.length >= 5 ? { maxHeight: '320px', overflowY: 'auto' } : {}}>
-                    {scholarshipTrash.map(sch => (
-                      <div key={sch.id} className="flex items-center justify-between border-b pb-2">
-                        <div>
-                          <div className="font-medium">{sch.name}</div>
-                          <div className="text-xs text-muted-foreground">Amount: {sch.amount} | Deadline: {sch.deadline}</div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button size="sm" variant="outline" onClick={() => handleRestoreScholarship(sch)}>Restore</Button>
-                          <Button size="sm" variant="destructive" onClick={() => setPermanentDeleteScholarshipDialog({ open: true, scholarship: sch })}>Delete Permanently</Button>
-                        </div>
+          {/* Scholarship Trash Bin Modal */}
+          <Dialog open={scholarshipTrashOpen} onOpenChange={setScholarshipTrashOpen}>
+            <DialogContent className="max-w-lg w-full p-6 rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Scholarship Trash Bin</DialogTitle>
+              </DialogHeader>
+              {scholarshipTrash.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">No deleted scholarships.</div>
+              ) : (
+                <div className="space-y-4" style={scholarshipTrash.length >= 5 ? { maxHeight: '320px', overflowY: 'auto' } : {}}>
+                  {scholarshipTrash.map(sch => (
+                    <div key={sch.id} className="flex items-center justify-between border-b pb-2">
+                      <div>
+                        <div className="font-medium">{sch.name}</div>
+                        <div className="text-xs text-muted-foreground">Amount: {sch.amount} | Deadline: {sch.deadline}</div>
                       </div>
-                    ))}
-                    {scholarshipTrash.length > 1 && (
-                      <div className="flex justify-end mt-4">
-                        <Button size="lg" variant="destructive" onClick={() => setPermanentDeleteAllScholarshipsDialog(true)}>
-                          Delete All Permanently
-                        </Button>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="outline" onClick={() => handleRestoreScholarship(sch)}>Restore</Button>
+                        <Button size="sm" variant="destructive" onClick={() => setPermanentDeleteScholarshipDialog({ open: true, scholarship: sch })}>Delete Permanently</Button>
                       </div>
-                    )}
-                  </div>
-                )}
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setScholarshipTrashOpen(false)}>Close</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            {/* Permanent Delete Scholarship Dialog */}
-            <Dialog open={permanentDeleteScholarshipDialog.open} onOpenChange={open => setPermanentDeleteScholarshipDialog(d => ({ ...d, open }))}>
-              <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                <DialogHeader>
-                  <DialogTitle>Delete Scholarship Permanently</DialogTitle>
-                </DialogHeader>
-                {permanentDeleteScholarshipDialog.scholarship && (
-                  <div className="space-y-2 text-sm">
-                    <p>Are you sure you want to permanently delete <span className="font-semibold">{permanentDeleteScholarshipDialog.scholarship.name}</span>?</p>
-                    <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
-                  </div>
-                )}
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setPermanentDeleteScholarshipDialog({ open: false, scholarship: null })}>Cancel</Button>
-                  <Button variant="destructive" onClick={() => { if (permanentDeleteScholarshipDialog.scholarship) { handlePermanentDeleteScholarship(permanentDeleteScholarshipDialog.scholarship); setPermanentDeleteScholarshipDialog({ open: false, scholarship: null }); } }}>Delete Permanently</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            {/* Permanent Delete All Scholarships Dialog */}
-            <Dialog open={permanentDeleteAllScholarshipsDialog} onOpenChange={setPermanentDeleteAllScholarshipsDialog}>
-              <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                <DialogHeader>
-                  <DialogTitle>Delete All Scholarships Permanently</DialogTitle>
-                </DialogHeader>
+                    </div>
+                  ))}
+                  {scholarshipTrash.length > 1 && (
+                    <div className="flex justify-end mt-4">
+                      <Button size="lg" variant="destructive" onClick={() => setPermanentDeleteAllScholarshipsDialog(true)}>
+                        Delete All Permanently
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setScholarshipTrashOpen(false)}>Close</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Permanent Delete Scholarship Dialog */}
+          <Dialog open={permanentDeleteScholarshipDialog.open} onOpenChange={open => setPermanentDeleteScholarshipDialog(d => ({ ...d, open }))}>
+            <DialogContent className="max-w-md w-full p-6 rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Delete Scholarship Permanently</DialogTitle>
+              </DialogHeader>
+              {permanentDeleteScholarshipDialog.scholarship && (
                 <div className="space-y-2 text-sm">
-                  <p>Are you sure you want to permanently delete <span className="font-semibold">all scholarships</span> in the Trash Bin?</p>
+                  <p>Are you sure you want to permanently delete <span className="font-semibold">{permanentDeleteScholarshipDialog.scholarship.name}</span>?</p>
                   <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setPermanentDeleteAllScholarshipsDialog(false)}>Cancel</Button>
-                  <Button variant="destructive" onClick={() => { handlePermanentDeleteAllScholarships(); setPermanentDeleteAllScholarshipsDialog(false); }}>Delete All Permanently</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPermanentDeleteScholarshipDialog({ open: false, scholarship: null })}>Cancel</Button>
+                <Button variant="destructive" onClick={() => { if (permanentDeleteScholarshipDialog.scholarship) { handlePermanentDeleteScholarship(permanentDeleteScholarshipDialog.scholarship); setPermanentDeleteScholarshipDialog({ open: false, scholarship: null }); } }}>Delete Permanently</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Permanent Delete All Scholarships Dialog */}
+          <Dialog open={permanentDeleteAllScholarshipsDialog} onOpenChange={setPermanentDeleteAllScholarshipsDialog}>
+            <DialogContent className="max-w-md w-full p-6 rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Delete All Scholarships Permanently</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2 text-sm">
+                <p>Are you sure you want to permanently delete <span className="font-semibold">all scholarships</span> in the Trash Bin?</p>
+                <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPermanentDeleteAllScholarshipsDialog(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => { handlePermanentDeleteAllScholarships(); setPermanentDeleteAllScholarshipsDialog(false); }}>Delete All Permanently</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           </div>
         )}
 
@@ -1995,89 +1657,18 @@ export default function Component() {
                 <h2 className="text-3xl font-bold text-foreground">User Management</h2>
                 <p className="text-muted-foreground">Manage system users and permissions</p>
               </div>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Last Active</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center text-gray-500">No users found.</TableCell>
-                        </TableRow>
-                      ) : (
-                        users.map((user, idx) => (
-                          <TableRow key={user.email || idx}>
-                            <TableCell>
-                              <div className="flex items-center space-x-3">
-                                <Avatar>
-                                  <AvatarImage src={typeof user.avatar === 'string' ? user.avatar : "/placeholder.svg?height=32&width=32"} />
-                                  <AvatarFallback>{user.name ? user.name.split(" ").map((n: string) => n[0]).join("") : "U"}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{user.name}</p>
-                                  <p className="text-sm text-muted-foreground">{user.email}</p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge>{user.role || "N/A"}</Badge>
-                            </TableCell>
-                            <TableCell>{user.department || "N/A"}</TableCell>
-                            <TableCell>{user.lastActive || "N/A"}</TableCell>
-                            <TableCell>
-                              <span className="flex items-center gap-2">
-                                {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                                {user.status === 'Inactive' && <XCircle className="h-4 w-4 text-muted-foreground" />}
-                                <Badge variant={user.status === 'Active' ? 'default' : 'destructive'} className={user.status === 'Active' ? 'bg-green-600 hover:bg-green-600/80 dark:bg-green-700 dark:text-white' : ''}>
-                                  {user.status}
-                                </Badge>
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>Edit User</DropdownMenuItem>
-                                  <DropdownMenuItem>Change Role</DropdownMenuItem>
-                                  <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  {/* Stubs for deactivate/reactivate/delete actions */}
-                                  <DropdownMenuItem className="text-red-600 dark:text-red-500">Deactivate</DropdownMenuItem>
-                                  <DropdownMenuItem className="text-red-600 dark:text-red-500">Delete</DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-              <Button
-                onClick={() => setShowAddUserModal(true)}
-              >
+            <Button onClick={() => setShowAddUserModal(true)}>
                 <Users className="h-4 w-4 mr-2" />
                 Add User
               </Button>
             </div>
-
             <Card className="dark:bg-[#23232a] dark:text-gray-100">
               <CardContent className="pt-6">
+              {loadingUsers ? (
+                <div className="text-center text-muted-foreground py-8">Loading users...</div>
+              ) : users.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">No users found.</div>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -2090,22 +1681,17 @@ export default function Component() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {users.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">No users found.</TableCell>
-                      </TableRow>
-                    ) : (
-                      users.map(user => (
+                    {users.map(user => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <Avatar>
-                            <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                              <AvatarImage src={"/placeholder.svg?height=32&width=32"} />
                             <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium">{user.name}</p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
+                              <p className="text-sm text-muted-foreground">{user.email}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -2116,8 +1702,11 @@ export default function Component() {
                       <TableCell>{user.lastActive}</TableCell>
                       <TableCell>
                         <span className="flex items-center gap-2">
-                              {getStatusIcon(user.status)}
-                          <Badge variant="default">{user.status}</Badge>
+                            {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                            {user.status === 'Inactive' && <XCircle className="h-4 w-4 text-muted-foreground" />}
+                            <Badge variant={user.status === 'Active' ? 'default' : 'destructive'} className={user.status === 'Active' ? 'bg-green-600 hover:bg-green-600/80 dark:bg-green-700 dark:text-white' : ''}>
+                              {user.status}
+                            </Badge>
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -2128,21 +1717,43 @@ export default function Component() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Edit User</DropdownMenuItem>
-                                <DropdownMenuItem>Change Role</DropdownMenuItem>
-                                <DropdownMenuItem>Reset Password</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setUserModal({ mode: 'edit', user })}>Edit User</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setUserModal({ mode: 'role', user })}>Change Role</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setUserModal({ mode: 'reset', user })}>Reset Password</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeactivateUser(user)}>Deactivate</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onClick={() => setUserModal({ mode: 'deactivate', user })}>Deactivate</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                      ))
-                    )}
+                    ))}
                 </TableBody>
               </Table>
+              )}
               </CardContent>
             </Card>
+          {/* Add/Edit User Modal */}
+          <Dialog open={!!userModal || showAddUserModal} onOpenChange={() => { setUserModal(null); setShowAddUserModal(false); }}>
+            <DialogContent className="max-w-md w-full p-6 rounded-xl">
+              <DialogHeader>
+                <DialogTitle>{userModal?.mode === 'edit' ? 'Edit User' : userModal?.mode === 'role' ? 'Change Role' : userModal?.mode === 'reset' ? 'Reset Password' : userModal?.mode === 'deactivate' ? 'Deactivate User' : 'Add User'}</DialogTitle>
+              </DialogHeader>
+              <UserForm
+                user={userModal?.user}
+                onSave={user => {
+                  setUserModal(null);
+                  setShowAddUserModal(false);
+                  setActiveTab('users'); // refetch
+                }}
+                onCancel={() => { setUserModal(null); setShowAddUserModal(false); }}
+              />
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Close</Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           </div>
         )}
       </main>
