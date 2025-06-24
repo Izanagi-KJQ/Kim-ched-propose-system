@@ -43,7 +43,17 @@ export default function ScholarshipCreateForm({ onSave, onCancel, type }: Schola
           <FormItem>
             <FormLabel>Amount</FormLabel>
             <FormControl>
-              <Input {...field} type="number" />
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-gray-500 select-none pointer-events-none">₱</span>
+                <Input
+                  {...field}
+                  type="number"
+                  className="pl-7"
+                  placeholder="₱ 0.00"
+                  value={field.value?.replace(/^₱\s*/, "")}
+                  onChange={e => field.onChange(e.target.value)}
+                />
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>

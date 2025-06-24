@@ -1,10 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
-config
 import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner"
-import { ThemeProvider } from "@/components/theme-provider"
-main
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: 'samrs project',
@@ -22,19 +19,12 @@ export default function RootLayout({
       <body>
         <ThemeProvider
           attribute="class"
-config
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
           {children}
-          defaultTheme="light"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
-          {children}
           <Toaster />
-main
         </ThemeProvider>
       </body>
     </html>
