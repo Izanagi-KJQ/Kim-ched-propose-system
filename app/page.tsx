@@ -728,7 +728,7 @@ export default function Component() {
     // TODO: Implement reactivate logic
   }
   function handleDeleteUser(user: User) {
-    // TODO: Implement delete logic
+    setDeleteUserDialog({ open: true, user });
   }
 
   const handleStatusUpdate = (appId: string, newStatus: "under_review" | "approved" | "rejected") => {
@@ -757,6 +757,21 @@ export default function Component() {
       fetchUsers();
     }
   }, [activeTab]);
+
+  // 1. Add state for delete user dialog
+  const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+
+  async function confirmDeleteUser() {
+    if (!deleteUserDialog.user) return;
+    try {
+      await fetch(`/api/users/${deleteUserDialog.user.id}`, { method: 'DELETE' });
+      setUsers(prev => prev.filter(u => u.id !== deleteUserDialog.user!.id));
+    } catch (err) {
+      // Optionally show error toast
+    } finally {
+      setDeleteUserDialog({ open: false, user: null });
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
@@ -2154,7 +2169,9 @@ export default function Component() {
                               <DropdownMenuItem onClick={() => setUserModal({ mode: 'role', user })}>Change Role</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setUserModal({ mode: 'reset', user })}>Reset Password</DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600" onClick={() => setUserModal({ mode: 'deactivate', user })}>Deactivate</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
+                                Delete User
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
