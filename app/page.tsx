@@ -62,6 +62,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 // Add TabName type
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
@@ -772,6 +773,10 @@ export default function Component() {
       setDeleteUserDialog({ open: false, user: null });
     }
   }
+
+  const [roleDialog, setRoleDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+  const [resetDialog, setResetDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+  const [selectedRole, setSelectedRole] = useState<string>("");
 
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
@@ -2166,8 +2171,8 @@ export default function Component() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => setUserModal({ mode: 'edit', user })}>Edit User</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setUserModal({ mode: 'role', user })}>Change Role</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setUserModal({ mode: 'reset', user })}>Reset Password</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRoleDialog({ open: true, user })}>Change Role</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setResetDialog({ open: true, user })}>Reset Password</DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
                                 Delete User
@@ -2184,16 +2189,38 @@ export default function Component() {
               </Card>
           {/* Add/Edit User Modal */}
           <Dialog open={!!userModal || showAddUserModal} onOpenChange={() => { setUserModal(null); setShowAddUserModal(false); }}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl">
+            <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
               <DialogHeader>
                 <DialogTitle>{userModal?.mode === 'edit' ? 'Edit User' : userModal?.mode === 'role' ? 'Change Role' : userModal?.mode === 'reset' ? 'Reset Password' : userModal?.mode === 'deactivate' ? 'Deactivate User' : 'Add User'}</DialogTitle>
               </DialogHeader>
               <UserForm
                 user={userModal?.user}
-                onSave={user => {
+                onSave={async (user) => {
+                  if (user.id) {
+                    // Edit existing user
+                    const res = await fetch(`/api/users/${user.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(user),
+                    });
+                    if (res.ok) {
+                      const updatedUser = await res.json();
+                      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+                    }
+                  } else {
+                    // Add new user
+                    const res = await fetch('/api/users', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(user),
+                    });
+                    if (res.ok) {
+                      const newUser = await res.json();
+                      setUsers(prev => [...prev, newUser]);
+                    }
+                  }
                   setUserModal(null);
                   setShowAddUserModal(false);
-                  setActiveTab('users'); // refetch
                 }}
                 onCancel={() => { setUserModal(null); setShowAddUserModal(false); }}
               />
@@ -2201,6 +2228,71 @@ export default function Component() {
                 <DialogClose asChild>
                   <Button variant="outline">Close</Button>
                 </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Role Change Dialog */}
+          <Dialog open={roleDialog.open} onOpenChange={open => setRoleDialog(d => ({ ...d, open }))}>
+            <DialogContent className="max-w-md w-full p-6 rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Change Role</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Label htmlFor="role-select">Select new role:</Label>
+                <Select value={selectedRole || roleDialog.user?.role || ""} onValueChange={setSelectedRole}>
+                  <SelectTrigger id="role-select">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Administrator">Administrator</SelectItem>
+                    <SelectItem value="Staff">Staff</SelectItem>
+                    <SelectItem value="Viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRoleDialog({ open: false, user: null })}>Cancel</Button>
+                <Button onClick={async () => {
+                  if (!roleDialog.user || !selectedRole) return;
+                  const res = await fetch(`/api/users/${roleDialog.user.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: selectedRole }),
+                  });
+                  if (res.ok) {
+                    const updatedUser = await res.json();
+                    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+                    toast.success('Role updated successfully!');
+                  } else {
+                    toast.error('Failed to update role.');
+                  }
+                  setRoleDialog({ open: false, user: null });
+                  setSelectedRole("");
+                }}>Confirm</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Reset Password Dialog */}
+          <Dialog open={resetDialog.open} onOpenChange={open => setResetDialog(d => ({ ...d, open }))}>
+            <DialogContent className="max-w-md w-full p-6 rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Reset Password</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p>Are you sure you want to reset the password for <span className="font-semibold">{resetDialog.user?.name}</span>?</p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setResetDialog({ open: false, user: null })}>Cancel</Button>
+                <Button variant="destructive" onClick={async () => {
+                  if (!resetDialog.user) return;
+                  const res = await fetch(`/api/users/${resetDialog.user.id}`, { method: 'POST' });
+                  if (res.ok) {
+                    toast.success('Password reset successfully!');
+                  } else {
+                    toast.error('Failed to reset password.');
+                  }
+                  setResetDialog({ open: false, user: null });
+                }}>Confirm</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
