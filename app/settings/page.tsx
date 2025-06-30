@@ -155,8 +155,10 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       const croppedBlob = await getCroppedImg(croppingImage, croppedAreaPixels);
+      // Convert Blob to File with a name and type
+      const croppedFile = new File([croppedBlob], 'avatar.jpg', { type: croppedBlob.type || 'image/jpeg' });
       const formData = new FormData();
-      formData.append('avatar', croppedBlob, 'avatar.jpg');
+      formData.append('avatar', croppedFile);
       const res = await fetch('/api/upload-avatar', {
         method: 'POST',
         body: formData,
