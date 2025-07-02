@@ -1,0 +1,51 @@
+// Prisma schema for Kim-ched-propose-system
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String        @id @default(uuid())
+  name        String
+  email       String        @unique
+  role        String
+  department  String
+  lastActive  DateTime      @default(now())
+  status      String
+  avatar      String?
+  applications Application[]
+}
+
+model Scholarship {
+  id         String        @id @default(uuid())
+  name       String
+  amount     String
+  deadline   DateTime
+  applicants Int           @default(0)
+  status     String
+  type       String?
+  applications Application[]
+}
+
+model Application {
+  id            String      @id @default(uuid())
+  name          String
+  region        String
+  email         String
+  scholarship   Scholarship @relation(fields: [scholarshipId], references: [id])
+  scholarshipId String
+  amount        String
+  gpa           Float?
+  status        String
+  submittedDate DateTime
+  avatar        String
+  review        String?
+  score         Float?
+  user          User?       @relation(fields: [userId], references: [id])
+  userId        String?
+} 
