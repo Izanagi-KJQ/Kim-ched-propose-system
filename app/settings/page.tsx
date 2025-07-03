@@ -9,8 +9,17 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function SettingsPage() {
+  return (
+    <ProtectedRoute>
+      <SettingsContent />
+    </ProtectedRoute>
+  );
+}
+
+function SettingsContent() {
   const [notifications, setNotifications] = useState(true);
   const [newPassword, setNewPassword] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("/placeholder-user.jpg");
