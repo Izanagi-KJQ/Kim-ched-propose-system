@@ -7,6 +7,7 @@ import { Input } from "./input";
 import { Button } from "./button";
 import { Checkbox } from "./checkbox";
 import { Label } from "./label";
+import { useAuth } from "@/hooks/useAuth";
 
 interface LoginFormInputs {
   email: string;
@@ -16,18 +17,15 @@ interface LoginFormInputs {
 
 export function LoginForm() {
   const router = useRouter();
+  const { login } = useAuth();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
   const [authError, setAuthError] = useState<string | null>(null);
 
   const onSubmit = async (data: LoginFormInputs) => {
     setAuthError(null);
-    // In a real app, you'd fetch user data from an API
-    const storedEmail = localStorage.getItem('user-email') || 'admin@example.com';
-    const storedPassword = localStorage.getItem('user-password') || 'password';
-
-    await new Promise((r) => setTimeout(r, 1000));
-    if (data.email !== storedEmail || data.password !== storedPassword) {
-      setAuthError("Invalid email or password");
+    const result = await login(data.email, data.password);
+    if (!result.success) {
+      setAuthError(result.error || "Invalid email or password");
     } else {
       router.push("/");
     }

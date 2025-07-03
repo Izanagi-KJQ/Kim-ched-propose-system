@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription }
 import { Input } from "./input";
 import { Button } from "./button";
 import { Label } from "./label";
+import { useAuth } from "@/hooks/useAuth";
 
 interface RegisterFormInputs {
   name: string;
@@ -14,9 +15,10 @@ interface RegisterFormInputs {
 }
 
 export function RegisterForm() {
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterFormInputs>();
+  const { register: registerField, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterFormInputs>();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registerSuccess, setRegisterSuccess] = useState<boolean>(false);
+  const { register: registerUser } = useAuth();
 
   const onSubmit = async (data: RegisterFormInputs) => {
     setRegisterError(null);
@@ -25,22 +27,11 @@ export function RegisterForm() {
       setRegisterError("Passwords do not match");
       return;
     }
-    try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          password: data.password
-        })
-      });
-      if (!res.ok) {
-        throw new Error("Registration failed");
-      }
+    const result = await registerUser(data.name, data.email, data.password);
+    if (!result.success) {
+      setRegisterError(result.error || "Registration failed");
+    } else {
       setRegisterSuccess(true);
-    } catch (err) {
-      setRegisterError((err as Error).message || "Registration failed");
     }
   };
 
@@ -60,7 +51,7 @@ export function RegisterForm() {
                 type="text"
                 placeholder="Your Name"
                 autoComplete="name"
-                {...register("name", { required: "Name is required" })}
+                {...registerField("name", { required: "Name is required" })}
                 disabled={isSubmitting}
               />
               {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
@@ -72,7 +63,7 @@ export function RegisterForm() {
                 type="email"
                 placeholder="you@example.com"
                 autoComplete="email"
-                {...register("email", { required: "Email is required", pattern: { value: /.+@.+\..+/, message: "Invalid email" } })}
+                {...registerField("email", { required: "Email is required", pattern: { value: /.+@.+\..+/, message: "Invalid email" } })}
                 disabled={isSubmitting}
               />
               {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
@@ -84,7 +75,7 @@ export function RegisterForm() {
                 type="password"
                 placeholder="••••••••"
                 autoComplete="new-password"
-                {...register("password", { required: "Password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } })}
+                {...registerField("password", { required: "Password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } })}
                 disabled={isSubmitting}
               />
               {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
@@ -96,7 +87,7 @@ export function RegisterForm() {
                 type="password"
                 placeholder="••••••••"
                 autoComplete="new-password"
-                {...register("confirmPassword", { required: "Please confirm your password" })}
+                {...registerField("confirmPassword", { required: "Please confirm your password" })}
                 disabled={isSubmitting}
               />
               {errors.confirmPassword && <p className="text-sm text-destructive mt-1">{errors.confirmPassword.message}</p>}
