@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -63,12 +63,17 @@ import { Tooltip as ReactTooltip } from "react-tooltip";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import { useShiftSelect } from "@/hooks/useShiftSelect";
+import { format } from "date-fns";
 
 // Add TabName type
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
 
-export default function Component() {
+function DashboardPage() {
   const router = useRouter();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>("dashboard")
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
@@ -76,32 +81,9 @@ export default function Component() {
   const [avatarUrl, setAvatarUrl] = useState("/placeholder-user.jpg");
   const [userName, setUserName] = useState("Admin User");
   const [userEmail, setUserEmail] = useState("admin@example.com");
-  const [scholarships, setScholarships] = useState<Scholarship[]>([
-    {
-      id: "SCH001",
-      name: "Merit Excellence Scholarship",
-      amount: "$5,000",
-      deadline: "2024-03-15",
-      applicants: 234,
-      status: "active",
-    },
-    {
-      id: "SCH002",
-      name: "STEM Innovation Grant",
-      amount: "$7,500",
-      deadline: "2024-04-01",
-      applicants: 189,
-      status: "active",
-    },
-    {
-      id: "SCH003",
-      name: "Community Leadership Award",
-      amount: "$3,000",
-      deadline: "2024-02-28",
-      applicants: 156,
-      status: "closed",
-    },
-  ])
+  const [scholarships, setScholarships] = useState<Scholarship[]>([]);
+  const [loadingScholarships, setLoadingScholarships] = useState(true);
+  const [scholarshipsError, setScholarshipsError] = useState<string | null>(null);
 
   // Mock data
   const stats = {
@@ -112,78 +94,36 @@ export default function Component() {
     rejected: 24, // Use this for the new Rejected slice (same value as previous Active Scholarships)
   }
 
-  const [applications, setApplications] = useState<Application[]>([
-    {
-      id: "APP001",
-      name: "Sarah Johnson",
-      email: "sarah.johnson@email.com",
-      scholarship: "Merit Excellence Scholarship",
-      amount: "$5,000",
-      gpa: 3.9,
-      status: "pending",
-      submittedDate: "2024-01-15",
-      score: null,
-      avatar: "/placeholder.svg?height=32&width=32",
-      region: "Palawan",
-      requirements: {},
-    },
-    {
-      id: "APP002",
-      name: "Michael Chen",
-      email: "michael.chen@email.com",
-      scholarship: "STEM Innovation Grant",
-      amount: "$7,500",
-      gpa: 3.8,
-      status: "under_review",
-      submittedDate: "2024-01-14",
-      score: 85,
-      avatar: "/placeholder.svg?height=32&width=32",
-      region: "Mindoro Occidental",
-      requirements: {},
-    },
-    {
-      id: "APP003",
-      name: "Emily Rodriguez",
-      email: "emily.rodriguez@email.com",
-      scholarship: "Community Leadership Award",
-      amount: "$3,000",
-      gpa: 3.7,
-      status: "approved",
-      submittedDate: "2024-01-12",
-      score: 92,
-      avatar: "/placeholder.svg?height=32&width=32",
-      region: "Marinduque",
-      requirements: {},
-    },
-    {
-      id: "APP004",
-      name: "David Kim",
-      email: "david.kim@email.com",
-      scholarship: "Athletic Excellence Scholarship",
-      amount: "$4,000",
-      gpa: 3.6,
-      status: "rejected",
-      submittedDate: "2024-01-10",
-      score: 68,
-      avatar: "/placeholder.svg?height=32&width=32",
-      region: "Romblon",
-      requirements: {},
-    },
-    {
-      id: "APP005",
-      name: "Anna Santos",
-      email: "anna.santos@email.com",
-      scholarship: "Merit Excellence Scholarship",
-      amount: "$4,500",
-      gpa: 3.85,
-      status: "pending",
-      submittedDate: "2024-01-16",
-      score: null,
-      avatar: "/placeholder.svg?height=32&width=32",
-      region: "Mindoro Oriental",
-      requirements: {},
-    },
-  ]);
+  // Remove the mock applications state and add loading/error state
+  // const [applications, setApplications] = useState<Application[]>([ ... ]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(true);
+  const [applicationsError, setApplicationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchApplications() {
+      setLoadingApplications(true);
+      setApplicationsError(null);
+      try {
+        const res = await fetch('/api/applications');
+        if (!res.ok) throw new Error('Failed to fetch applications');
+        const data = await res.json();
+        // Normalize scholarship to always be the name string
+        setApplications(data.map((app: any) => ({
+          ...app,
+          scholarship: typeof app.scholarship === 'object' && app.scholarship !== null
+            ? app.scholarship.name
+            : app.scholarship
+        })));
+      } catch (err: any) {
+        setApplicationsError(err.message || 'Failed to fetch applications');
+        setApplications([]);
+      } finally {
+        setLoadingApplications(false);
+      }
+    }
+    fetchApplications();
+  }, []);
 
   const [academic, setAcademic] = useState(0);
   const [extracurricular, setExtracurricular] = useState(0);
@@ -399,19 +339,28 @@ export default function Component() {
   const reserve: Application[] = []; // No 'reserve' status for now
 
   // Handler for saving scholarship edits
-  function handleSaveScholarship(data: Scholarship) {
+  async function handleSaveScholarship(data: Scholarship) {
     if (!selectedScholarship) return;
-    setScholarships((prev) =>
-      prev.map((sch) =>
-        sch.id === selectedScholarship.id ? { ...sch, ...data } : sch
-      )
-    )
-    setModalMode(null)
-    setSelectedScholarship(null)
-    router.push("/");
+    try {
+      const res = await fetch(`/api/scholarships/${selectedScholarship.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to update scholarship');
+      const updatedScholarship = await res.json();
+      setScholarships(prev => prev.map(sch => sch.id === updatedScholarship.id ? updatedScholarship : sch));
+      toast.success('Scholarship updated successfully!');
+      setModalMode(null);
+      setSelectedScholarship(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update scholarship');
+  }
   }
 
+  // Replace handleLogout with context-based logout
   const handleLogout = () => {
+    logout();
     router.push('/login');
   };
 
@@ -450,52 +399,107 @@ export default function Component() {
       `Score saved!\nAcademic: ${academic}\nExtracurricular: ${extracurricular}\nEssay: ${essay}\nFinancial: ${financial}\nTotal: ${totalScore}\nReview: ${review}`
     );
   };
-  // Handler for creating new scholarship
-  function handleCreateScholarship(data: Omit<Scholarship, 'id'>) {
-    const newId = `SCH00${scholarships.length + 1}`; // Simple ID generation
-    setScholarships((prev) => [
-      ...prev,
-      { id: newId, ...data, applicants: parseInt(data.applicants.toString()), amount: `$${data.amount}` },
-    ]);
-    setModalMode(null);
+  // Handler for creating new scholarship (POST to API)
+  async function handleCreateScholarship(data: Omit<Scholarship, 'id'>) {
+    try {
+      const res = await fetch('/api/scholarships', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to create scholarship');
+      const newScholarship = await res.json();
+      setScholarships(prev => [...prev, newScholarship]);
+      toast.success('Scholarship created successfully!');
     setPendingScholarshipType(null);
+      setScholarshipTypeDialog(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create scholarship');
+    }
   }
 
   // Handler for creating new application
-  function handleCreateApplication(data: Omit<Application, 'id' | 'avatar'>) {
-    const newId = `APP00${applications.length + 1}`; // Simple ID generation
-    setApplications((prev) => [
-      ...prev,
-      { 
-        id: newId, 
-        name: data.name,
-        email: data.email,
-        scholarship: data.scholarship,
-        amount: data.amount,
-        gpa: parseFloat(data.gpa?.toString() || '0'), 
-        status: data.status,
-        submittedDate: data.submittedDate,
+  async function handleCreateApplication(data: Omit<Application, 'id' | 'avatar'>) {
+    try {
+      // Map scholarship name to scholarshipId
+      const selectedScholarship = scholarships.find(s => s.name === data.scholarship);
+      if (!selectedScholarship) {
+        toast.error('Please select a valid scholarship.');
+        return;
+      }
+      // Clean amount (remove currency symbols, ensure string)
+      const cleanedAmount = typeof data.amount === 'string' ? data.amount.replace(/[^\d.]/g, '') : String(data.amount);
+      // Ensure GPA is a number
+      const gpa = typeof data.gpa === 'string' ? parseFloat(data.gpa) : data.gpa;
+      // Convert submittedDate to ISO string (or Date object)
+      let submittedDate: string | Date = data.submittedDate;
+      if (submittedDate) {
+        submittedDate = new Date(submittedDate).toISOString();
+      } else {
+        submittedDate = new Date().toISOString();
+      }
+      const payload = {
+        ...data,
+        scholarshipId: selectedScholarship.id,
+        scholarship: selectedScholarship.name, // for frontend display
+        amount: cleanedAmount,
+        gpa,
+        submittedDate,
         avatar: "/placeholder.svg?height=32&width=32",
-        region: data.region || "",
-        requirements: data.requirements || {},
-        score: data.score || null,
-        review: data.review || '',
-      } as Application,
-    ]);
-    setModalMode(null);
+      };
+      delete (payload as any).scholarship;
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create application');
+      }
+      let newApp = await res.json();
+      // Normalize scholarship to always be the name string
+      newApp = {
+        ...newApp,
+        scholarship: typeof newApp.scholarship === 'object' && newApp.scholarship !== null
+          ? newApp.scholarship.name
+          : newApp.scholarship
+      };
+      setApplications(prev => [...prev, newApp]);
+      toast.success('Application created successfully!');
+      setModalMode(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create application');
+    }
   }
 
   // Handler for saving application review
-  function handleSaveApplicationReview(data: { score: number | null, status: string, review: string }) {
+  async function handleSaveApplicationReview(data: { score: number | null, status: string, review: string }) {
     if (!selectedApplication) return;
-    const updatedApplication = { ...selectedApplication, score: data.score, status: data.status, review: data.review };
-    setApplications((prev) =>
-      prev.map((app) =>
-        app.id === selectedApplication.id ? updatedApplication : app
-      )
-    );
+    try {
+      const res = await fetch(`/api/applications/${selectedApplication.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...selectedApplication,
+          score: data.score,
+          status: data.status,
+          review: data.review,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to update application');
+      const updatedApp = await res.json();
+      setApplications(prev => prev.map(app => app.id === updatedApp.id ? updatedApp : app));
+      toast.success('Application updated successfully!');
     setModalMode(null);
     setSelectedApplication(null);
+      if (data.status === "approved") {
+        toast.success("Application approved! Redirecting to Ranking...");
+        setActiveTab("ranking");
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update application');
+    }
   }
 
   // Handler for sending a message
@@ -531,18 +535,63 @@ export default function Component() {
     setDeleteDialogOpen(true);
   }
 
-  function handleConfirmDeleteApplicant() {
-    if (deleteApplication) {
-      setApplications(prev => prev.filter(a => a.id !== deleteApplication.id));
-      setTrashBin(prev => [...prev, deleteApplication]);
+  async function handleConfirmDeleteApplicant() {
+    if (!deleteApplication) return;
+    // Always remove from UI and show success toast
+    setApplications(prev => prev.filter(a => a.id !== deleteApplication.id));
+    setTrashBin(prev => [...prev, deleteApplication]);
+    toast.success('Application deleted.');
+    try {
+      const res = await fetch(`/api/applications/${deleteApplication.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        // Optionally show a warning if backend fails, but do not block UI
+        toast.warning('Could not delete from server, but removed from your view.');
+      }
+    } catch (err: any) {
+      // Optionally show a warning if network error
+      toast.warning('Network error: deleted locally, but not on server.');
+    } finally {
       setDeleteDialogOpen(false);
       setDeleteApplication(null);
     }
   }
 
-  function handleRestoreApplicant(app: Application) {
-    setApplications(prev => [...prev, app]);
-    setTrashBin(prev => prev.filter(a => a.id !== app.id));
+  async function handleRestoreApplicant(app: Application) {
+    try {
+      // Find the scholarship by name
+      const selectedScholarship = scholarships.find(s => s.name === app.scholarship);
+      if (!selectedScholarship) {
+        toast.error('Scholarship not found for this application.');
+        return;
+      }
+      // Remove id to let backend create a new one
+      const { id, ...rest } = app;
+      // Prepare payload with scholarshipId
+      const payload = {
+        ...rest,
+        scholarshipId: selectedScholarship.id,
+        submittedDate: rest.submittedDate || new Date().toISOString(),
+        avatar: app.avatar || "/placeholder.svg?height=32&width=32",
+      };
+      delete (payload as any).scholarship; // Remove scholarship name field
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Failed to restore application');
+      let restoredApp = await res.json();
+      // Normalize scholarship for frontend
+      restoredApp = {
+        ...restoredApp,
+        scholarship: selectedScholarship.name,
+      };
+      setApplications(prev => [...prev, restoredApp]);
+      setTrashBin(prev => prev.filter(a => a.id !== app.id));
+      toast.success('Application restored.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to restore application');
+    }
   }
 
   function handlePermanentDeleteApplicant(app: Application) {
@@ -567,23 +616,47 @@ export default function Component() {
 
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
-  const handleRemoveScholarship = (scholarship: Scholarship) => {
+  // Handler for removing scholarship (DELETE to API, move to trash)
+  async function handleRemoveScholarship(scholarship: Scholarship) {
+    try {
+      const res = await fetch(`/api/scholarships/${scholarship.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete scholarship');
     setScholarships(prev => prev.filter(s => s.id !== scholarship.id));
     setScholarshipTrash(prev => [...prev, scholarship]);
-  };
+      toast.success('Scholarship deleted.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete scholarship');
+    }
+  }
 
-  const handleRestoreScholarship = (scholarship: Scholarship) => {
-    setScholarships(prev => [...prev, scholarship]);
+  // Handler for restoring scholarship (POST to API, remove from trash)
+  async function handleRestoreScholarship(scholarship: Scholarship) {
+    try {
+      const { id, ...rest } = scholarship;
+      const res = await fetch('/api/scholarships', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rest),
+      });
+      if (!res.ok) throw new Error('Failed to restore scholarship');
+      const restored = await res.json();
+      setScholarships(prev => [...prev, restored]);
     setScholarshipTrash(prev => prev.filter(s => s.id !== scholarship.id));
-  };
+      toast.success('Scholarship restored.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to restore scholarship');
+    }
+  }
 
-  const handlePermanentDeleteScholarship = (scholarship: Scholarship) => {
+  // Handler for permanently deleting scholarship from trash (local only)
+  function handlePermanentDeleteScholarship(scholarship: Scholarship) {
     setScholarshipTrash(prev => prev.filter(s => s.id !== scholarship.id));
-  };
+  }
 
-  const handlePermanentDeleteAllScholarships = () => {
+  // Handler for permanently deleting all scholarships from trash (local only)
+  function handlePermanentDeleteAllScholarships() {
     setScholarshipTrash([]);
-  };
+  }
 
   const formatPeso = (amount: string) => {
     const num = parseFloat(amount.replace(/[^\d.]/g, ""));
@@ -692,24 +765,36 @@ export default function Component() {
       );
     });
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedAppIds(filteredApplications.map(app => app.id));
-    } else {
-      setSelectedAppIds([]);
-    }
-  };
-  const handleSelectOne = (id: string, checked: boolean) => {
-    setSelectedAppIds(prev => checked ? [...prev, id] : prev.filter(appId => appId !== id));
-  };
+  // Replace handleSelectAll and handleSelectOne with useShiftSelect
+  const {
+    onCheckboxChange: handleAppCheckboxChange,
+    onSelectAll: handleAppSelectAll,
+    selectedIds: _selectedAppIds
+  } = useShiftSelect({
+    items: filteredApplications,
+    selectedIds: selectedAppIds,
+    setSelectedIds: setSelectedAppIds,
+    getId: (app) => app.id,
+  });
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedAppIds.length === 0) return;
     if (!window.confirm(`Are you sure you want to delete ${selectedAppIds.length} selected applications?`)) return;
-    const toTrash = applications.filter(app => selectedAppIds.includes(app.id));
+    const toTrash: Application[] = [];
+    for (const id of selectedAppIds) {
+      const app = applications.find(a => a.id === id);
+      if (!app) continue;
+      try {
+        const res = await fetch(`/api/applications/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          toTrash.push(app);
+        }
+      } catch {}
+    }
     setApplications(prev => prev.filter(app => !selectedAppIds.includes(app.id)));
     setTrashBin(prev => [...prev, ...toTrash]);
     setSelectedAppIds([]);
+    toast.success('Selected applications deleted.');
   };
 
   // Add handleValidateRequirement function to update requirements for a student
@@ -737,6 +822,10 @@ export default function Component() {
       prev.map(app => (app.id === appId ? { ...app, status: newStatus } : app))
     );
     setStatusWorkflowDialog({ open: false, app: null, step: null });
+    if (newStatus === "approved") {
+      toast.success("Application approved! Redirecting to Ranking...");
+      setActiveTab("ranking");
+    }
   };
 
   // Add after the useState for users
@@ -765,10 +854,12 @@ export default function Component() {
   async function confirmDeleteUser() {
     if (!deleteUserDialog.user) return;
     try {
-      await fetch(`/api/users/${deleteUserDialog.user.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/users/${deleteUserDialog.user.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete user');
       setUsers(prev => prev.filter(u => u.id !== deleteUserDialog.user!.id));
-    } catch (err) {
-      // Optionally show error toast
+      toast.success('User deleted successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete user');
     } finally {
       setDeleteUserDialog({ open: false, user: null });
     }
@@ -777,6 +868,125 @@ export default function Component() {
   const [roleDialog, setRoleDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
   const [resetDialog, setResetDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
   const [selectedRole, setSelectedRole] = useState<string>("");
+
+  // Add state for bulk status update dialog
+  const [bulkStatusDialog, setBulkStatusDialog] = useState<{ open: boolean, status: string }>({ open: false, status: "under_review" });
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  // Add state for bulk progress
+  const [bulkProgress, setBulkProgress] = useState(0);
+
+  // Replace lastBulkUpdateRef with a stack for multiple undos
+  const [bulkUndoStack, setBulkUndoStack] = useState<Array<{ ids: string[]; prevStatuses: Record<string, string>; newStatus: string }>>([]);
+  const undoToastIdRef = useRef<string | null>(null);
+
+  // Bulk status update handler
+  async function handleBulkStatusUpdate() {
+    if (selectedAppIds.length === 0) return;
+    setBulkUpdating(true);
+    setBulkProgress(0);
+    const newStatus = bulkStatusDialog.status;
+    // Simulate progress for user feedback
+    const total = selectedAppIds.length;
+    let completed = 0;
+    const progressInterval = setInterval(() => {
+      setBulkProgress((prev) => {
+        if (prev < 90) return prev + Math.floor(10 + Math.random() * 10);
+        return prev;
+      });
+    }, 200);
+    // Store previous statuses for undo
+    const prevStatuses: Record<string, string> = {};
+    applications.forEach(app => {
+      if (selectedAppIds.includes(app.id)) {
+        prevStatuses[app.id] = app.status;
+      }
+    });
+    try {
+      const res = await fetch('/api/applications/bulk-update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedAppIds, status: newStatus }),
+      });
+      const data = await res.json();
+      clearInterval(progressInterval);
+      setBulkProgress(100);
+      setTimeout(() => setBulkProgress(0), 500);
+      if (!res.ok) throw new Error(data.error || 'Bulk update failed');
+      setApplications(prev => prev.map(app =>
+        data.updated.includes(app.id)
+          ? { ...app, status: newStatus }
+          : app
+      ));
+      setBulkStatusDialog({ open: false, status: 'under_review' });
+      setSelectedAppIds([]);
+      setSelectionMode(false);
+      setBulkUpdating(false);
+      if (data.success) {
+        // Push to undo stack
+        setBulkUndoStack(stack => [...stack, { ids: data.updated, prevStatuses, newStatus }]);
+        // Show undo toast (with unique id to prevent duplicate toasts)
+        const toastId = `undo-bulk-${Date.now()}`;
+        undoToastIdRef.current = toastId;
+        toast.success(`${data.updated.length} application(s) updated to '${newStatus}'.`, {
+          id: toastId,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              setBulkUndoStack(stack => {
+                if (stack.length === 0) return stack;
+                const last = stack[stack.length - 1];
+                setApplications(prev => prev.map(app =>
+                  last.ids.includes(app.id)
+                    ? { ...app, status: last.prevStatuses[app.id] || app.status }
+                    : app
+                ));
+                toast.success('Bulk update undone.');
+                return stack.slice(0, -1);
+              });
+            },
+          },
+          duration: 7000,
+          onAutoClose: () => {
+            // Remove the last undo if not undone
+            setBulkUndoStack(stack => stack.slice(0, -1));
+          },
+        });
+      } else {
+        if (data.updated.length > 0) {
+          toast.success(`${data.updated.length} application(s) updated to '${newStatus}'.`);
+        }
+        if (data.failed.length > 0) {
+          toast.error(`${data.failed.length} application(s) failed to update.`, {
+            description: data.failed.map((f: any) => `${f.id}: ${f.error}`).join('\n'),
+          });
+        }
+      }
+    } catch (err: any) {
+      clearInterval(progressInterval);
+      setBulkProgress(0);
+      toast.error(err.message || 'Bulk update failed');
+      setBulkUpdating(false);
+    }
+  }
+
+  useEffect(() => {
+    async function fetchScholarships() {
+      setLoadingScholarships(true);
+      setScholarshipsError(null);
+      try {
+        const res = await fetch('/api/scholarships');
+        if (!res.ok) throw new Error('Failed to fetch scholarships');
+        const data = await res.json();
+        setScholarships(data);
+      } catch (err: any) {
+        setScholarshipsError(err.message || 'Failed to fetch scholarships');
+        setScholarships([]);
+      } finally {
+        setLoadingScholarships(false);
+      }
+    }
+    fetchScholarships();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
@@ -1312,15 +1522,21 @@ export default function Component() {
               {/* Applications Table */}
               <Card className="dark:bg-[#23232a] dark:text-gray-100">
                 <CardContent className="pt-6 overflow-x-auto" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                  {selectionMode && selectedAppIds.length > 0 && (
+                  {loadingApplications ? (
+                    <div className="text-center text-muted-foreground py-8">Loading applications...</div>
+                  ) : applicationsError ? (
+                    <div className="text-center text-red-500 py-8">{applicationsError}</div>
+                  ) : selectionMode && selectedAppIds.length > 0 && (
                     <div className="mb-2 flex items-center gap-4">
                       <span className="text-sm font-medium">{selectedAppIds.length} selected</span>
                       <Button variant="destructive" size="sm" onClick={handleBulkDelete}>Move to Trash Bin</Button>
                       <Button variant="outline" size="sm" onClick={() => setSelectionMode(false)}>Cancel Selection</Button>
                     </div>
                   )}
+                  {!loadingApplications && !applicationsError && (
                   <Table>
                     <TableHeader>
+                        <TableRow>
                       {selectionMode && (
                         <TableHead>
                           <input
@@ -1329,7 +1545,7 @@ export default function Component() {
                               if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
                             }}
                             checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
-                            onChange={e => handleSelectAll(e.target.checked)}
+                            onChange={e => handleAppSelectAll(e.target.checked)}
                             aria-label="Select all applications"
                           />
                         </TableHead>
@@ -1343,10 +1559,10 @@ export default function Component() {
                     <TableHead>Comment</TableHead>
                         <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredApplications
-                        .map((app) => (
+                        {filteredApplications.map((app) => (
                         <TableRow key={app.id} className="transition-colors duration-300"
                             ref={el => {
                               if (highlightedApplicantId === app.id && el) {
@@ -1359,7 +1575,7 @@ export default function Component() {
                                 <input
                                   type="checkbox"
                                   checked={selectedAppIds.includes(app.id)}
-                                  onChange={e => handleSelectOne(app.id, e.target.checked)}
+                                  onChange={e => handleAppCheckboxChange(e, app)}
                                   aria-label={`Select application for ${app.name}`}
                                 />
                               </TableCell>
@@ -1369,10 +1585,7 @@ export default function Component() {
                                 <Avatar className="h-8 w-8">
                                   <AvatarImage src={app.avatar || "/placeholder.svg"} />
                                   <AvatarFallback>
-                                    {app.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
+                                    {app.name.split(" ").map((n) => n[0]).join("")}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
@@ -1382,8 +1595,8 @@ export default function Component() {
                               </div>
                             </TableCell>
                             <TableCell>{app.region}</TableCell>
-                            <TableCell>{app.scholarship}</TableCell>
-                            <TableCell>{app.amount.replace("$", "₱")}</TableCell>
+                            <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
+                            <TableCell>{typeof app.amount === 'object' ? JSON.stringify(app.amount) : app.amount.replace("$", "₱")}</TableCell>
                             <TableCell>{app.gpa}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
@@ -1400,7 +1613,7 @@ export default function Component() {
                               <span className="text-gray-400">None</span>
                             )}
                             </TableCell>
-                            <TableCell>{app.submittedDate}</TableCell>
+                            <TableCell>{format(new Date(app.submittedDate), 'yyyy-MM-dd')}</TableCell>
                             <TableCell className="text-right">
                             {/* Modern action button with open/close state using controlled open state */}
                             <DropdownMenu open={actionMenuOpenId === app.id} onOpenChange={open => setActionMenuOpenId(open ? app.id : null)}>
@@ -1448,6 +1661,7 @@ export default function Component() {
                         ))}
                     </TableBody>
                   </Table>
+                  )}
                 </CardContent>
               </Card>
               {/* Application Create Modal */}
@@ -1865,6 +2079,12 @@ export default function Component() {
                   </Button>
                 </div>
               </div>
+              {/* Scholarships Loading/Error State */}
+              {loadingScholarships ? (
+                <div className="text-center text-muted-foreground py-8">Loading scholarships...</div>
+              ) : scholarshipsError ? (
+                <div className="text-center text-red-500 py-8">{scholarshipsError}</div>
+              ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {scholarships
                   .slice()
@@ -1917,7 +2137,7 @@ export default function Component() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Deadline:</span>
-                            <span className="font-medium">{scholarship.deadline}</span>
+                            <span className="font-medium">{format(new Date(scholarship.deadline), 'yyyy-MM-dd')}</span>
                           </div>
                           <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Applicants:</span>
@@ -1942,6 +2162,7 @@ export default function Component() {
                     </Card>
                   ))}
               </div>
+              )}
               {/* Scholarship Type Prompt Modal */}
               <Dialog open={scholarshipTypeDialog && !pendingScholarshipType} onOpenChange={open => { if (!open) setScholarshipTypeDialog(false); }}>
                 <DialogContent className="max-w-xs w-full p-6 rounded-xl">
@@ -2014,7 +2235,7 @@ export default function Component() {
                         <div className="space-y-2">
                           <p><strong>Name:</strong> {selectedScholarship.name}</p>
                           <p><strong>Amount:</strong> ₱ {selectedScholarship.amount.replace(/[$₱]/g, "")}</p>
-                          <p><strong>Deadline:</strong> {selectedScholarship.deadline}</p>
+                          <p><strong>Deadline:</strong> {format(new Date(selectedScholarship.deadline), 'yyyy-MM-dd')}</p>
                           <p><strong>Status:</strong> {selectedScholarship.status}</p>
                           <p><strong>Applicants:</strong> {selectedScholarship.applicants}</p>
                         </div>
@@ -2044,7 +2265,7 @@ export default function Component() {
                     <div key={sch.id} className="flex items-center justify-between border-b pb-2">
                       <div>
                         <div className="font-medium">{sch.name}</div>
-                        <div className="text-xs text-muted-foreground">Amount: {sch.amount} | Deadline: {sch.deadline}</div>
+                        <div className="text-xs text-muted-foreground">Amount: {sch.amount} | Deadline: {format(new Date(sch.deadline), 'yyyy-MM-dd')}</div>
                       </div>
                       <div className="flex space-x-2">
                         <Button size="sm" variant="outline" onClick={() => handleRestoreScholarship(sch)}>Restore</Button>
@@ -2198,25 +2419,36 @@ export default function Component() {
                 onSave={async (user) => {
                   if (user.id) {
                     // Edit existing user
+                    try {
                     const res = await fetch(`/api/users/${user.id}`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(user),
                     });
-                    if (res.ok) {
+                      if (!res.ok) throw new Error('Failed to update user');
                       const updatedUser = await res.json();
                       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+                      toast.success('User updated successfully!');
+                    } catch (err: any) {
+                      toast.error(err.message || 'Failed to update user');
                     }
                   } else {
                     // Add new user
+                    try {
                     const res = await fetch('/api/users', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(user),
                     });
-                    if (res.ok) {
+                      if (!res.ok) {
+                        const error = await res.json();
+                        throw new Error(error.error || 'Failed to create user');
+                      }
                       const newUser = await res.json();
                       setUsers(prev => [...prev, newUser]);
+                      toast.success('User created successfully!');
+                    } catch (err: any) {
+                      toast.error(err.message || 'Failed to create user');
                     }
                   }
                   setUserModal(null);
@@ -2254,17 +2486,18 @@ export default function Component() {
                 <Button variant="outline" onClick={() => setRoleDialog({ open: false, user: null })}>Cancel</Button>
                 <Button onClick={async () => {
                   if (!roleDialog.user || !selectedRole) return;
+                  try {
                   const res = await fetch(`/api/users/${roleDialog.user.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ role: selectedRole }),
                   });
-                  if (res.ok) {
+                    if (!res.ok) throw new Error('Failed to update role');
                     const updatedUser = await res.json();
                     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
                     toast.success('Role updated successfully!');
-                  } else {
-                    toast.error('Failed to update role.');
+                  } catch (err: any) {
+                    toast.error(err.message || 'Failed to update role.');
                   }
                   setRoleDialog({ open: false, user: null });
                   setSelectedRole("");
@@ -2285,11 +2518,13 @@ export default function Component() {
                 <Button variant="outline" onClick={() => setResetDialog({ open: false, user: null })}>Cancel</Button>
                 <Button variant="destructive" onClick={async () => {
                   if (!resetDialog.user) return;
+                  try {
                   const res = await fetch(`/api/users/${resetDialog.user.id}`, { method: 'POST' });
-                  if (res.ok) {
-                    toast.success('Password reset successfully!');
-                  } else {
-                    toast.error('Failed to reset password.');
+                    if (!res.ok) throw new Error('Failed to reset password');
+                    const data = await res.json();
+                    toast.success(data.message || 'Password reset successfully!');
+                  } catch (err: any) {
+                    toast.error(err.message || 'Failed to reset password.');
                   }
                   setResetDialog({ open: false, user: null });
                 }}>Confirm</Button>
@@ -2300,5 +2535,13 @@ export default function Component() {
           )}
         </main>
             </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <ProtectedRoute>
+      <DashboardPage />
+    </ProtectedRoute>
   );
 }

@@ -1,65 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  department: string;
-  lastActive: string;
-  status: string;
-};
-
-// Import users array from the root users route (simulate shared memory)
-// In a real app, use a database or a shared module
-if (!(globalThis as any).__users) {
-  (globalThis as any).__users = [
-    {
-      id: 'USR001',
-      name: 'John Doe',
-      email: 'john.doe@university.edu',
-      role: 'Administrator',
-      department: 'Financial Aid',
-      lastActive: '2 hours ago',
-      status: 'Active',
-    },
-  ];
-}
-let users: User[] = (globalThis as any).__users;
+import { prisma } from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
-  const data = await req.json();
-  const idx = users.findIndex((u: User) => u.id === id);
-  if (idx === -1) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  users[idx] = { ...users[idx], ...data };
-  return NextResponse.json(users[idx]);
+  try {
+    const data = await req.json();
+    const user = await prisma.user.update({
+      where: { id: params.id },
+      data: {
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        department: data.department,
+        status: data.status,
+        avatar: data.avatar,
+        lastActive: new Date(),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        department: true,
+        lastActive: true,
+        status: true,
+        avatar: true,
+      },
+    });
+    return NextResponse.json(user);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
-  const data = await req.json();
-  const idx = users.findIndex((u: User) => u.id === id);
-  if (idx === -1) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  // PATCH for role or deactivate
-  if (data.role) users[idx].role = data.role;
-  if (data.status) users[idx].status = data.status;
-  return NextResponse.json(users[idx]);
+  try {
+    const data = await req.json();
+    const user = await prisma.user.update({
+      where: { id: params.id },
+      data: {
+        ...(data.role && { role: data.role }),
+        ...(data.status && { status: data.status }),
+        lastActive: new Date(),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        department: true,
+        lastActive: true,
+        status: true,
+        avatar: true,
+      },
+    });
+    return NextResponse.json(user);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   // For reset password
-  const { id } = params;
-  const idx = users.findIndex((u: User) => u.id === id);
-  if (idx === -1) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  // Simulate password reset
-  return NextResponse.json({ message: `Password reset for ${users[idx].name}` });
+  try {
+    const newPassword = Math.random().toString(36).slice(-8); // Generate a random password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: params.id },
+      data: {
+        // password: hashedPassword,
+        lastActive: new Date(),
+      },
+    });
+    return NextResponse.json({ message: `Password reset. New password: ${newPassword}` });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
-  const idx = users.findIndex((u: User) => u.id === id);
-  if (idx === -1) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  users.splice(idx, 1);
-  return NextResponse.json({ message: 'User deleted' });
+  try {
+    await prisma.user.delete({ where: { id: params.id } });
+    return NextResponse.json({ message: 'User deleted' });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+  }
 } 

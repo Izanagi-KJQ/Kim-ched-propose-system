@@ -2,17 +2,17 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { RegisterForm } from "@/components/ui/RegisterForm";
 
-export default function RegisterPage() {
+export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (user) {
-      router.replace("/");
+    if (!user) {
+      router.replace("/login");
     }
   }, [user, router]);
 
-  return <RegisterForm />;
+  if (!user) return null;
+  return <>{children}</>;
 } 
