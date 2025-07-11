@@ -49,7 +49,7 @@ import { Slider } from "@/components/ui/slider";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
 import AddStudentModal from "@/components/ranking/AddStudentModal";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { ThemeSwitcher, ThemeSwitcherButtonPurple } from "@/components/ui/theme-switcher";
 import { Scholarship, Application, User } from "@/lib/types";
 import ApplicationCreateForm from "@/components/forms/ApplicationCreateForm";
 import ScholarshipEditForm from "@/components/forms/ScholarshipEditForm";
@@ -73,26 +73,15 @@ type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "user
 
 function DashboardPage() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>("dashboard")
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
   const [modalMode, setModalMode] = useState<"view" | "edit" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null)
   const [avatarUrl, setAvatarUrl] = useState("/placeholder-user.jpg");
-  const [userName, setUserName] = useState("Admin User");
-  const [userEmail, setUserEmail] = useState("admin@example.com");
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [loadingScholarships, setLoadingScholarships] = useState(true);
   const [scholarshipsError, setScholarshipsError] = useState<string | null>(null);
-
-  // Mock data
-  const stats = {
-    totalApplications: 1247,
-    pendingReview: 89,
-    approved: 156,
-    totalScholarships: 24,
-    rejected: 24, // Use this for the new Rejected slice (same value as previous Active Scholarships)
-  }
 
   // Remove the mock applications state and add loading/error state
   // const [applications, setApplications] = useState<Application[]>([ ... ]);
@@ -228,11 +217,7 @@ function DashboardPage() {
 
   useEffect(() => {
     const savedAvatar = localStorage.getItem('user-avatar');
-    const savedName = localStorage.getItem('user-name');
-    const savedEmail = localStorage.getItem('user-email');
     if (savedAvatar) setAvatarUrl(savedAvatar);
-    if (savedName) setUserName(savedName);
-    if (savedEmail) setUserEmail(savedEmail);
   }, []);
 
   // Update getStatusBadge to handle new workflow
@@ -272,12 +257,18 @@ function DashboardPage() {
     }
   };
 
-  // Pie chart data and colors
+  // Compute dynamic stats from applications
+  const totalApplications = applications.length;
+  const underReviewCount = applications.filter(app => app.status === 'under_review').length;
+  const approvedCount = applications.filter(app => app.status === 'approved' || app.status === 'accepted').length;
+  const rejectedCount = applications.filter(app => app.status === 'rejected').length;
+
+  // Pie chart data and colors (now dynamic)
   const pieData = [
-    { name: 'Total Applications', value: stats.totalApplications },
-    { name: 'Approved', value: stats.approved },
-    { name: 'Under Review', value: stats.pendingReview },
-    { name: 'Rejected', value: stats.rejected },
+    { name: 'Total Applications', value: totalApplications },
+    { name: 'Approved', value: approvedCount },
+    { name: 'Under Review', value: underReviewCount },
+    { name: 'Rejected', value: rejectedCount },
   ].sort((a, b) => b.value - a.value); // Descending order
   const pieColors = ['#7C3AED', '#22C55E', '#2563EB', '#EF4444']; // Purple, Green, Blue, Red
   // Lighter and darker variants for tooltips
@@ -329,9 +320,10 @@ function DashboardPage() {
     return null;
   };
 
+  // --- FIXED: Sort from lowest to highest GWA (GPA) ---
   const ranking = applications
-    .filter(app => app.gpa)
-    .sort((a, b) => (b.gpa || 0) - (a.gpa || 0));
+    .filter(app => app.gpa !== null && app.gpa !== undefined)
+    .sort((a, b) => (a.gpa || 0) - (b.gpa || 0));
 
   const approved = applications.filter(app => app.status === 'approved' || app.status === 'accepted');
   const pending = applications.filter(app => app.status === 'pending' || app.status === 'under_review');
@@ -467,7 +459,7 @@ function DashboardPage() {
       };
       setApplications(prev => [...prev, newApp]);
       toast.success('Application created successfully!');
-      setModalMode(null);
+    setModalMode(null);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create application');
     }
@@ -538,8 +530,8 @@ function DashboardPage() {
   async function handleConfirmDeleteApplicant() {
     if (!deleteApplication) return;
     // Always remove from UI and show success toast
-    setApplications(prev => prev.filter(a => a.id !== deleteApplication.id));
-    setTrashBin(prev => [...prev, deleteApplication]);
+      setApplications(prev => prev.filter(a => a.id !== deleteApplication.id));
+      setTrashBin(prev => [...prev, deleteApplication]);
     toast.success('Application deleted.');
     try {
       const res = await fetch(`/api/applications/${deleteApplication.id}`, { method: 'DELETE' });
@@ -587,7 +579,7 @@ function DashboardPage() {
         scholarship: selectedScholarship.name,
       };
       setApplications(prev => [...prev, restoredApp]);
-      setTrashBin(prev => prev.filter(a => a.id !== app.id));
+    setTrashBin(prev => prev.filter(a => a.id !== app.id));
       toast.success('Application restored.');
     } catch (err: any) {
       toast.error(err.message || 'Failed to restore application');
@@ -988,6 +980,36 @@ function DashboardPage() {
     fetchScholarships();
   }, []);
 
+  // 1. Add state for department change dialog
+  const [deptDialog, setDeptDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+  const [deptValue, setDeptValue] = useState<string>("");
+  const [deptOther, setDeptOther] = useState<string>("");
+
+  const [userActionMenuOpenId, setUserActionMenuOpenId] = useState<string | null>(null);
+
+  // Add state for dashboard ranking highlight
+  const [dashboardRankingHighlightId, setDashboardRankingHighlightId] = useState<string | null>(null);
+  // ... existing code ...
+  // Add effect to clear dashboard highlight after a short delay
+  useEffect(() => {
+    if (dashboardRankingHighlightId) {
+      const timeout = setTimeout(() => setDashboardRankingHighlightId(null), 1800);
+      return () => clearTimeout(timeout);
+    }
+  }, [dashboardRankingHighlightId]);
+  // ... existing code ...
+  // Add effect to scroll and highlight in Ranking tab when set from Dashboard
+  useEffect(() => {
+    if (activeTab === 'ranking' && dashboardRankingHighlightId) {
+      setTimeout(() => {
+        const el = document.getElementById(`ranking-row-${dashboardRankingHighlightId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200); // Wait for DOM to update
+    }
+  }, [activeTab, dashboardRankingHighlightId]);
+
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
       {/* Header */}
@@ -1002,15 +1024,18 @@ function DashboardPage() {
           </div>
           <div className="flex items-center space-x-4">
             <Button
-              variant="outline"
+              variant="action"
               size="sm"
-              className="flex items-center"
+              className="flex items-center border-2 border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white dark:hover:border-purple-400 transition-colors"
               onClick={handleExport}
             >
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <ThemeSwitcher />
+            {/* ThemeSwitcher with purple border and text */}
+            <div className="relative">
+              <ThemeSwitcherButtonPurple />
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer">
@@ -1021,10 +1046,15 @@ function DashboardPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{userName}</p>
+                    <p className="text-sm font-medium leading-none">{user?.name || "Admin User"}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userEmail}
+                      {user?.email || "admin@example.com"}
                     </p>
+                    {user?.role && (
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
+                        {user.role}
+                      </span>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -1097,7 +1127,12 @@ function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Total Applications */}
                 <Card
-                  className="bg-purple-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-purple-200 dark:hover:bg-purple-800"
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 rounded-lg border shadow-sm text-white",
+                    "bg-purple-500 hover:bg-purple-100 hover:text-purple-800 hover:scale-[1.04] hover:shadow-lg",
+                    "focus:outline-none focus:ring-2 focus:ring-purple-400",
+                    "dark:bg-purple-600 dark:text-white dark:hover:bg-purple-400/30 dark:hover:text-purple-200"
+                  )}
                   onClick={() => {
                     setActiveTab('applications');
                     setFilterStatus({ pending: false, under_review: false, approved: false, rejected: false });
@@ -1105,18 +1140,29 @@ function DashboardPage() {
                   tabIndex={0}
                   role="button"
                   aria-label="Go to Applications"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setActiveTab('applications');
+                      setFilterStatus({ pending: false, under_review: false, approved: false, rejected: false });
+                    }
+                  }}
                 >
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Applications</CardTitle>
-                    <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                    <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+                    <FileText className="h-6 w-6" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-foreground">{stats.totalApplications}</div>
+                    <div className="text-2xl font-bold">{totalApplications}</div>
                   </CardContent>
                 </Card>
-                {/* Under Review (was Pending Review) */}
+                {/* Under Review */}
                 <Card
-                  className="bg-blue-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-blue-200 dark:hover:bg-blue-800"
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 rounded-lg border shadow-sm text-white",
+                    "bg-blue-500 hover:bg-blue-100 hover:text-blue-800 hover:scale-[1.04] hover:shadow-lg",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-400",
+                    "dark:bg-blue-600 dark:text-white dark:hover:bg-blue-400/30 dark:hover:text-blue-200"
+                  )}
                   onClick={() => {
                     setActiveTab('applications');
                     setFilterStatus({ pending: false, under_review: true, approved: false, rejected: false });
@@ -1124,18 +1170,29 @@ function DashboardPage() {
                   tabIndex={0}
                   role="button"
                   aria-label="Go to Under Review Applications"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setActiveTab('applications');
+                      setFilterStatus({ pending: false, under_review: true, approved: false, rejected: false });
+                    }
+                  }}
                 >
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Under Review</CardTitle>
-                    <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-sm font-medium">Under Review</CardTitle>
+                    <Clock className="h-6 w-6" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-foreground">{stats.pendingReview}</div>
+                    <div className="text-2xl font-bold">{underReviewCount}</div>
                   </CardContent>
                 </Card>
                 {/* Approved */}
                 <Card
-                  className="bg-green-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-green-200 dark:hover:bg-green-800"
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 rounded-lg border shadow-sm text-white",
+                    "bg-green-500 hover:bg-green-100 hover:text-green-800 hover:scale-[1.04] hover:shadow-lg",
+                    "focus:outline-none focus:ring-2 focus:ring-green-400",
+                    "dark:bg-green-600 dark:text-white dark:hover:bg-green-400/30 dark:hover:text-green-200"
+                  )}
                   onClick={() => {
                     setActiveTab('applications');
                     setFilterStatus({ pending: false, under_review: false, approved: true, rejected: false });
@@ -1143,18 +1200,29 @@ function DashboardPage() {
                   tabIndex={0}
                   role="button"
                   aria-label="Go to Approved Applications"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setActiveTab('applications');
+                      setFilterStatus({ pending: false, under_review: false, approved: true, rejected: false });
+                    }
+                  }}
                 >
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
-                    <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <CardTitle className="text-sm font-medium">Approved</CardTitle>
+                    <CheckCircle className="h-6 w-6" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-foreground">{stats.approved}</div>
+                    <div className="text-2xl font-bold">{approvedCount}</div>
                   </CardContent>
                 </Card>
-                {/* Rejected (replaces Active Scholarships) */}
+                {/* Rejected */}
                 <Card
-                  className="bg-red-50 border-0 dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-colors hover:bg-red-200 dark:hover:bg-red-800"
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 rounded-lg border shadow-sm text-white",
+                    "bg-red-500 hover:bg-red-100 hover:text-red-800 hover:scale-[1.04] hover:shadow-lg",
+                    "focus:outline-none focus:ring-2 focus:ring-red-400",
+                    "dark:bg-red-600 dark:text-white dark:hover:bg-red-400/30 dark:hover:text-red-200"
+                  )}
                   onClick={() => {
                     setActiveTab('applications');
                     setFilterStatus({ pending: false, under_review: false, approved: false, rejected: true });
@@ -1162,13 +1230,19 @@ function DashboardPage() {
                   tabIndex={0}
                   role="button"
                   aria-label="Go to Rejected Applications"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setActiveTab('applications');
+                      setFilterStatus({ pending: false, under_review: false, approved: false, rejected: true });
+                    }
+                  }}
                 >
                   <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
-                    <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+                    <XCircle className="h-6 w-6" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-foreground">{stats.rejected}</div>
+                    <div className="text-2xl font-bold">{rejectedCount}</div>
                   </CardContent>
                 </Card>
               </div>
@@ -1260,7 +1334,7 @@ function DashboardPage() {
                   <CardDescription>Top students ranked by their General Weighted Average (GWA).</CardDescription>
                   </CardHeader>
                 <CardContent className="flex-1 overflow-x-auto">
-                  <div className={`overflow-y-auto ${ranking.length > 8 ? 'max-h-[340px]' : ''}`}>
+                  <div className={`overflow-y-auto ${ranking.length > 8 ? 'max-h-[340px]' : ''}`}> 
                     <Table>
                         <TableHeader>
                           <TableRow>
@@ -1271,10 +1345,31 @@ function DashboardPage() {
                         </TableHeader>
                         <TableBody>
                           {ranking.slice(0, 8).map((app, idx) => (
-                            <TableRow key={app.id}>
-                            <TableCell>{idx + 1}</TableCell>
+                            <TableRow
+                              key={app.id}
+                              tabIndex={0}
+                              id={`dashboard-ranking-row-${app.id}`}
+                              className={cn(
+                                "cursor-pointer transition-all duration-200",
+                                dashboardRankingHighlightId === app.id
+                                  ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
+                                  : "hover:scale-[1.03] hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
+                              )}
+                              onClick={() => {
+                                setActiveTab('ranking');
+                                setDashboardRankingHighlightId(app.id);
+                              }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  setActiveTab('ranking');
+                                  setDashboardRankingHighlightId(app.id);
+                                }
+                              }}
+                              aria-label={`View ${app.name} in Ranking`}
+                            >
+                              <TableCell>{idx + 1}</TableCell>
                               <TableCell>{app.name}</TableCell>
-                            <TableCell>{app.gpa?.toFixed(2)}</TableCell>
+                              <TableCell>{app.gpa?.toFixed(2)}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -1294,15 +1389,15 @@ function DashboardPage() {
                   <p className="text-muted-foreground">Manage and review scholarship applications</p>
                 </div>
                 <div className="flex items-center space-x-4">
-                <Button variant="outline" onClick={() => setTrashBinOpen(true)} aria-label="Open Trash Bin">
+                <Button variant="altAction" onClick={() => setTrashBinOpen(true)} aria-label="Open Trash Bin">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
                   </Button>
-                <Button variant={selectionMode ? "default" : "outline"} onClick={() => setSelectionMode(m => !m)} aria-label={selectionMode ? "Cancel Selection" : "Select Applications"}>
+                <Button variant={selectionMode ? "altAction" : "altAction"} onClick={() => setSelectionMode(m => !m)} aria-label={selectionMode ? "Cancel Selection" : "Select Applications"}>
                     {selectionMode ? "Cancel" : "Select"}
                   </Button>
                 <Button onClick={() => setModalMode("createApplication")}
-                  className="bg-black text-white border-2 border-black hover:bg-white hover:text-black transition-colors"
+                  variant="action"
                   aria-label="New Application">
                     <FileText className="h-4 w-4 mr-2" />
                     New Application
@@ -1325,10 +1420,10 @@ function DashboardPage() {
                     </div>
               {/* Only show Sort + Filter button here, dropdown removed */}
               <Button 
-                variant="default" 
+                variant="altAction" 
                 onClick={() => setSortModalOpen(true)} 
                 aria-label="Sort and filter applications" 
-                className="w-48 bg-purple-700 hover:bg-purple-800 text-white border-2 border-purple-700 hover:text-white transition-colors"
+                className="w-48"
               >
                 Sort & Filter
               </Button>
@@ -1538,7 +1633,7 @@ function DashboardPage() {
                     <TableHeader>
                         <TableRow>
                       {selectionMode && (
-                        <TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">
                           <input
                             type="checkbox"
                             ref={el => {
@@ -1550,15 +1645,15 @@ function DashboardPage() {
                           />
                         </TableHead>
                       )}
-                        <TableHead>Applicant</TableHead>
-                    <TableHead>Region</TableHead>
-                        <TableHead>Scholarship</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>GPA</TableHead>
-                        <TableHead>Status</TableHead>
-                    <TableHead>Comment</TableHead>
-                        <TableHead>Submitted</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Applicant</TableHead>
+                    <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Region</TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Scholarship</TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Amount</TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">GPA</TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
+                    <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Comment</TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Submitted</TableHead>
+                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1691,8 +1786,8 @@ function DashboardPage() {
                       <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
                       <p><strong>Amount:</strong> {selectedApplication.amount}</p>
                       <p><strong>GPA:</strong> {selectedApplication.gpa}</p>
-                      <p><strong>Status:</strong> {selectedApplication.status}</p>
-                      <p><strong>Submitted Date:</strong> {selectedApplication.submittedDate}</p>
+                      <p><strong>Status:</strong> {getStatusBadge(selectedApplication.status)}</p>
+                      <p><strong>Submitted Date:</strong> {format(new Date(selectedApplication.submittedDate), 'yyyy-MM-dd')}</p>
                     </div>
                   )}
                   <DialogFooter>
@@ -1898,43 +1993,83 @@ function DashboardPage() {
               {/* Status Cards */}
               <div className="flex gap-4 mb-4">
                 {/* Approved */}
-                <div className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-green-100 dark:hover:bg-green-900/50 focus:bg-green-200"
+                <div
+                  className={cn(
+                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-green-400",
+                    "bg-green-500 text-white",
+                    "hover:bg-green-100 hover:text-green-800 hover:scale-[1.04] hover:shadow-lg",
+                    "dark:bg-green-600 dark:text-white dark:hover:bg-green-400/30 dark:hover:text-green-200"
+                  )}
                   onClick={() => setRankingStatusModal({ open: true, status: 'approved' })}
                   tabIndex={0}
-                  style={{ outline: 'none' }}>
+                  style={{ outline: 'none' }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'approved' }); }}
+                  aria-label="Show Approved Applicants"
+                >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{applications.filter(app => app.status === 'approved').length}</div>
-                    <div className="text-green-700 dark:text-green-400">Approved</div>
+                    <div className="font-semibold">Approved</div>
                   </CardContent>
                 </div>
-                {/* Under Review (replaces Reserve) */}
-                <div className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-blue-100 dark:hover:bg-blue-900/50 focus:bg-blue-200"
+                {/* Under Review */}
+                <div
+                  className={cn(
+                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-400",
+                    "bg-blue-500 text-white",
+                    "hover:bg-blue-100 hover:text-blue-800 hover:scale-[1.04] hover:shadow-lg",
+                    "dark:bg-blue-600 dark:text-white dark:hover:bg-blue-400/30 dark:hover:text-blue-200"
+                  )}
                   onClick={() => setRankingStatusModal({ open: true, status: 'under_review' })}
                   tabIndex={0}
-                  style={{ outline: 'none' }}>
+                  style={{ outline: 'none' }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'under_review' }); }}
+                  aria-label="Show Under Review Applicants"
+                >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{applications.filter(app => app.status === 'under_review').length}</div>
-                    <div className="text-blue-700 dark:text-blue-400">Under Review</div>
+                    <div className="font-semibold">Under Review</div>
                   </CardContent>
                 </div>
                 {/* Pending */}
-                <div className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-orange-100 dark:hover:bg-orange-900/50 focus:bg-orange-200"
+                <div
+                  className={cn(
+                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-orange-400",
+                    "bg-orange-500 text-white",
+                    "hover:bg-orange-100 hover:text-orange-800 hover:scale-[1.04] hover:shadow-lg",
+                    "dark:bg-orange-600 dark:text-white dark:hover:bg-orange-400/30 dark:hover:text-orange-200"
+                  )}
                   onClick={() => setRankingStatusModal({ open: true, status: 'pending' })}
                   tabIndex={0}
-                  style={{ outline: 'none' }}>
+                  style={{ outline: 'none' }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'pending' }); }}
+                  aria-label="Show Pending Applicants"
+                >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{applications.filter(app => app.status === 'pending').length}</div>
-                    <div className="text-orange-700 dark:text-orange-400">Pending</div>
+                    <div className="font-semibold">Pending</div>
                   </CardContent>
                 </div>
                 {/* Rejected */}
-                <div className="flex-1 text-center cursor-pointer rounded-lg border transition-colors duration-200 shadow-sm hover:bg-red-100 dark:hover:bg-red-900/50 focus:bg-red-200"
+                <div
+                  className={cn(
+                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-red-400",
+                    "bg-red-500 text-white",
+                    "hover:bg-red-100 hover:text-red-800 hover:scale-[1.04] hover:shadow-lg",
+                    "dark:bg-red-600 dark:text-white dark:hover:bg-red-400/30 dark:hover:text-red-200"
+                  )}
                   onClick={() => setRankingStatusModal({ open: true, status: 'rejected' })}
                   tabIndex={0}
-                  style={{ outline: 'none' }}>
+                  style={{ outline: 'none' }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'rejected' }); }}
+                  aria-label="Show Rejected Applicants"
+                >
                   <CardContent className="py-2">
                     <div className="font-bold text-lg">{applications.filter(app => app.status === 'rejected').length}</div>
-                    <div className="text-red-700 dark:text-red-400">Rejected</div>
+                    <div className="font-semibold">Rejected</div>
                   </CardContent>
                 </div>
               </div>
@@ -1996,9 +2131,10 @@ function DashboardPage() {
               {/* Scholarship Ranking Cards */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {scholarships.map((scholarship) => {
+                  // Sort applicants by GPA ascending (lowest to highest)
                   const rankedApps = applications
                     .filter(app => app.scholarship === scholarship.name)
-                    .sort((a, b) => (b.gpa || 0) - (a.gpa || 0));
+                    .sort((a, b) => (a.gpa || 0) - (b.gpa || 0));
                   return (
                     <Card key={scholarship.id} className="dark:bg-[#23232a] dark:text-gray-100">
                     <CardHeader>
@@ -2011,7 +2147,30 @@ function DashboardPage() {
                         ) : (
                           <div className={`divide-y ${rankedApps.length >= 4 ? 'max-h-[220px] overflow-y-auto' : ''}`}> {/* Scrollable if 4+ */}
                             {rankedApps.map((app, idx) => (
-                              <div key={app.id} className="flex items-center justify-between py-3">
+                              <div
+                                key={app.id}
+                                id={`ranking-row-${app.id}`}
+                                className={cn(
+                                  "flex items-center justify-between py-3 transition-all duration-200",
+                                  dashboardRankingHighlightId === app.id
+                                    ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
+                                    : "hover:scale-[1.03] hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40 cursor-pointer"
+                                )}
+                                tabIndex={0}
+                                onClick={() => {
+                                  setActiveTab('applications');
+                                  setStatusFilter(app.status);
+                                  setHighlightedApplicantId(app.id);
+                                }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    setActiveTab('applications');
+                                    setStatusFilter(app.status);
+                                    setHighlightedApplicantId(app.id);
+                                  }
+                                }}
+                                aria-label={`Go to applicant ${app.name} in Applications`}
+                              >
                                 <div className="flex items-center gap-4">
                                   <div className="w-8 h-8 flex items-center justify-center rounded-full font-bold bg-gray-200 text-gray-700">{idx + 1}</div>
                       <div>
@@ -2024,15 +2183,16 @@ function DashboardPage() {
                                   {/* Status badge clickable: go to Applications table and highlight applicant */}
                                   <span
                                     className="cursor-pointer"
-                                    onClick={() => {
-                                  setActiveTab('applications');
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      setActiveTab('applications');
                                       setStatusFilter(app.status);
-                                  setHighlightedApplicantId(app.id);
+                                      setHighlightedApplicantId(app.id);
                                     }}
-                                      tabIndex={0}
-                                      role="button"
-                                      aria-label="Go to applicant in Applications"
-                                    >
+                                    tabIndex={0}
+                                    role="button"
+                                    aria-label="Go to applicant in Applications"
+                                  >
                                 {getStatusBadge(app.status)}
                                   </span>
                         </div>
@@ -2056,12 +2216,12 @@ function DashboardPage() {
                   <p className="text-muted-foreground">Manage scholarship programs and deadlines</p>
                 </div>
                 <div className="flex items-center space-x-4">
-              <Button variant="outline" onClick={() => setScholarshipTrashOpen(true)}>
+              <Button variant="altAction" onClick={() => setScholarshipTrashOpen(true)}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 Trash Bin {scholarshipTrash.length > 0 && <span className="ml-1">({scholarshipTrash.length})</span>}
               </Button>
                   <Select value={scholarshipSort} onValueChange={setScholarshipSort}>
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="w-48 bg-black text-white border-2 border-black hover:bg-white hover:text-black dark:bg-white dark:text-black dark:border-white dark:hover:bg-black dark:hover:text-white transition-colors">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2073,7 +2233,7 @@ function DashboardPage() {
                       <SelectItem value="status_closed">Status: Closed</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button onClick={() => setScholarshipTypeDialog(true)}>
+                  <Button variant="action" onClick={() => setScholarshipTypeDialog(true)}>
                     <Award className="h-4 w-4 mr-2" />
                     Create Scholarship
                   </Button>
@@ -2102,9 +2262,14 @@ function DashboardPage() {
                     } else if (scholarshipSort === "deadline_newest") {
                       return new Date(b.deadline).getTime() - new Date(a.deadline).getTime();
                     } else if (scholarshipSort === "applicants_asc") {
-                      return a.applicants - b.applicants;
+                      // Use dynamic count
+                      const aCount = applications.filter(app => app.scholarship === a.name).length;
+                      const bCount = applications.filter(app => app.scholarship === b.name).length;
+                      return aCount - bCount;
                     } else if (scholarshipSort === "applicants_desc") {
-                      return b.applicants - a.applicants;
+                      const aCount = applications.filter(app => app.scholarship === a.name).length;
+                      const bCount = applications.filter(app => app.scholarship === b.name).length;
+                      return bCount - aCount;
                     }
                     return 0;
                   })
@@ -2141,7 +2306,7 @@ function DashboardPage() {
                           </div>
                           <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Applicants:</span>
-                            <span className="font-medium">{scholarship.applicants}</span>
+                            <span className="font-medium">{applications.filter(app => app.scholarship === scholarship.name).length}</span>
                           </div>
                         <div className="pt-3 border-t flex space-x-2">
                           <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
@@ -2225,7 +2390,7 @@ function DashboardPage() {
               </Dialog>
               {/* Scholarship View/Edit Modal */}
               <Dialog open={!!modalMode && (modalMode === 'view' || modalMode === 'edit')} onOpenChange={() => { setModalMode(null); setSelectedScholarship(null); }}>
-                <DialogContent className="max-w-md w-full p-6">
+                <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
                   <DialogHeader>
                     <DialogTitle>{modalMode === "view" ? "View Scholarship" : "Edit Scholarship"}</DialogTitle>
                   </DialogHeader>
@@ -2331,7 +2496,7 @@ function DashboardPage() {
                   <h2 className="text-3xl font-bold text-foreground">User Management</h2>
                   <p className="text-muted-foreground">Manage system users and permissions</p>
                 </div>
-            <Button onClick={() => setShowAddUserModal(true)}>
+            <Button variant="action" onClick={() => setShowAddUserModal(true)}>
                   <Users className="h-4 w-4 mr-2" />
                   Add User
                 </Button>
@@ -2346,12 +2511,12 @@ function DashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Last Active</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">User</TableHead>
+                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Role</TableHead>
+                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Department</TableHead>
+                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Last Active</TableHead>
+                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
+                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2373,7 +2538,7 @@ function DashboardPage() {
                           <Badge>{user.role}</Badge>
                         </TableCell>
                         <TableCell>{user.department}</TableCell>
-                        <TableCell>{user.lastActive}</TableCell>
+                        <TableCell>{user.lastActive ? format(new Date(user.lastActive), 'yyyy-MM-dd') : ''}</TableCell>
                         <TableCell>
                           <span className="flex items-center gap-2">
                             {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
@@ -2384,14 +2549,32 @@ function DashboardPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
+                          <DropdownMenu open={userActionMenuOpenId === user.id} onOpenChange={open => setUserActionMenuOpenId(open ? user.id : null)}>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
+                              <Button
+                                variant="ghost"
+                                className={cn(
+                                  "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors",
+                                  userActionMenuOpenId === user.id ? "bg-purple-100 text-purple-700 border-purple-300 shadow-md" : "hover:bg-gray-100 dark:hover:bg-zinc-800"
+                                )}
+                                aria-label="User Actions"
+                              >
+                                <span className="sr-only">Open actions</span>
+                                <span className={cn("transition-transform duration-200", userActionMenuOpenId === user.id ? "rotate-90 text-purple-700" : "") }>
+                                  <MoreHorizontal className="h-5 w-5" />
+                                </span>
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="rounded-xl shadow-lg border border-gray-200 dark:border-zinc-700">
                               <DropdownMenuItem onClick={() => setUserModal({ mode: 'edit', user })}>Edit User</DropdownMenuItem>
+                              {/* Insert Change Dept. option here */}
+                              <DropdownMenuItem onClick={() => {
+                                setDeptDialog({ open: true, user });
+                                setDeptValue(user.department || "");
+                                setDeptOther("");
+                              }}>
+                                Change Dept.
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setRoleDialog({ open: true, user })}>Change Role</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setResetDialog({ open: true, user })}>Reset Password</DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -2527,6 +2710,67 @@ function DashboardPage() {
                     toast.error(err.message || 'Failed to reset password.');
                   }
                   setResetDialog({ open: false, user: null });
+                }}>Confirm</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Department Change Dialog */}
+          <Dialog open={deptDialog.open} onOpenChange={open => setDeptDialog(d => ({ ...d, open }))}>
+            <DialogContent className="max-w-md w-full p-6 rounded-xl">
+              <DialogHeader>
+                <DialogTitle>Change Department</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Label htmlFor="dept-select">Select new department:</Label>
+                <select
+                  id="dept-select"
+                  className="w-full border rounded px-3 py-2 mt-1"
+                  value={deptValue}
+                  onChange={e => setDeptValue(e.target.value)}
+                >
+                  <option value="" disabled>Select Department</option>
+                  <option value="UniFAST">UniFAST</option>
+                  <option value="IZN">IZN</option>
+                  <option value="CoScho">CoScho</option>
+                  <option value="LSGO">LSGO</option>
+                  <option value="Scholarship">Scholarship</option>
+                  <option value="MIS">MIS</option>
+                  <option value="Other">Other</option>
+                </select>
+                {deptValue === "Other" && (
+                  <div className="mt-2">
+                    <Label htmlFor="dept-other">Specify Department</Label>
+                    <input
+                      id="dept-other"
+                      type="text"
+                      className="w-full border rounded px-3 py-2 mt-1"
+                      placeholder="Enter department"
+                      value={deptOther}
+                      onChange={e => setDeptOther(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeptDialog({ open: false, user: null })}>Cancel</Button>
+                <Button onClick={async () => {
+                  if (!deptDialog.user) return;
+                  let newDept = deptValue === "Other" ? deptOther : deptValue;
+                  if (!newDept) return;
+                  try {
+                    const res = await fetch(`/api/users/${deptDialog.user.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ department: newDept }),
+                    });
+                    if (!res.ok) throw new Error('Failed to update department');
+                    const updatedUser = await res.json();
+                    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+                    toast.success('Department updated successfully!');
+                  } catch (err: any) {
+                    toast.error(err.message || 'Failed to update department.');
+                  }
+                  setDeptDialog({ open: false, user: null });
                 }}>Confirm</Button>
               </DialogFooter>
             </DialogContent>

@@ -3,6 +3,7 @@ import './globals.css'
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/useAuth";
+import React from 'react';
 
 export const metadata: Metadata = {
   title: 'samrs project',

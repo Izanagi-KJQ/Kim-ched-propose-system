@@ -27,25 +27,32 @@ export default function ApplicationReviewForm({ application, onSave, onCancel }:
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField name="status" control={form.control} render={({ field }) => {
+          // Determine which options to disable
+          const currentStatus = application.status;
+          const isPending = currentStatus === 'pending';
+          const isUnderReview = currentStatus === 'under_review';
+          const isFinal = currentStatus === 'approved' || currentStatus === 'rejected';
+          return (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isFinal}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending" disabled={isPending || isUnderReview || isFinal}>Pending</SelectItem>
+                    <SelectItem value="under_review" disabled={isUnderReview || isFinal}>Under Review</SelectItem>
+                    <SelectItem value="approved" disabled={isFinal}>Approved</SelectItem>
+                    <SelectItem value="rejected" disabled={isFinal}>Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          );
+        }} />
         <FormField name="review" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Review Comments</FormLabel>
