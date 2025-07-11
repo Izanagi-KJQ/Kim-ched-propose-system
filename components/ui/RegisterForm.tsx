@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface RegisterFormInputs {
   name: string;
+  department: string;
+  otherDepartment?: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -19,6 +21,8 @@ export function RegisterForm() {
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registerSuccess, setRegisterSuccess] = useState<boolean>(false);
   const { register: registerUser } = useAuth();
+  const department = watch("department");
+  const otherDepartment = watch("otherDepartment");
 
   const onSubmit = async (data: RegisterFormInputs) => {
     setRegisterError(null);
@@ -27,7 +31,8 @@ export function RegisterForm() {
       setRegisterError("Passwords do not match");
       return;
     }
-    const result = await registerUser(data.name, data.email, data.password);
+    let departmentValue = data.department === "Other" ? data.otherDepartment || "Other" : data.department;
+    const result = await registerUser(data.name, data.email, data.password, departmentValue);
     if (!result.success) {
       setRegisterError(result.error || "Registration failed");
     } else {
@@ -55,6 +60,39 @@ export function RegisterForm() {
                 disabled={isSubmitting}
               />
               {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="department">Department</Label>
+              <select
+                id="department"
+                className="w-full border rounded px-3 py-2 mt-1"
+                {...registerField("department", { required: "Department is required" })}
+                disabled={isSubmitting}
+                defaultValue=""
+              >
+                <option value="" disabled>Select Department</option>
+                <option value="UniFAST">UniFAST</option>
+                <option value="IZN">IZN</option>
+                <option value="CoScho">CoScho</option>
+                <option value="LSGO">LSGO</option>
+                <option value="Scholarship">Scholarship</option>
+                <option value="MIS">MIS</option>
+                <option value="Other">Other</option>
+              </select>
+              {errors.department && <p className="text-sm text-destructive mt-1">{errors.department.message}</p>}
+              {department === "Other" && (
+                <div className="mt-2">
+                  <Label htmlFor="otherDepartment">Specify Department</Label>
+                  <Input
+                    id="otherDepartment"
+                    type="text"
+                    placeholder="Enter department"
+                    {...registerField("otherDepartment", { required: "Please specify your department" })}
+                    disabled={isSubmitting}
+                  />
+                  {errors.otherDepartment && <p className="text-sm text-destructive mt-1">{errors.otherDepartment.message}</p>}
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="email">Email</Label>

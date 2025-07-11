@@ -4,9 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Application, Scholarship } from "@/lib/types";
+import { useState, useRef } from "react";
+import Cropper from 'react-easy-crop';
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Label } from "@/components/ui/label";
 
 interface ApplicationCreateFormProps {
-  onSave: (data: Omit<Application, 'id' | 'avatar'>) => void;
+  onSave: (data: Omit<Application, 'id'>) => void;
   onCancel: () => void;
   scholarships: Scholarship[];
 }
@@ -26,13 +31,177 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
     },
   })
 
+  const [avatarUrl, setAvatarUrl] = useState<string>("/placeholder-user.jpg");
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppingImage, setCroppingImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const acceptedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+  const maxSize = 30 * 1024 * 1024; // 30MB
+  const [editingCurrentAvatar, setEditingCurrentAvatar] = useState(false);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAvatarError(null);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (!acceptedTypes.includes(file.type)) {
+        setAvatarError("Only JPG, PNG, GIF, or WEBP images are allowed.");
+        setNewAvatarFile(null);
+        return;
+      }
+      if (file.size > maxSize) {
+        setAvatarError("File is too large. Max size is 30MB.");
+        setNewAvatarFile(null);
+        return;
+      }
+      setNewAvatarFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCroppingImage(reader.result as string);
+        setCropModalOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setNewAvatarFile(null);
+    setAvatarUrl("/placeholder-user.jpg");
+  };
+
+  const onCropComplete = (_: any, croppedPixels: any) => {
+    setCroppedAreaPixels(croppedPixels);
+  };
+
+  async function getCroppedImg(imageSrc: string, crop: any) {
+    const createImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image();
+      img.addEventListener('load', () => resolve(img));
+      img.addEventListener('error', error => reject(error));
+      img.setAttribute('crossOrigin', 'anonymous');
+      img.src = url;
+    });
+    const image = await createImage(imageSrc);
+    const canvas = document.createElement('canvas');
+    canvas.width = crop.width;
+    canvas.height = crop.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('No 2d context');
+    ctx.drawImage(
+      image,
+      crop.x,
+      crop.y,
+      crop.width,
+      crop.height,
+      0,
+      0,
+      crop.width,
+      crop.height
+    );
+    return new Promise<Blob>((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+      }, 'image/jpeg');
+    });
+  }
+
+  const handleEditAvatar = () => {
+    setAvatarError(null);
+    setEditingCurrentAvatar(true);
+    setCroppingImage(avatarUrl);
+    setCropModalOpen(true);
+  };
+
+  const handleCropConfirm = async () => {
+    if (!croppingImage || !croppedAreaPixels) return;
+    setLoading(true);
+    try {
+      const croppedBlob = await getCroppedImg(croppingImage, croppedAreaPixels);
+      const croppedFile = new File([croppedBlob], 'avatar.jpg', { type: croppedBlob.type || 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('avatar', croppedFile);
+      const res = await fetch('/api/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAvatarUrl(data.url);
+        setCropModalOpen(false);
+        setCroppingImage(null);
+        setNewAvatarFile(null);
+        setEditingCurrentAvatar(false);
+      } else {
+        setAvatarError('Failed to upload avatar.');
+      }
+    } catch (err) {
+      setAvatarError('Failed to crop/upload avatar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   function onSubmit(values: Omit<Application, 'id' | 'avatar'>) {
-    onSave(values)
+    onSave({ ...values, avatar: avatarUrl });
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
+        <div className="flex items-center space-x-4 mb-2">
+          <Avatar className="h-16 w-16">
+            <AvatarImage src={avatarUrl} />
+            <AvatarFallback>AP</AvatarFallback>
+          </Avatar>
+          <div>
+            <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading}>
+              {avatarUrl === "/placeholder-user.jpg" ? 'Add Photo' : 'Change Photo'}
+            </Button>
+            <Input ref={fileInputRef} id="avatar-upload" type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
+            <p className="text-xs text-muted-foreground mt-1">JPG, GIF, PNG, WEBP. 30MB max.</p>
+            {avatarError && <p className="text-sm text-destructive mt-1">{avatarError}</p>}
+            {avatarUrl !== "/placeholder-user.jpg" && (
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" size="sm" onClick={handleRemoveAvatar} disabled={loading}>Remove Photo</Button>
+                <Button variant="secondary" size="sm" onClick={handleEditAvatar} disabled={loading}>Edit Photo</Button>
+              </div>
+            )}
+            {loading && <p className="text-xs text-muted-foreground mt-2">Uploading...</p>}
+          </div>
+        </div>
+        <Dialog open={cropModalOpen} onOpenChange={setCropModalOpen}>
+          <DialogContent className="max-w-lg w-full p-6 rounded-xl">
+            <DialogHeader>
+              <DialogTitle>Crop your avatar</DialogTitle>
+            </DialogHeader>
+            {croppingImage && (
+              <div className="relative w-full h-64 bg-gray-100 rounded-md overflow-hidden">
+                <Cropper
+                  image={croppingImage}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
+                />
+              </div>
+            )}
+            <div className="flex gap-4 items-center mt-4">
+              <span className="text-sm">Zoom</span>
+              <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="flex-1" />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setCropModalOpen(false); setCroppingImage(null); setEditingCurrentAvatar(false); }}>Cancel</Button>
+              <Button onClick={handleCropConfirm} disabled={loading}>{loading ? 'Saving...' : 'Save Avatar'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <FormField name="name" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Applicant Name</FormLabel>
