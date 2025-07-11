@@ -41,6 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       data: {
         ...(data.role && { role: data.role }),
         ...(data.status && { status: data.status }),
+        ...(data.department !== undefined && { department: data.department }),
         lastActive: new Date(),
       },
       select: {
