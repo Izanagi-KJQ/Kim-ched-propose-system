@@ -12,6 +12,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ProfilePage() {
   return (
@@ -22,8 +23,7 @@ export default function ProfilePage() {
 }
 
 function ProfileContent() {
-  const [name, setName] = useState("Admin User");
-  const [email, setEmail] = useState("admin@example.com");
+  const { user } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState("/placeholder-user.jpg");
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
@@ -41,13 +41,14 @@ function ProfileContent() {
   const maxSize = 30 * 1024 * 1024; // 30MB
 
   useEffect(() => {
-    const savedName = localStorage.getItem("user-name");
-    const savedEmail = localStorage.getItem("user-email");
-    const savedAvatar = localStorage.getItem("user-avatar");
-    if (savedName) setName(savedName);
-    if (savedEmail) setEmail(savedEmail);
-    if (savedAvatar) setAvatarUrl(savedAvatar);
-  }, []);
+    // Use avatar from user context if available, else fallback to localStorage, else default
+    if (user?.avatar && user.avatar !== "") {
+      setAvatarUrl(user.avatar);
+    } else {
+      const savedAvatar = localStorage.getItem("user-avatar");
+      setAvatarUrl(savedAvatar || defaultAvatar);
+    }
+  }, [user]);
 
   // Listen for avatar changes in other tabs/windows
   useEffect(() => {
@@ -165,8 +166,9 @@ function ProfileContent() {
   };
 
   const handleSaveChanges = () => {
-    localStorage.setItem("user-name", name);
-    localStorage.setItem("user-email", email);
+    // Only update avatar in localStorage, not name/email
+    localStorage.setItem("user-avatar", avatarUrl);
+    window.dispatchEvent(new Event('storage'));
     toast.success("Profile updated successfully!");
   };
 
@@ -180,33 +182,27 @@ function ProfileContent() {
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
               <AvatarImage src={avatarUrl} />
-              <AvatarFallback>AD</AvatarFallback>
+              <AvatarFallback>{user?.name ? user.name.split(' ').map(n => n[0]).join('') : 'AD'}</AvatarFallback>
             </Avatar>
-            <div>
-              <Button onClick={() => fileInputRef.current?.click()} disabled={loading}>
-                {avatarUrl === defaultAvatar ? 'Add Photo' : 'Change Photo'}
-              </Button>
-              <Input ref={fileInputRef} id="avatar-upload" type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
-              <p className="text-xs text-muted-foreground mt-1">JPG, GIF, PNG, WEBP. 30MB max.</p>
-              {avatarError && <p className="text-sm text-destructive mt-1">{avatarError}</p>}
-              {avatarUrl !== defaultAvatar && (
-                <div className="flex gap-2 mt-2">
-                  <Button variant="outline" size="sm" onClick={handleRemoveAvatar} disabled={loading}>Remove Photo</Button>
-                  <Button variant="secondary" size="sm" onClick={handleEditAvatar} disabled={loading}>Edit Photo</Button>
-                </div>
-              )}
-              {loading && <p className="text-xs text-muted-foreground mt-2">Uploading...</p>}
+            <div className="flex flex-row gap-2 mt-2">
+              <Button variant="altAction" onClick={handleEditAvatar} disabled={loading}>Edit Photo</Button>
+              <Button variant="altAction" onClick={() => fileInputRef.current?.click()} disabled={loading}>Change Photo</Button>
+              <Button variant="altAction" onClick={handleRemoveAvatar} disabled={loading}>Remove Photo</Button>
             </div>
+            <Input ref={fileInputRef} id="avatar-upload" type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
+            <p className="text-xs text-muted-foreground mt-1">JPG, GIF, PNG, WEBP. 30MB max.</p>
+            {avatarError && <p className="text-sm text-destructive mt-1">{avatarError}</p>}
+            {loading && <p className="text-xs text-muted-foreground mt-2">Uploading...</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input id="name" value={user?.name || ""} disabled />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input id="email" type="email" value={user?.email || ""} disabled />
           </div>
-          <Button onClick={handleSaveChanges}>Save Changes</Button>
+          <Button onClick={handleSaveChanges} variant="action">Save Changes</Button>
         </CardContent>
       </Card>
       {/* Cropping Modal */}
@@ -230,11 +226,27 @@ function ProfileContent() {
           )}
           <div className="flex gap-4 items-center mt-4">
             <span className="text-sm">Zoom</span>
-            <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="flex-1" />
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.01}
+              value={zoom}
+              onChange={e => setZoom(Number(e.target.value))}
+              className="flex-1 appearance-none h-2 rounded bg-gray-300 dark:bg-gray-700 outline-none transition-colors [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-black dark:[&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black dark:[&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:duration-200 [&::-webkit-slider-thumb]:shadow-md focus:[&::-webkit-slider-thumb]:ring-2 focus:[&::-webkit-slider-thumb]:ring-purple-400"
+              style={{ accentColor: 'black' }}
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setCropModalOpen(false); setCroppingImage(null); setEditingCurrentAvatar(false); }}>Cancel</Button>
-            <Button onClick={handleCropConfirm} disabled={loading}>{loading ? 'Saving...' : 'Save Avatar'}</Button>
+            <Button variant="altAction" onClick={() => { setCropModalOpen(false); setCroppingImage(null); setEditingCurrentAvatar(false); }}>Cancel</Button>
+            <Button type="button" variant="altAction" onClick={() => { setCrop({ x: 0, y: 0 }); setZoom(1); }}>Reset Crop</Button>
+            <Button
+              onClick={handleCropConfirm}
+              disabled={loading}
+              className="bg-white text-black border-2 border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black transition-colors"
+            >
+              {loading ? 'Saving...' : 'Save Avatar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
