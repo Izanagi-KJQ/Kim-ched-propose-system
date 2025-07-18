@@ -13,7 +13,7 @@ interface UserFormProps {
 
 export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
   const form = useForm<User>({
-    defaultValues: user || { name: '', email: '', role: 'Staff', department: '', lastActive: 'Just now', status: 'Active', id: '' },
+    defaultValues: user || { firstName: '', middleName: '', lastName: '', email: '', role: 'Staff', department: '', lastActive: 'Just now', status: 'Active', id: '' },
   });
   function onSubmit(values: User) {
     onSave({ ...user, ...values, id: user?.id || '' });
@@ -21,9 +21,27 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField name="name" control={form.control} render={({ field }) => (
+        <FormField name="firstName" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Name</FormLabel>
+            <FormLabel>First Name</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="middleName" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Middle Name</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField name="lastName" control={form.control} render={({ field }) => (
+          <FormItem>
+            <FormLabel>Last Name</FormLabel>
             <FormControl>
               <Input {...field} />
             </FormControl>

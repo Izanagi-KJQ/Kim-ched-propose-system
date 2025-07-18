@@ -12,18 +12,30 @@ interface ScholarshipEditFormProps {
 }
 
 export default function ScholarshipEditForm({ scholarship, onSave, onCancel }: ScholarshipEditFormProps) {
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    // Pad month and day
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  };
+
   const form = useForm<Omit<Scholarship, 'id'>>({
     defaultValues: {
       name: scholarship.name,
       amount: scholarship.amount.replace('$', '').replace('₱', '').replace(/,/g, '').trim(),
-      deadline: scholarship.deadline,
-      status: scholarship.status,
+      deadline: formatDate(scholarship.deadline),
+      status: scholarship.status.toLowerCase(),
       applicants: scholarship.applicants,
     },
   })
 
   function onSubmit(values: Omit<Scholarship, 'id'>) {
-    onSave({ ...scholarship, ...values, amount: `$${values.amount}` }) // Add '$' back on save
+    // Ensure status is lowercase and amount is formatted with only one $
+    let formattedAmount = values.amount;
+    if (!formattedAmount.startsWith('$')) formattedAmount = `$${formattedAmount}`;
+    onSave({ ...scholarship, ...values, amount: formattedAmount, status: values.status.toLowerCase() })
   }
 
   return (
@@ -66,23 +78,32 @@ export default function ScholarshipEditForm({ scholarship, onSave, onCancel }: S
             <FormMessage />
           </FormItem>
         )} />
-        <FormField name="status" control={form.control} render={({ field }) => (
-          <FormItem>
-            <FormLabel>Status</FormLabel>
-            <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField name="status" control={form.control} render={({ field }) => {
+          const currentStatus = form.watch("status");
+          // Scholarship status workflow:
+          // - If 'pending': disable 'Pending'
+          // - If 'under_review': disable 'Pending', 'Under Review'
+          // - If 'active' or 'closed': disable all except current
+          return (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending" disabled={currentStatus === 'pending' || currentStatus === 'under_review' || currentStatus === 'active' || currentStatus === 'closed'}>Pending</SelectItem>
+                    <SelectItem value="under_review" disabled={currentStatus === 'under_review' || currentStatus === 'active' || currentStatus === 'closed'}>Under Review</SelectItem>
+                    <SelectItem value="active" disabled={currentStatus === 'active' || currentStatus === 'closed'}>Active</SelectItem>
+                    <SelectItem value="closed" disabled={currentStatus === 'closed' || currentStatus === 'active'}>Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          );
+        }} />
         <FormField name="applicants" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Applicants</FormLabel>
