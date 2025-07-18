@@ -26,7 +26,10 @@ export interface Application {
 
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  name?: string; // For backward compatibility
   email: string;
   role: string;
   department: string;
