@@ -47,7 +47,7 @@ export function ThemeSwitcherButtonPurple() {
         <Button
           variant="action"
           size="icon"
-          className="border-2 border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white dark:hover:border-purple-400 transition-colors"
+          className="border-2 border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white dark:hover:border-purple-400 transition-colors hover:scale-110 hover:shadow-lg transition-transform transition-shadow duration-200"
         >
           <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />

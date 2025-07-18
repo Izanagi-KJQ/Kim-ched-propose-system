@@ -172,6 +172,9 @@ function ProfileContent() {
     toast.success("Profile updated successfully!");
   };
 
+  // Show prompt if firstName or lastName is missing
+  const needsProfileUpdate = !user?.firstName || !user?.lastName;
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-muted/40 p-4">
       <Card className="w-full max-w-2xl">
@@ -179,14 +182,18 @@ function ProfileContent() {
           <CardTitle>User Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {needsProfileUpdate && (
+            <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4 text-center">
+              Please update your profile information to include your first and last name.
+            </div>
+          )}
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
               <AvatarImage src={avatarUrl} />
-              <AvatarFallback>{user?.name ? user.name.split(' ').map(n => n[0]).join('') : 'AD'}</AvatarFallback>
+              <AvatarFallback>{user?.firstName ? user.firstName[0] : 'AD'}</AvatarFallback>
             </Avatar>
             <div className="flex flex-row gap-2 mt-2">
               <Button variant="altAction" onClick={handleEditAvatar} disabled={loading}>Edit Photo</Button>
-              <Button variant="altAction" onClick={() => fileInputRef.current?.click()} disabled={loading}>Change Photo</Button>
               <Button variant="altAction" onClick={handleRemoveAvatar} disabled={loading}>Remove Photo</Button>
             </div>
             <Input ref={fileInputRef} id="avatar-upload" type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
@@ -195,8 +202,16 @@ function ProfileContent() {
             {loading && <p className="text-xs text-muted-foreground mt-2">Uploading...</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input id="name" value={user?.name || ""} disabled />
+            <Label htmlFor="firstName">First Name</Label>
+            <Input id="firstName" value={user?.firstName || ""} disabled />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="middleName">Middle Name</Label>
+            <Input id="middleName" value={user?.middleName || ""} disabled />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last Name</Label>
+            <Input id="lastName" value={user?.lastName || ""} disabled />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -240,6 +255,7 @@ function ProfileContent() {
           <DialogFooter>
             <Button variant="altAction" onClick={() => { setCropModalOpen(false); setCroppingImage(null); setEditingCurrentAvatar(false); }}>Cancel</Button>
             <Button type="button" variant="altAction" onClick={() => { setCrop({ x: 0, y: 0 }); setZoom(1); }}>Reset Crop</Button>
+            <Button type="button" variant="altAction" onClick={() => fileInputRef.current?.click()} disabled={loading}>Change Photo</Button>
             <Button
               onClick={handleCropConfirm}
               disabled={loading}

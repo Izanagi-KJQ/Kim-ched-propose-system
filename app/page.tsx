@@ -38,6 +38,9 @@ import {
   DollarSign,
   LogOut,
   Trash2,
+  Key,
+  User as UserIcon,
+  Settings as SettingsIcon,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
@@ -70,6 +73,20 @@ import { format } from "date-fns";
 
 // Add TabName type
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
+
+// Add after imports:
+function getUserFullName(user: any) {
+  if (user.firstName || user.lastName) {
+    return [user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ');
+  }
+  return user.name || '';
+}
+function getUserInitials(user: any) {
+  if (user.firstName || user.lastName) {
+    return [user.firstName, user.middleName, user.lastName].filter(Boolean).map((n: string) => n?.[0] || '').join('').toUpperCase();
+  }
+  return (user.name || 'AD').split(' ').map((n: string) => n[0]).join('').toUpperCase();
+}
 
 function DashboardPage() {
   const router = useRouter();
@@ -220,13 +237,15 @@ function DashboardPage() {
     if (savedAvatar) setAvatarUrl(savedAvatar);
   }, []);
 
-  // Update getStatusBadge to handle new workflow
-  const getStatusBadge = (status: string, onClick?: () => void) => {
+  // Update getStatusBadge to accept event and stop propagation if needed
+  const getStatusBadge = (status: string, onClick?: (e?: React.MouseEvent) => void) => {
     const statusConfig = {
       pending: { label: "Pending", className: "bg-orange-100 text-orange-800 hover:bg-orange-200", clickable: true },
       under_review: { label: "Under Review", className: "bg-blue-500 text-white hover:bg-blue-600", clickable: true },
       approved: { label: "Approved", className: "bg-green-500 text-white", clickable: false },
       rejected: { label: "Rejected", className: "bg-red-500 text-white", clickable: false },
+      active: { label: "Active", className: "bg-green-600 text-white", clickable: false },
+      closed: { label: "Closed", className: "bg-gray-500 text-white", clickable: false },
     };
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
@@ -342,12 +361,14 @@ function DashboardPage() {
       if (!res.ok) throw new Error('Failed to update scholarship');
       const updatedScholarship = await res.json();
       setScholarships(prev => prev.map(sch => sch.id === updatedScholarship.id ? updatedScholarship : sch));
+      // Update selectedScholarship with the latest object for real-time UI update
+      setSelectedScholarship(updatedScholarship);
       toast.success('Scholarship updated successfully!');
       setModalMode(null);
       setSelectedScholarship(null);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update scholarship');
-  }
+    }
   }
 
   // Replace handleLogout with context-based logout
@@ -1010,6 +1031,15 @@ function DashboardPage() {
     }
   }, [activeTab, dashboardRankingHighlightId]);
 
+  // In the scholarships card rendering, add this helper:
+  const now = new Date();
+  const displayStatus = (scholarship: Scholarship) => {
+    if (new Date(scholarship.deadline) < now && scholarship.status !== "closed") {
+      return "closed";
+    }
+    return scholarship.status;
+  };
+
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
       {/* Header */}
@@ -1026,7 +1056,7 @@ function DashboardPage() {
             <Button
               variant="action"
               size="sm"
-              className="flex items-center border-2 border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white dark:hover:border-purple-400 transition-colors"
+              className="flex items-center border-2 border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white dark:hover:border-purple-400 transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200"
               onClick={handleExport}
             >
               <Download className="h-4 w-4 mr-2" />
@@ -1038,7 +1068,7 @@ function DashboardPage() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Avatar className="cursor-pointer">
+                <Avatar className="cursor-pointer hover:scale-110 hover:shadow-lg transition-shadow duration-200">
                   <AvatarImage src={avatarUrl} />
               <AvatarFallback>AD</AvatarFallback>
             </Avatar>
@@ -1058,10 +1088,16 @@ function DashboardPage() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/profile')}>Profile</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>
+                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => router.push('/profile')}>
+                  <UserIcon className="h-4 w-4 mr-2" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => router.push('/settings')}>
+                  <SettingsIcon className="h-4 w-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
+                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </DropdownMenuItem>
@@ -1299,7 +1335,8 @@ function DashboardPage() {
                             "focus:outline-none focus:ring-2 focus:ring-purple-400",
                             "hover:bg-purple-100 dark:hover:bg-purple-900/40",
                             "active:scale-95",
-                            "cursor-pointer"
+                            "cursor-pointer",
+                            "hover:scale-110 hover:shadow-lg transition-shadow duration-200"
                           )}
                           style={{ minWidth: 0, border: "none", background: "none" }}
                           onClick={() => {
@@ -1389,16 +1426,29 @@ function DashboardPage() {
                   <p className="text-muted-foreground">Manage and review scholarship applications</p>
                 </div>
                 <div className="flex items-center space-x-4">
-                <Button variant="altAction" onClick={() => setTrashBinOpen(true)} aria-label="Open Trash Bin">
+                <Button 
+                  variant="altAction" 
+                  onClick={() => setTrashBinOpen(true)} 
+                  aria-label="Open Trash Bin"
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
                   </Button>
-                <Button variant={selectionMode ? "altAction" : "altAction"} onClick={() => setSelectionMode(m => !m)} aria-label={selectionMode ? "Cancel Selection" : "Select Applications"}>
+                <Button 
+                  variant={selectionMode ? "altAction" : "altAction"} 
+                  onClick={() => setSelectionMode(m => !m)} 
+                  aria-label={selectionMode ? "Cancel Selection" : "Select Applications"}
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                >
                     {selectionMode ? "Cancel" : "Select"}
                   </Button>
-                <Button onClick={() => setModalMode("createApplication")}
+                <Button 
+                  onClick={() => setModalMode("createApplication")}
                   variant="action"
-                  aria-label="New Application">
+                  aria-label="New Application"
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                >
                     <FileText className="h-4 w-4 mr-2" />
                     New Application
                   </Button>
@@ -1423,7 +1473,7 @@ function DashboardPage() {
                 variant="altAction" 
                 onClick={() => setSortModalOpen(true)} 
                 aria-label="Sort and filter applications" 
-                className="w-48"
+                className="w-48 hover:scale-110 hover:shadow-lg transition-shadow duration-200"
               >
                 Sort & Filter
               </Button>
@@ -1624,8 +1674,22 @@ function DashboardPage() {
                   ) : selectionMode && selectedAppIds.length > 0 && (
                     <div className="mb-2 flex items-center gap-4">
                       <span className="text-sm font-medium">{selectedAppIds.length} selected</span>
-                      <Button variant="destructive" size="sm" onClick={handleBulkDelete}>Move to Trash Bin</Button>
-                      <Button variant="outline" size="sm" onClick={() => setSelectionMode(false)}>Cancel Selection</Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={handleBulkDelete}
+                        className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                      >
+                        Move to Trash Bin
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setSelectionMode(false)}
+                        className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                      >
+                        Cancel Selection
+                      </Button>
                     </div>
                   )}
                   {!loadingApplications && !applicationsError && (
@@ -1645,32 +1709,47 @@ function DashboardPage() {
                           />
                         </TableHead>
                       )}
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Applicant</TableHead>
-                    <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Region</TableHead>
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Scholarship</TableHead>
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Amount</TableHead>
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">GPA</TableHead>
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
-                    <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Comment</TableHead>
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Submitted</TableHead>
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Applicant</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Region</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Scholarship</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Amount</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">GPA</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Comment</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Submitted</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredApplications.map((app) => (
-                        <TableRow key={app.id} className="transition-colors duration-300"
+                        <TableRow
+                          key={app.id}
+                          className={cn(
+                            "transition-all duration-200 cursor-pointer",
+                            highlightedApplicantId === app.id
+                              ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
+                              : "hover:scale-105 hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
+                          )}
+                          tabIndex={0}
                             ref={el => {
                               if (highlightedApplicantId === app.id && el) {
                                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                               }
                             }}
+                          onClick={() => setSelectedApplication(app)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              setSelectedApplication(app);
+                            }
+                          }}
+                          aria-label={`Show details for ${app.name}`}
                           >
                             {selectionMode && (
                               <TableCell>
                                 <input
                                   type="checkbox"
                                   checked={selectedAppIds.includes(app.id)}
-                                  onChange={e => handleAppCheckboxChange(e, app)}
+                                onChange={e => handleAppCheckboxChange(e, app)}
                                   aria-label={`Select application for ${app.name}`}
                                 />
                               </TableCell>
@@ -1680,7 +1759,7 @@ function DashboardPage() {
                                 <Avatar className="h-8 w-8">
                                   <AvatarImage src={app.avatar || "/placeholder.svg"} />
                                   <AvatarFallback>
-                                    {app.name.split(" ").map((n) => n[0]).join("")}
+                                  {app.name.split(" ").map((n) => n[0]).join("")}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
@@ -1690,14 +1769,16 @@ function DashboardPage() {
                               </div>
                             </TableCell>
                             <TableCell>{app.region}</TableCell>
-                            <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
-                            <TableCell>{typeof app.amount === 'object' ? JSON.stringify(app.amount) : app.amount.replace("$", "₱")}</TableCell>
+                          <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
+                          <TableCell>{typeof app.amount === 'object' ? JSON.stringify(app.amount) : app.amount.replace("$", "₱")}</TableCell>
                             <TableCell>{app.gpa}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
                                 {getStatusIcon(app.status)}
-                                {app.status === 'pending' ? getStatusBadge(app.status, () => setStatusWorkflowDialog({ open: true, app, step: 'pending' }))
-                                  : app.status === 'under_review' ? getStatusBadge(app.status, () => setStatusWorkflowDialog({ open: true, app, step: 'under_review' }))
+                                {app.status === 'pending'
+                                  ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'pending' }); })
+                                  : app.status === 'under_review'
+                                    ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'under_review' }); })
                                   : getStatusBadge(app.status)}
                               </div>
                             </TableCell>
@@ -1707,8 +1788,8 @@ function DashboardPage() {
                             ) : (
                               <span className="text-gray-400">None</span>
                             )}
-                            </TableCell>
-                            <TableCell>{format(new Date(app.submittedDate), 'yyyy-MM-dd')}</TableCell>
+                          </TableCell>
+                          <TableCell>{format(new Date(app.submittedDate), 'yyyy-MM-dd')}</TableCell>
                             <TableCell className="text-right">
                             {/* Modern action button with open/close state using controlled open state */}
                             <DropdownMenu open={actionMenuOpenId === app.id} onOpenChange={open => setActionMenuOpenId(open ? app.id : null)}>
@@ -1716,7 +1797,7 @@ function DashboardPage() {
                                 <Button
                                   variant="ghost"
                                   className={cn(
-                                    "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors",
+                                    "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200",
                                     actionMenuOpenId === app.id ? "bg-purple-100 text-purple-700 border-purple-300 shadow-md" : "hover:bg-gray-100 dark:hover:bg-zinc-800"
                                   )}
                                   aria-label="Application Actions"
@@ -1729,23 +1810,20 @@ function DashboardPage() {
                                 </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="rounded-xl shadow-lg border border-gray-200 dark:border-zinc-700">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem onClick={() => setSelectedApplication(app)}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View Details
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setSelectedApplication(app); setModalMode("reviewApplication"); }}>
+                                {/* Removed View Details option */}
+                                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => { setSelectedApplication(app); setModalMode("reviewApplication"); }}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Review & Score
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setSelectedApplication(app); setModalMode("sendMessage"); }}>
+                                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => { setSelectedApplication(app); setModalMode("sendMessage"); }}>
                                     <Mail className="h-4 w-4 mr-2" />
                                     Send Message
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDownloadDocuments(app)}>
+                                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDownloadDocuments(app)}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download Documents
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500" onClick={() => handleDeleteApplicant(app)}>
+                                <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500 hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDeleteApplicant(app)}>
                                     <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
                                     Delete Applicant
                                   </DropdownMenuItem>
@@ -1850,9 +1928,9 @@ function DashboardPage() {
                     </div>
                   )}
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setDownloadDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleConfirmDownloadPDF}>Download PDF</Button>
-                    <Button onClick={handleConfirmDownloadDOCX} variant="secondary">Download DOCX</Button>
+                    <Button variant="outline" onClick={() => setDownloadDialogOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                    <Button onClick={handleConfirmDownloadPDF} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Download PDF</Button>
+                    <Button onClick={handleConfirmDownloadDOCX} variant="secondary" className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Download DOCX</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -1869,8 +1947,8 @@ function DashboardPage() {
                     </div>
                   )}
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-                    <Button variant="destructive" onClick={handleConfirmDeleteApplicant}>Delete</Button>
+                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                    <Button variant="destructive" onClick={handleConfirmDeleteApplicant} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -1894,8 +1972,8 @@ function DashboardPage() {
                             <div className="text-xs text-muted-foreground">{app.email} | {app.scholarship} | {app.region}</div>
                           </div>
                           <div className="flex space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => handleRestoreApplicant(app)}>Restore</Button>
-                            <Button size="sm" variant="destructive" onClick={() => handlePermanentDeleteApplicant(app)}>Delete Permanently</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleRestoreApplicant(app)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Restore</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handlePermanentDeleteApplicant(app)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
                           </div>
                         </div>
                       ))}
@@ -1905,6 +1983,7 @@ function DashboardPage() {
                             size="lg"
                             variant="destructive"
                             onClick={handleDeleteAllPermanently}
+                            className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
                           >
                             Delete All Permanently
                           </Button>
@@ -1913,7 +1992,7 @@ function DashboardPage() {
                     </div>
                   )}
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setTrashBinOpen(false)}>Close</Button>
+                    <Button variant="outline" onClick={() => setTrashBinOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Close</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -1927,8 +2006,8 @@ function DashboardPage() {
                       </DialogHeader>
                       <p>Do you want to change the status for <span className="font-semibold">{statusWorkflowDialog.app.name}</span> to 'Under Review'?</p>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })}>Cancel</Button>
-                        <Button onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'under_review')}>Confirm</Button>
+                        <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                        <Button onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'under_review')} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
                       </DialogFooter>
                     </>
                   )}
@@ -1939,9 +2018,9 @@ function DashboardPage() {
                       </DialogHeader>
                       <p>Accept or reject the application for <span className="font-semibold">{statusWorkflowDialog.app.name}</span>?</p>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })}>Cancel</Button>
-                        <Button variant="destructive" onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'rejected')}>Reject</Button>
-                        <Button className="bg-green-500 hover:bg-green-600 text-white" onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'approved')}>Accept</Button>
+                        <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                        <Button variant="destructive" onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'rejected')} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Reject</Button>
+                        <Button className="bg-green-500 hover:bg-green-600 text-white hover:scale-110 hover:shadow-lg transition-shadow duration-200" onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'approved')}>Accept</Button>
                       </DialogFooter>
                     </>
                   )}
@@ -1960,8 +2039,8 @@ function DashboardPage() {
                     </div>
                   )}
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setPermanentDeleteDialog({ open: false, app: null })}>Cancel</Button>
-                    <Button variant="destructive" onClick={confirmPermanentDeleteApplicant}>Delete Permanently</Button>
+                    <Button variant="outline" onClick={() => setPermanentDeleteDialog({ open: false, app: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                    <Button variant="destructive" onClick={confirmPermanentDeleteApplicant} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -1976,8 +2055,8 @@ function DashboardPage() {
                     <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setPermanentDeleteAllDialog(false)}>Cancel</Button>
-                    <Button variant="destructive" onClick={confirmDeleteAllPermanently}>Delete All Permanently</Button>
+                    <Button variant="outline" onClick={() => setPermanentDeleteAllDialog(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                    <Button variant="destructive" onClick={confirmDeleteAllPermanently} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete All Permanently</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -2102,7 +2181,10 @@ function DashboardPage() {
                           filteredApps.map(app => (
                             <div
                               key={app.id}
-                              className="flex items-center justify-between border-b pb-2 cursor-pointer hover:bg-accent/40 rounded transition"
+                              className={cn(
+                                "flex items-center justify-between border-b pb-2 cursor-pointer rounded transition-all duration-200",
+                                "hover:scale-105 hover:shadow-lg hover:bg-accent/40 focus:scale-105 focus:shadow-lg"
+                              )}
                               onClick={() => {
                                   setActiveTab('applications');
                                 setStatusFilter(app.status);
@@ -2112,6 +2194,14 @@ function DashboardPage() {
                                       tabIndex={0}
                                       role="button"
                               aria-label={`Go to applicant ${app.name} in Applications`}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  setActiveTab('applications');
+                                  setStatusFilter(app.status);
+                                  setHighlightedApplicantId(app.id);
+                                  setRankingStatusModal({ open: false, status: null });
+                                }
+                              }}
                             >
                               <div>
                                 <div className="font-medium">{app.name}</div>
@@ -2124,7 +2214,7 @@ function DashboardPage() {
                     );
                   })()}
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setRankingStatusModal({ open: false, status: null })}>Close</Button>
+                    <Button variant="outline" onClick={() => setRankingStatusModal({ open: false, status: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Close</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -2185,14 +2275,14 @@ function DashboardPage() {
                                     className="cursor-pointer"
                                     onClick={e => {
                                       e.stopPropagation();
-                                      setActiveTab('applications');
+                                  setActiveTab('applications');
                                       setStatusFilter(app.status);
-                                      setHighlightedApplicantId(app.id);
+                                  setHighlightedApplicantId(app.id);
                                     }}
-                                    tabIndex={0}
-                                    role="button"
-                                    aria-label="Go to applicant in Applications"
-                                  >
+                                      tabIndex={0}
+                                      role="button"
+                                      aria-label="Go to applicant in Applications"
+                                    >
                                 {getStatusBadge(app.status)}
                                   </span>
                         </div>
@@ -2216,7 +2306,7 @@ function DashboardPage() {
                   <p className="text-muted-foreground">Manage scholarship programs and deadlines</p>
                 </div>
                 <div className="flex items-center space-x-4">
-              <Button variant="altAction" onClick={() => setScholarshipTrashOpen(true)}>
+              <Button variant="altAction" onClick={() => setScholarshipTrashOpen(true)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">
                 <Trash2 className="h-4 w-4 mr-2" />
                 Trash Bin {scholarshipTrash.length > 0 && <span className="ml-1">({scholarshipTrash.length})</span>}
               </Button>
@@ -2233,7 +2323,7 @@ function DashboardPage() {
                       <SelectItem value="status_closed">Status: Closed</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="action" onClick={() => setScholarshipTypeDialog(true)}>
+                  <Button variant="action" onClick={() => setScholarshipTypeDialog(true)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">
                     <Award className="h-4 w-4 mr-2" />
                     Create Scholarship
                   </Button>
@@ -2262,7 +2352,6 @@ function DashboardPage() {
                     } else if (scholarshipSort === "deadline_newest") {
                       return new Date(b.deadline).getTime() - new Date(a.deadline).getTime();
                     } else if (scholarshipSort === "applicants_asc") {
-                      // Use dynamic count
                       const aCount = applications.filter(app => app.scholarship === a.name).length;
                       const bCount = applications.filter(app => app.scholarship === b.name).length;
                       return aCount - bCount;
@@ -2274,19 +2363,25 @@ function DashboardPage() {
                     return 0;
                   })
                   .map((scholarship) => (
-                    <Card key={scholarship.id} className="dark:bg-[#23232a] dark:text-gray-100">
+                    <Card
+                      key={scholarship.id}
+                      className={cn(
+                        "dark:bg-[#23232a] dark:text-gray-100 cursor-pointer transition-all duration-200",
+                        "hover:scale-105 hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
+                      )}
+                      tabIndex={0}
+                      onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setSelectedScholarship(scholarship); setModalMode("view");
+                        }
+                      }}
+                      aria-label={`Show details for ${scholarship.name}`}
+                    >
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-lg">{scholarship.name}</CardTitle>
-                          <Badge className={cn(
-                            scholarship.status === "active"
-                              ? "bg-green-500 text-white"
-                              : scholarship.status === "closed"
-                              ? "bg-red-500 text-white"
-                              : "bg-gray-300 text-gray-700"
-                          )}>
-                            {scholarship.status}
-                          </Badge>
+                          {getStatusBadge(displayStatus(scholarship))}
                         </div>
                         <CardDescription>
                           <div className="flex items-center space-x-2">
@@ -2309,15 +2404,12 @@ function DashboardPage() {
                             <span className="font-medium">{applications.filter(app => app.scholarship === scholarship.name).length}</span>
                           </div>
                         <div className="pt-3 border-t flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("view"); }}>
-                            <Eye className="h-4 w-4" />
-                            <span>View</span>
-                              </Button>
-                          <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => { setSelectedScholarship(scholarship); setModalMode("edit"); }}>
+                            {/* Removed View button */}
+                            <Button variant="outline" size="sm" className="flex-1 flex items-center justify-center gap-1 hover:scale-110 hover:shadow-lg transition-shadow duration-200" onClick={e => { e.stopPropagation(); setSelectedScholarship(scholarship); setModalMode("edit"); }}>
                             <Edit className="h-4 w-4" />
                             <span>Edit</span>
                           </Button>
-                          <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1" onClick={() => setDeleteScholarshipDialog({ open: true, scholarship })}>
+                            <Button variant="destructive" size="sm" className="flex-1 flex items-center justify-center gap-1 hover:scale-110 hover:shadow-lg transition-shadow duration-200" onClick={e => { e.stopPropagation(); setDeleteScholarshipDialog({ open: true, scholarship }); }}>
                             <Trash2 className="h-4 w-4" />
                             <span>Remove</span>
                               </Button>
@@ -2335,8 +2427,8 @@ function DashboardPage() {
                     <DialogTitle>Choose Scholarship Type</DialogTitle>
                   </DialogHeader>
                   <div className="flex flex-col gap-4 mt-4">
-                    <Button onClick={() => { setPendingScholarshipType('Full'); }}>Full Scholarship</Button>
-                    <Button onClick={() => { setPendingScholarshipType('Half'); }}>Half Scholarship</Button>
+                    <Button onClick={() => { setPendingScholarshipType('Full'); }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Full Scholarship</Button>
+                    <Button onClick={() => { setPendingScholarshipType('Half'); }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Half Scholarship</Button>
                   </div>
                   <DialogFooter>
                     <DialogClose asChild>
@@ -2378,13 +2470,13 @@ function DashboardPage() {
                     </div>
                   )}
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setDeleteScholarshipDialog({ open: false, scholarship: null })}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setDeleteScholarshipDialog({ open: false, scholarship: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
                     <Button variant="destructive" onClick={() => {
                       if (deleteScholarshipDialog.scholarship) {
                     handleRemoveScholarship(deleteScholarshipDialog.scholarship);
                         setDeleteScholarshipDialog({ open: false, scholarship: null });
                       }
-                    }}>Remove</Button>
+                    }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Remove</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -2392,23 +2484,29 @@ function DashboardPage() {
               <Dialog open={!!modalMode && (modalMode === 'view' || modalMode === 'edit')} onOpenChange={() => { setModalMode(null); setSelectedScholarship(null); }}>
                 <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
                   <DialogHeader>
-                    <DialogTitle>{modalMode === "view" ? "View Scholarship" : "Edit Scholarship"}</DialogTitle>
+                    <DialogTitle>{modalMode === "view" ? "Scholarship Details" : "Edit Scholarship"}</DialogTitle>
                   </DialogHeader>
-                  {selectedScholarship && (
+                  {selectedScholarship && (() => {
+                    // Always get the latest scholarship object from state by id
+                    const latestScholarship = scholarships.find(s => s.id === selectedScholarship.id) || selectedScholarship;
+                    const applicantsCount = applications.filter(app => app.scholarship === latestScholarship.name).length;
+                    return (
                     <div>
                       {modalMode === "view" ? (
                         <div className="space-y-2">
-                          <p><strong>Name:</strong> {selectedScholarship.name}</p>
-                          <p><strong>Amount:</strong> ₱ {selectedScholarship.amount.replace(/[$₱]/g, "")}</p>
-                          <p><strong>Deadline:</strong> {format(new Date(selectedScholarship.deadline), 'yyyy-MM-dd')}</p>
-                          <p><strong>Status:</strong> {selectedScholarship.status}</p>
-                          <p><strong>Applicants:</strong> {selectedScholarship.applicants}</p>
+                            <p><strong>Name:</strong> {latestScholarship.name}</p>
+                            <p><strong>Amount:</strong> ₱ {latestScholarship.amount.replace(/[$₱]/g, "")}</p>
+                            <p><strong>Deadline:</strong> {format(new Date(latestScholarship.deadline), 'yyyy-MM-dd')}</p>
+                            <div className="flex items-center gap-2"><strong>Status:</strong> {getStatusBadge(latestScholarship.status)}</div>
+                            <p><strong>Applicants:</strong> {applicantsCount}</p>
                         </div>
                       ) : (
-                        <ScholarshipEditForm scholarship={selectedScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
+                          // Always pass the latestScholarship object to the edit form
+                          <ScholarshipEditForm scholarship={latestScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline">Close</Button>
@@ -2433,22 +2531,20 @@ function DashboardPage() {
                         <div className="text-xs text-muted-foreground">Amount: {sch.amount} | Deadline: {format(new Date(sch.deadline), 'yyyy-MM-dd')}</div>
                       </div>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleRestoreScholarship(sch)}>Restore</Button>
-                        <Button size="sm" variant="destructive" onClick={() => setPermanentDeleteScholarshipDialog({ open: true, scholarship: sch })}>Delete Permanently</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleRestoreScholarship(sch)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Restore</Button>
+                        <Button size="sm" variant="destructive" onClick={() => setPermanentDeleteScholarshipDialog({ open: true, scholarship: sch })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
                       </div>
                     </div>
                   ))}
                   {scholarshipTrash.length > 1 && (
                     <div className="flex justify-end mt-4">
-                      <Button size="lg" variant="destructive" onClick={() => setPermanentDeleteAllScholarshipsDialog(true)}>
-                        Delete All Permanently
-                      </Button>
+                      <Button size="lg" variant="destructive" onClick={() => setPermanentDeleteAllScholarshipsDialog(true)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete All Permanently</Button>
                     </div>
                   )}
                 </div>
               )}
               <DialogFooter>
-                <Button variant="outline" onClick={() => setScholarshipTrashOpen(false)}>Close</Button>
+                <Button variant="outline" onClick={() => setScholarshipTrashOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Close</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -2465,8 +2561,8 @@ function DashboardPage() {
                 </div>
               )}
               <DialogFooter>
-                <Button variant="outline" onClick={() => setPermanentDeleteScholarshipDialog({ open: false, scholarship: null })}>Cancel</Button>
-                <Button variant="destructive" onClick={() => { if (permanentDeleteScholarshipDialog.scholarship) { handlePermanentDeleteScholarship(permanentDeleteScholarshipDialog.scholarship); setPermanentDeleteScholarshipDialog({ open: false, scholarship: null }); } }}>Delete Permanently</Button>
+                <Button variant="outline" onClick={() => setPermanentDeleteScholarshipDialog({ open: false, scholarship: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                <Button variant="destructive" onClick={() => { if (permanentDeleteScholarshipDialog.scholarship) { handlePermanentDeleteScholarship(permanentDeleteScholarshipDialog.scholarship); setPermanentDeleteScholarshipDialog({ open: false, scholarship: null }); } }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -2481,8 +2577,8 @@ function DashboardPage() {
                 <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setPermanentDeleteAllScholarshipsDialog(false)}>Cancel</Button>
-                <Button variant="destructive" onClick={() => { handlePermanentDeleteAllScholarships(); setPermanentDeleteAllScholarshipsDialog(false); }}>Delete All Permanently</Button>
+                <Button variant="outline" onClick={() => setPermanentDeleteAllScholarshipsDialog(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
+                <Button variant="destructive" onClick={() => { handlePermanentDeleteAllScholarships(); setPermanentDeleteAllScholarshipsDialog(false); }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete All Permanently</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -2511,12 +2607,12 @@ function DashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">User</TableHead>
-                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Role</TableHead>
-                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Department</TableHead>
-                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Last Active</TableHead>
-                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
-                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">User</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Role</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Department</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Last Active</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2526,10 +2622,10 @@ function DashboardPage() {
                           <div className="flex items-center space-x-3">
                             <Avatar>
                               <AvatarImage src={"/placeholder.svg?height=32&width=32"} />
-                              <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                              <AvatarFallback>{getUserInitials(user)}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{user.name}</p>
+                              <p className="font-medium">{getUserFullName(user)}</p>
                               <p className="text-sm text-muted-foreground">{user.email}</p>
                             </div>
                           </div>
@@ -2554,7 +2650,7 @@ function DashboardPage() {
                               <Button
                                 variant="ghost"
                                 className={cn(
-                                  "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors",
+                                  "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200",
                                   userActionMenuOpenId === user.id ? "bg-purple-100 text-purple-700 border-purple-300 shadow-md" : "hover:bg-gray-100 dark:hover:bg-zinc-800"
                                 )}
                                 aria-label="User Actions"
@@ -2566,19 +2662,29 @@ function DashboardPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-xl shadow-lg border border-gray-200 dark:border-zinc-700">
-                              <DropdownMenuItem onClick={() => setUserModal({ mode: 'edit', user })}>Edit User</DropdownMenuItem>
-                              {/* Insert Change Dept. option here */}
-                              <DropdownMenuItem onClick={() => {
+                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => setUserModal({ mode: 'edit', user })}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit User
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => {
                                 setDeptDialog({ open: true, user });
                                 setDeptValue(user.department || "");
                                 setDeptOther("");
                               }}>
+                                <UserIcon className="h-4 w-4 mr-2" />
                                 Change Dept.
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setRoleDialog({ open: true, user })}>Change Role</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setResetDialog({ open: true, user })}>Reset Password</DropdownMenuItem>
+                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => setRoleDialog({ open: true, user })}>
+                                <Star className="h-4 w-4 mr-2" />
+                                Change Role
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => setResetDialog({ open: true, user })}>
+                                <Key className="h-4 w-4 mr-2" />
+                                Reset Password
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user)}>
+                              <DropdownMenuItem className="text-red-600 hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDeleteUser(user)}>
+                                <Trash2 className="h-4 w-4 mr-2 text-red-600" />
                                 Delete User
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -2666,7 +2772,7 @@ function DashboardPage() {
                 </Select>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setRoleDialog({ open: false, user: null })}>Cancel</Button>
+                <Button variant="outline" onClick={() => setRoleDialog({ open: false, user: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
                 <Button onClick={async () => {
                   if (!roleDialog.user || !selectedRole) return;
                   try {
@@ -2684,7 +2790,7 @@ function DashboardPage() {
                   }
                   setRoleDialog({ open: false, user: null });
                   setSelectedRole("");
-                }}>Confirm</Button>
+                }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -2695,10 +2801,10 @@ function DashboardPage() {
                 <DialogTitle>Reset Password</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <p>Are you sure you want to reset the password for <span className="font-semibold">{resetDialog.user?.name}</span>?</p>
+                <p>Are you sure you want to reset the password for <span className="font-semibold">{getUserFullName(resetDialog.user || {})}</span>?</p>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setResetDialog({ open: false, user: null })}>Cancel</Button>
+                <Button variant="outline" onClick={() => setResetDialog({ open: false, user: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
                 <Button variant="destructive" onClick={async () => {
                   if (!resetDialog.user) return;
                   try {
@@ -2710,7 +2816,7 @@ function DashboardPage() {
                     toast.error(err.message || 'Failed to reset password.');
                   }
                   setResetDialog({ open: false, user: null });
-                }}>Confirm</Button>
+                }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -2748,11 +2854,11 @@ function DashboardPage() {
                       value={deptOther}
                       onChange={e => setDeptOther(e.target.value)}
                     />
-                  </div>
-                )}
-              </div>
+            </div>
+          )}
+      </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDeptDialog({ open: false, user: null })}>Cancel</Button>
+                <Button variant="outline" onClick={() => setDeptDialog({ open: false, user: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
                 <Button onClick={async () => {
                   if (!deptDialog.user) return;
                   let newDept = deptValue === "Other" ? deptOther : deptValue;
@@ -2771,7 +2877,7 @@ function DashboardPage() {
                     toast.error(err.message || 'Failed to update department.');
                   }
                   setDeptDialog({ open: false, user: null });
-                }}>Confirm</Button>
+                }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
