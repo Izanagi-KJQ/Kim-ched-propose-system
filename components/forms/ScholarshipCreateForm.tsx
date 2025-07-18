@@ -76,6 +76,8 @@ export default function ScholarshipCreateForm({ onSave, onCancel, type }: Schola
                   <SelectValue placeholder="Select a status" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="under_review">Under Review</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>

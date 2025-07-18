@@ -7,7 +7,9 @@ export async function GET(req: NextRequest) {
     const users = await prisma.user.findMany({
       select: {
         id: true,
-        name: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
         email: true,
         role: true,
         department: true,
@@ -31,7 +33,10 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const user = await prisma.user.create({
       data: {
-        name: data.name,
+        firstName: data.firstName,
+        middleName: data.middleName || '',
+        lastName: data.lastName,
+        name: [data.firstName, data.middleName, data.lastName].filter(Boolean).join(' '), // For backward compatibility
         email: data.email,
         role: data.role || 'Staff',
         department: data.department || '',
@@ -42,7 +47,9 @@ export async function POST(req: NextRequest) {
       },
       select: {
         id: true,
-        name: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
         email: true,
         role: true,
         department: true,

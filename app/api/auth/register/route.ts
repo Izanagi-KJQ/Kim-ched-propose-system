@@ -4,9 +4,9 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, department } = await req.json();
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'All fields are required.' }, { status: 400 });
+    const { firstName, middleName, lastName, email, password, department } = await req.json();
+    if (!firstName || !lastName || !email || !password) {
+      return NextResponse.json({ error: 'First name, last name, email, and password are required.' }, { status: 400 });
     }
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -15,7 +15,10 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
-        name,
+        firstName,
+        middleName: middleName || '',
+        lastName,
+        name: [firstName, middleName, lastName].filter(Boolean).join(' '), // For backward compatibility
         email,
         password: hashedPassword,
         role: 'Staff',
@@ -26,7 +29,9 @@ export async function POST(req: NextRequest) {
       },
       select: {
         id: true,
-        name: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
         email: true,
         role: true,
         department: true,

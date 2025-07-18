@@ -8,7 +8,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const user = await prisma.user.update({
       where: { id: params.id },
       data: {
-        name: data.name,
+        firstName: data.firstName,
+        middleName: data.middleName || '',
+        lastName: data.lastName,
+        name: [data.firstName, data.middleName, data.lastName].filter(Boolean).join(' '), // Keep in sync for now
         email: data.email,
         role: data.role,
         department: data.department,
@@ -18,7 +21,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       },
       select: {
         id: true,
-        name: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
         email: true,
         role: true,
         department: true,
@@ -27,7 +32,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         avatar: true,
       },
     });
-    return NextResponse.json(user);
+    let needsProfileUpdate = false;
+    if (!user.firstName || !user.lastName) needsProfileUpdate = true;
+    return NextResponse.json({ ...user, needsProfileUpdate });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
   }

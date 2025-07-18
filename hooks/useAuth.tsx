@@ -1,22 +1,22 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { User as UserType } from "@/lib/types";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  department?: string;
-  lastActive?: string;
-  status?: string;
-  avatar?: string;
-}
+type User = UserType;
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, password: string, department?: string) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    firstName: string,
+    middleName: string | undefined,
+    lastName: string,
+    email: string,
+    password: string,
+    department?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -45,12 +45,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Register function
-  const register = async (name: string, email: string, password: string, department?: string) => {
+  const register = async (
+    firstName: string,
+    middleName: string | undefined,
+    lastName: string,
+    email: string,
+    password: string,
+    department?: string
+  ) => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, department }),
+        body: JSON.stringify({ firstName, middleName, lastName, email, password, department }),
       });
       const data = await res.json();
       if (!res.ok) return { success: false, error: data.error || 'Registration failed' };
@@ -60,6 +67,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || 'Registration failed' };
+    }
+  };
+
+  // Google login function
+  const loginWithGoogle = async (credential: string) => {
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error || 'Google authentication failed' };
+      setUser(data.user);
+      setToken(data.token);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Google authentication failed' };
     }
   };
 
@@ -74,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token,
     login,
     register,
+    loginWithGoogle,
     logout,
   };
 
