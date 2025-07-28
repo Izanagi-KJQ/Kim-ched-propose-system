@@ -97,24 +97,47 @@ html, body {
   }
 }
 
-/* Custom Scrollbar Styles */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Show scrollbars only on hover/focus, fully invisible when not hovered */
+.scrollbar-hover {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
-
-::-webkit-scrollbar-track {
-  background: hsl(var(--background)); /* Match main content background */
+.scrollbar-hover::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  background: transparent !important;
+}
+.scrollbar-hover:hover, .scrollbar-hover:focus, .scrollbar-hover:focus-within {
+  scrollbar-width: thin;
+  scrollbar-color: #888 hsl(var(--background));
+}
+.scrollbar-hover:hover::-webkit-scrollbar, .scrollbar-hover:focus::-webkit-scrollbar, .scrollbar-hover:focus-within::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  background: hsl(var(--background)) !important;
+  display: block !important;
+}
+.scrollbar-hover::-webkit-scrollbar-thumb {
+  background: #888;
   border-radius: 10px;
 }
-
-::-webkit-scrollbar-thumb {
-  background: #888; /* Darker gray thumb */
-  border-radius: 10px;
+.scrollbar-hover:hover::-webkit-scrollbar-thumb, .scrollbar-hover:focus::-webkit-scrollbar-thumb, .scrollbar-hover:focus-within::-webkit-scrollbar-thumb {
+  background: #555;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #555; /* Even darker gray on hover */
+/* Visually hide horizontal scrollbar until hover/focus (masking trick) */
+.scrollbar-hover-mask {
+  mask-image: linear-gradient(to bottom, black 0 calc(100% - 17px), transparent calc(100% - 17px) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0 calc(100% - 17px), transparent calc(100% - 17px) 100%);
+  transition: mask-image 0.2s, -webkit-mask-image 0.2s;
+}
+.scrollbar-hover-mask:hover, .scrollbar-hover-mask:focus-within {
+  mask-image: none;
+  -webkit-mask-image: none;
 }
 
 .error-boundary-fallback {
