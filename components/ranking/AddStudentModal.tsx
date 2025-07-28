@@ -113,7 +113,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ open, onClose, onAdd,
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Add Student</Button>
+            <Button type="submit" variant="purple">Add Student</Button>
           </DialogFooter>
         </form>
       </DialogContent>

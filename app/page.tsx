@@ -1371,7 +1371,7 @@ function DashboardPage() {
                   <CardDescription>Top students ranked by their General Weighted Average (GWA).</CardDescription>
                   </CardHeader>
                 <CardContent className="flex-1 overflow-x-auto">
-                  <div className={`overflow-y-auto ${ranking.length > 8 ? 'max-h-[340px]' : ''}`}> 
+                  <div className={`overflow-y-auto scrollbar-hover ${ranking.length > 8 ? 'max-h-[340px]' : ''}`}> 
                     <Table>
                         <TableHeader>
                           <TableRow>
@@ -1422,7 +1422,7 @@ function DashboardPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-foreground">Applications</h2>
+                  <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">Applications</h2>
                   <p className="text-muted-foreground">Manage and review scholarship applications</p>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -1445,7 +1445,7 @@ function DashboardPage() {
                   </Button>
                 <Button 
                   onClick={() => setModalMode("createApplication")}
-                  variant="action"
+                  variant="purple"
                   aria-label="New Application"
                   className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
                 >
@@ -1666,7 +1666,7 @@ function DashboardPage() {
             </Dialog>
               {/* Applications Table */}
               <Card className="dark:bg-[#23232a] dark:text-gray-100">
-                <CardContent className="pt-6 overflow-x-auto" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                <CardContent className="pt-6">
                   {loadingApplications ? (
                     <div className="text-center text-muted-foreground py-8">Loading applications...</div>
                   ) : applicationsError ? (
@@ -1693,6 +1693,7 @@ function DashboardPage() {
                     </div>
                   )}
                   {!loadingApplications && !applicationsError && (
+                  <div className="relative overflow-x-auto overflow-y-auto scrollbar-hover scrollbar-hover-mask max-w-full max-h-[420px] pb-2">
                   <Table>
                     <TableHeader>
                         <TableRow>
@@ -1709,14 +1710,14 @@ function DashboardPage() {
                           />
                         </TableHead>
                       )}
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Applicant</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Region</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Scholarship</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Amount</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">GPA</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Comment</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300">Submitted</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Applicant</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Region</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Scholarship</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Amount</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GPA</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Status</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Comment</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Submitted</TableHead>
                         <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -1834,6 +1835,7 @@ function DashboardPage() {
                         ))}
                     </TableBody>
                   </Table>
+                  </div>
                   )}
                 </CardContent>
               </Card>
@@ -1962,8 +1964,7 @@ function DashboardPage() {
                     <div className="text-center text-gray-500 py-8">No deleted applicants.</div>
                   ) : (
                     <div
-                      className="space-y-4"
-                      style={trashBin.length >= 5 ? { maxHeight: '320px', overflowY: 'auto' } : {}}
+                      className={`space-y-4${trashBin.length >= 5 ? ' max-h-[320px] overflow-y-auto scrollbar-hover' : ''}`}
                     >
                       {trashBin.map(app => (
                         <div key={app.id} className="flex items-center justify-between border-b pb-2">
@@ -2066,7 +2067,7 @@ function DashboardPage() {
           {activeTab === "ranking" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-3xl font-bold text-foreground">Application Ranking</h2>
+                <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">Application Ranking</h2>
                 <p className="text-muted-foreground">Review and rank scholarship applications by GWA (GPA)</p>
               </div>
               {/* Status Cards */}
@@ -2172,7 +2173,7 @@ function DashboardPage() {
                     });
                     return (
                       <div
-                        className={`space-y-2 ${filteredApps.length >= 4 ? 'max-h-[300px] overflow-y-auto' : ''}`}
+                        className={`space-y-2${filteredApps.length >= 4 ? ' max-h-[300px] overflow-y-auto scrollbar-hover' : ''}`}
                         style={{}}
                       >
                         {filteredApps.length === 0 ? (
@@ -2235,7 +2236,7 @@ function DashboardPage() {
                         {rankedApps.length === 0 ? (
                           <div className="text-center text-muted-foreground py-4">No applicants for this scholarship.</div>
                         ) : (
-                          <div className={`divide-y ${rankedApps.length >= 4 ? 'max-h-[220px] overflow-y-auto' : ''}`}> {/* Scrollable if 4+ */}
+                          <div className={`divide-y${rankedApps.length >= 4 ? ' max-h-[220px] overflow-y-auto scrollbar-hover' : ''}`}> {/* Scrollable if 4+ */}
                             {rankedApps.map((app, idx) => (
                               <div
                                 key={app.id}
@@ -2302,7 +2303,7 @@ function DashboardPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-foreground">Scholarships</h2>
+                  <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">Scholarships</h2>
                   <p className="text-muted-foreground">Manage scholarship programs and deadlines</p>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -2323,7 +2324,7 @@ function DashboardPage() {
                       <SelectItem value="status_closed">Status: Closed</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="action" onClick={() => setScholarshipTypeDialog(true)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">
+                  <Button variant="purple" onClick={() => setScholarshipTypeDialog(true)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">
                     <Award className="h-4 w-4 mr-2" />
                     Create Scholarship
                   </Button>
@@ -2523,7 +2524,7 @@ function DashboardPage() {
               {scholarshipTrash.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">No deleted scholarships.</div>
               ) : (
-                <div className="space-y-4" style={scholarshipTrash.length >= 5 ? { maxHeight: '320px', overflowY: 'auto' } : {}}>
+                <div className={`space-y-4${scholarshipTrash.length >= 5 ? ' max-h-[320px] overflow-y-auto scrollbar-hover' : ''}`}>
                   {scholarshipTrash.map(sch => (
                     <div key={sch.id} className="flex items-center justify-between border-b pb-2">
                       <div>
@@ -2589,10 +2590,10 @@ function DashboardPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-foreground">User Management</h2>
+                  <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">User Management</h2>
                   <p className="text-muted-foreground">Manage system users and permissions</p>
                 </div>
-            <Button variant="action" onClick={() => setShowAddUserModal(true)}>
+            <Button variant="purple" onClick={() => setShowAddUserModal(true)}>
                   <Users className="h-4 w-4 mr-2" />
                   Add User
                 </Button>

@@ -96,7 +96,7 @@ export default function ScholarshipCreateForm({ onSave, onCancel, type }: Schola
           </FormItem>
         )} />
         <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Create</Button>
+          <Button type="submit" variant="purple" className="flex-1">Create</Button>
           <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
       </form>

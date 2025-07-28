@@ -446,7 +446,7 @@ export function RegisterForm() {
                 <span className="font-medium">Registration successful! You can now <a href="/login" className="underline text-primary">login</a>.</span>
               </div>
             )}
-            <Button type="submit" className="w-full flex items-center justify-center focus:ring-2 focus:ring-primary focus:ring-offset-2" disabled={isSubmitting} aria-busy={isSubmitting} aria-live="polite">
+            <Button type="submit" variant="purple" className="w-full flex items-center justify-center focus:ring-2 focus:ring-primary focus:ring-offset-2" disabled={isSubmitting} aria-busy={isSubmitting} aria-live="polite">
               {isSubmitting ? (
                 <>
                   <Loader2 className="animate-spin h-5 w-5 mr-2" aria-hidden="true" />
