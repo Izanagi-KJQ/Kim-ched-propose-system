@@ -198,7 +198,7 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => { setCropModalOpen(false); setCroppingImage(null); setEditingCurrentAvatar(false); }}>Cancel</Button>
-              <Button onClick={handleCropConfirm} disabled={loading}>{loading ? 'Saving...' : 'Save Avatar'}</Button>
+              <Button variant="purple" onClick={handleCropConfirm} disabled={loading}>{loading ? 'Saving...' : 'Save Avatar'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -317,7 +317,7 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
           </FormItem>
         )} />
         <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Create Application</Button>
+          <Button type="submit" variant="purple" className="flex-1">Create Application</Button>
           <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
       </form>
