@@ -22,6 +22,8 @@ const buttonVariants = cva(
           "bg-white text-black border-2 border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black transition-colors",
         altAction:
           "bg-black text-white border-2 border-black hover:bg-white hover:text-black dark:bg-white dark:text-black dark:border-white dark:hover:bg-black dark:hover:text-white transition-colors",
+        purple:
+          "border-2 border-purple-600 text-purple-700 bg-white hover:bg-purple-600 hover:text-white hover:border-purple-600 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white dark:hover:border-purple-400 transition-colors hover:scale-110 hover:shadow-lg transition-transform transition-shadow duration-200",
       },
       size: {
         default: "h-10 px-4 py-2",
