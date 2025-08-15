@@ -1,6 +1,9 @@
+"use client"
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
+import { useTheme } from "next-themes"
 
 import { cn } from "@/lib/utils"
 
@@ -23,7 +26,18 @@ const buttonVariants = cva(
         altAction:
           "bg-black text-white border-2 border-black hover:bg-white hover:text-black dark:bg-white dark:text-black dark:border-white dark:hover:bg-black dark:hover:text-white transition-colors",
         purple:
-          "border-2 border-purple-600 text-purple-700 bg-white hover:bg-purple-600 hover:text-white hover:border-purple-600 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white dark:hover:border-purple-400 transition-colors hover:scale-110 hover:shadow-lg transition-transform transition-shadow duration-200",
+          [
+            // Light mode
+            "border-2 border-purple-600 text-purple-700 bg-white",
+            "hover:bg-purple-600 hover:text-white hover:border-purple-600",
+            // Dark mode (softer, easier on the eyes)
+            "dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-500/40",
+            "dark:hover:bg-purple-700/70 dark:hover:text-white dark:hover:border-purple-400",
+            // Motion/contrast adjustments
+            "shadow-sm hover:shadow-lg dark:shadow-purple-950/20 dark:hover:shadow-purple-950/30",
+            // Gentler transitions and focus ring override to purple
+            "transition-colors transition-shadow duration-200 focus-visible:ring-purple-500/40 dark:focus-visible:ring-purple-400/40"
+          ].join(" ") ,
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -47,9 +61,14 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
+    // Subscribe to theme changes so the component re-renders when theme toggles
+    const { resolvedTheme } = useTheme()
+
     const Comp = asChild ? Slot : "button"
     return (
       <Comp
+        // Reference resolvedTheme to ensure re-render on theme change
+        data-theme={resolvedTheme}
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
