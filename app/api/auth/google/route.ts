@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { signJwt } from '@/lib/jwt';
 import { OAuth2Client } from 'google-auth-library';
+import bcrypt from 'bcryptjs';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
       // Prisma User.password is required, so set a random string for Google users
       // (Consider making password nullable in the future for OAuth-only users)
       const randomPassword = Math.random().toString(36).slice(-12);
+      const hashedRandomPassword = await bcrypt.hash(randomPassword, 10);
       user = await prisma.user.create({
         data: {
           firstName,
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
           lastName,
           name: [firstName, middleName, lastName].filter(Boolean).join(' '),
           email,
-          password: randomPassword, // Set a random password for Google users
+          password: hashedRandomPassword, // Store hashed random password for Google users
           role: 'Staff',
           department: '',
           status: 'Active',

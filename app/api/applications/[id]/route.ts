@@ -24,6 +24,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       where: { id: params.id },
       data: {
         name: data.name,
+        firstName: data.firstName ?? null,
+        middleName: data.middleName ?? null,
+        lastName: data.lastName ?? null,
+        birthdate: data.birthdate ? new Date(data.birthdate) : null,
         region: data.region,
         email: data.email,
         scholarshipId: data.scholarshipId,
