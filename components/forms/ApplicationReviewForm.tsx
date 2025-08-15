@@ -63,7 +63,7 @@ export default function ApplicationReviewForm({ application, onSave, onCancel }:
           </FormItem>
         )} />
         <div className="flex space-x-2">
-          <Button type="submit" className="flex-1">Save Review</Button>
+          <Button type="submit" variant="purple" className="flex-1">Save Review</Button>
           <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         </div>
       </form>

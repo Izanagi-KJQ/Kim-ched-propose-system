@@ -9,6 +9,9 @@ import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import React, { useImperativeHandle, forwardRef } from "react";
 
 interface ApplicationCreateFormProps {
   onSave: (data: Omit<Application, 'id'>) => void;
@@ -16,10 +19,16 @@ interface ApplicationCreateFormProps {
   scholarships: Scholarship[];
 }
 
-export default function ApplicationCreateForm({ onSave, onCancel, scholarships }: ApplicationCreateFormProps) {
+const REQUIRED_FIELDS = ["firstName", "lastName", "email", "region", "scholarship", "amount", "gpa", "submittedDate"];
+
+const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave, onCancel, scholarships }: ApplicationCreateFormProps, ref) {
   const form = useForm<Omit<Application, 'id' | 'avatar'>>({
     defaultValues: {
       name: "",
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      birthdate: "",
       region: "",
       email: "",
       scholarship: "",
@@ -29,7 +38,22 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
       submittedDate: "",
       score: null,
     },
+    mode: "onChange", // Enable real-time validation
   })
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => {
+      const values = form.getValues();
+      return REQUIRED_FIELDS.some(field => {
+        const value = values[field as keyof typeof values];
+        return value && (typeof value === 'string' ? value.trim() : value !== null && value !== undefined);
+      });
+    }
+  }), [form]);
+
+  // Add validation state
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string>("/placeholder-user.jpg");
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -146,13 +170,115 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
     }
   };
 
+  // Validation function to check for incomplete fields
+  const validateForm = (values: Omit<Application, 'id' | 'avatar'>): string[] => {
+    const errors: string[] = [];
+    
+    // Check required fields
+    if (!values.firstName?.trim()) errors.push("First Name is required");
+    if (!values.lastName?.trim()) errors.push("Last Name is required");
+    if (!values.email?.trim()) errors.push("Email is required");
+    if (!values.region?.trim()) errors.push("Province is required");
+    if (!values.scholarship?.trim()) errors.push("Scholarship selection is required");
+    if (!values.amount?.trim()) errors.push("Amount is required");
+    if (values.gpa === null || values.gpa === undefined) errors.push("GPA is required");
+    if (!values.submittedDate?.trim()) errors.push("Submitted Date is required");
+    
+    // Check email format
+    if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+      errors.push("Please enter a valid email address");
+    }
+    
+    // Check GPA range
+    if (values.gpa !== null && values.gpa !== undefined && (values.gpa < 0 || values.gpa > 5)) {
+      errors.push("GPA must be between 0 and 5");
+    }
+    
+    // Check amount format
+    if (values.amount && !/^\d+(\.\d{1,2})?$/.test(values.amount.replace(/[^\d.]/g, ''))) {
+      errors.push("Please enter a valid amount");
+    }
+    
+    // Check if at least one name field is filled
+    if (!values.firstName?.trim() && !values.lastName?.trim() && !values.name?.trim()) {
+      errors.push("At least one name field must be filled");
+    }
+    
+    return errors;
+  };
+
   function onSubmit(values: Omit<Application, 'id' | 'avatar'>) {
-    onSave({ ...values, avatar: avatarUrl });
+    setIsSubmitting(true);
+    setValidationErrors([]);
+    
+    // Validate form before submission
+    const errors = validateForm(values);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setIsSubmitting(false);
+      return;
+    }
+    
+    const computedName = [values.firstName, values.middleName, values.lastName]
+      .filter(Boolean)
+      .join(' ');
+    onSave({ ...values, name: values.name || computedName, avatar: avatarUrl });
+    setIsSubmitting(false);
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
+        {/* Form Completion Progress */}
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Form Completion</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {(() => {
+                const formValues = form.getValues();
+                const requiredFields = ['firstName', 'lastName', 'email', 'region', 'scholarship', 'amount', 'gpa', 'submittedDate'];
+                const completedFields = requiredFields.filter(field => {
+                  const value = formValues[field as keyof typeof formValues];
+                  return value && (typeof value === 'string' ? value.trim() : value !== null && value !== undefined);
+                }).length;
+                const percentage = Math.round((completedFields / requiredFields.length) * 100);
+                return `${completedFields}/${requiredFields.length} (${percentage}%)`;
+              })()}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div 
+              className="bg-green-500 h-2 rounded-full transition-all duration-300"
+              style={{ 
+                width: `${(() => {
+                  const formValues = form.getValues();
+                  const requiredFields = ['firstName', 'lastName', 'email', 'region', 'scholarship', 'amount', 'gpa', 'submittedDate'];
+                  const completedFields = requiredFields.filter(field => {
+                    const value = formValues[field as keyof typeof formValues];
+                    return value && (typeof value === 'string' ? value.trim() : value !== null && value !== undefined);
+                  }).length;
+                  return (completedFields / requiredFields.length) * 100;
+                })()}%` 
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Validation Errors Display */}
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive" className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="font-medium mb-2">Please fix the following errors:</div>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                {validationErrors.map((error, index) => (
+                  <li key={index} className="text-red-700">{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="flex items-center space-x-4 mb-2">
           <Avatar className="h-16 w-16">
             <AvatarImage src={avatarUrl} />
@@ -202,22 +328,57 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <FormField name="name" control={form.control} render={({ field }) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField name="firstName" control={form.control} render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-1">
+                First Name <span className="text-red-500">*</span>
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Enter first name" required />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField name="middleName" control={form.control} render={({ field }) => (
+            <FormItem>
+              <FormLabel>Middle Name</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Enter middle name (optional)" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField name="lastName" control={form.control} render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-1">
+                Last Name <span className="text-red-500">*</span>
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Enter last name" required />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+        <FormField name="birthdate" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Applicant Name</FormLabel>
+            <FormLabel>Birthdate</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input {...field} type="date" placeholder="Select birthdate (optional)" />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField name="region" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Province</FormLabel>
+            <FormLabel className="flex items-center gap-1">
+              Province <span className="text-red-500">*</span>
+            </FormLabel>
             <FormControl>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Change Province" />
+                <SelectTrigger className={!field.value ? "border-red-300 focus:border-red-500" : ""}>
+                  <SelectValue placeholder="Select Province" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Palawan">Palawan</SelectItem>
@@ -233,19 +394,23 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
         )} />
         <FormField name="email" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Email</FormLabel>
+            <FormLabel className="flex items-center gap-1">
+              Email <span className="text-red-500">*</span>
+            </FormLabel>
             <FormControl>
-              <Input {...field} type="email" />
+              <Input {...field} type="email" placeholder="Enter email address" required />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField name="scholarship" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Scholarship</FormLabel>
+            <FormLabel className="flex items-center gap-1">
+              Scholarship <span className="text-red-500">*</span>
+            </FormLabel>
             <FormControl>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
+              <Select onValueChange={field.onChange} defaultValue={field.value} required>
+                <SelectTrigger className={!field.value ? "border-red-300 focus:border-red-500" : ""}>
                   <SelectValue placeholder="Select a scholarship" />
                 </SelectTrigger>
                 <SelectContent>
@@ -257,12 +422,17 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
                 </SelectContent>
               </Select>
             </FormControl>
+            {!field.value && form.formState.isSubmitted && (
+              <FormMessage>Please fill out this field</FormMessage>
+            )}
             <FormMessage />
           </FormItem>
         )} />
         <FormField name="amount" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Amount</FormLabel>
+            <FormLabel className="flex items-center gap-1">
+              Amount <span className="text-red-500">*</span>
+            </FormLabel>
             <FormControl>
               <div className="relative flex items-center">
                 <span className="absolute left-3 text-gray-500 select-none pointer-events-none">₱</span>
@@ -271,6 +441,7 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
                   type="number"
                   className="pl-7"
                   placeholder="₱ 0.00"
+                  required
                   value={field.value?.replace(/^₱\s*/, "")}
                   onChange={e => field.onChange(e.target.value)}
                 />
@@ -281,16 +452,30 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
         )} />
         <FormField name="gpa" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>GPA</FormLabel>
+            <FormLabel className="flex items-center gap-1">
+              GPA <span className="text-red-500">*</span>
+            </FormLabel>
             <FormControl>
-              <Input {...field} type="number" step="0.01" value={field.value !== null ? field.value : ''} onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} />
+              <Input 
+                {...field} 
+                type="number" 
+                step="0.01" 
+                min="0"
+                max="5"
+                placeholder="0.00 - 5.00"
+                required
+                value={field.value !== null ? field.value : ''} 
+                onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} 
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField name="status" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Status</FormLabel>
+            <FormLabel className="flex items-center gap-1">
+              Status <span className="text-red-500">*</span>
+            </FormLabel>
             <FormControl>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <SelectTrigger>
@@ -309,18 +494,37 @@ export default function ApplicationCreateForm({ onSave, onCancel, scholarships }
         )} />
         <FormField name="submittedDate" control={form.control} render={({ field }) => (
           <FormItem>
-            <FormLabel>Submitted Date</FormLabel>
+            <FormLabel className="flex items-center gap-1">
+              Submitted Date <span className="text-red-500">*</span>
+            </FormLabel>
             <FormControl>
-              <Input {...field} type="date" />
+              <Input {...field} type="date" required />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <div className="flex space-x-2">
-          <Button type="submit" variant="purple" className="flex-1">Create Application</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+          <Button 
+            type="submit" 
+            variant="purple" 
+            className="flex-1" 
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Creating..." : "Create Application"}
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="flex-1" 
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
         </div>
       </form>
     </Form>
   )
-} 
+});
+
+export default ApplicationCreateForm; 
