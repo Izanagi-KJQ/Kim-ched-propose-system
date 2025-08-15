@@ -39,6 +39,10 @@ model Scholarship {
 model Application {
   id            String      @id @default(uuid())
   name          String
+  firstName     String?
+  middleName    String?
+  lastName      String?
+  birthdate     DateTime?
   region        String
   email         String
   scholarship   Scholarship @relation(fields: [scholarshipId], references: [id])

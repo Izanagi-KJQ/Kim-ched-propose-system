@@ -11,6 +11,10 @@ export interface Scholarship {
 export interface Application {
   id: string;
   name: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  birthdate?: string;
   region: string;
   email: string;
   scholarship: string;
