@@ -217,7 +217,7 @@ function ProfileContent() {
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" value={user?.email || ""} disabled />
           </div>
-          <Button onClick={handleSaveChanges} variant="action">Save Changes</Button>
+          <Button onClick={handleSaveChanges} variant="purple">Save Changes</Button>
         </CardContent>
       </Card>
       {/* Cropping Modal */}

@@ -517,8 +517,17 @@ const sidebarMenuButtonVariants = cva(
     "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
     // Only apply generic hover styles if not active
     "data-[active=false]:hover:bg-sidebar-accent data-[active=false]:hover:text-sidebar-accent-foreground",
+    // Dark mode base (persistent subtle purple outline scheme)
+    "dark:border-2 dark:border-purple-500/25 dark:text-purple-200 dark:bg-transparent",
+    // Dark mode hover (not active): stronger outline and tint
+    "dark:data-[active=false]:hover:border-purple-400/50 dark:data-[active=false]:hover:text-purple-100 dark:data-[active=false]:hover:bg-purple-900/25",
     // Active state
     "data-[active=true]:bg-purple-800 data-[active=true]:font-medium data-[active=true]:text-white data-[active=true]:hover:bg-purple-900 data-[active=true]:hover:text-white",
+    // Active state in dark mode: filled/tinted purple with stronger border
+    "dark:data-[active=true]:border-2 dark:data-[active=true]:border-purple-400 dark:data-[active=true]:text-white dark:data-[active=true]:bg-purple-700/70",
+    "dark:data-[active=true]:hover:bg-purple-600/80 dark:data-[active=true]:hover:border-purple-300",
+    // Ensure active generic background override in dark
+    "dark:active:bg-purple-700/70 dark:active:text-white",
     // Keep state=open hover for submenus
     "data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground"
   ],
@@ -527,7 +536,10 @@ const sidebarMenuButtonVariants = cva(
       variant: {
         default: "",
         outline:
-          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] data-[active=false]:hover:bg-sidebar-accent data-[active=false]:hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))] data-[active=true]:hover:bg-purple-900 data-[active=true]:hover:text-white",
+          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] data-[active=false]:hover:bg-sidebar-accent data-[active=false]:hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))] data-[active=true]:hover:bg-purple-900 data-[active=true]:hover:text-white dark:shadow-none dark:data-[active=false]:hover:border-purple-400/50 dark:data-[active=true]:border-purple-400",
+        // Dark mode outline variant hover/active tweaks
+        "dark:data-[active=false]:hover:border-purple-400/40 dark:data-[active=false]:hover:text-purple-200 dark:data-[active=false]:hover:bg-purple-900/20",
+        "dark:data-[active=true]:border-2 dark:data-[active=true]:border-purple-500/40 dark:data-[active=true]:text-purple-200 dark:data-[active=true]:bg-purple-900/30 dark:data-[active=true]:hover:bg-purple-700/70 dark:data-[active=true]:hover:text-white dark:data-[active=true]:hover:border-purple-400",
       },
       size: {
         default: "h-8 text-sm",

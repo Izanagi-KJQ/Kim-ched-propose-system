@@ -378,11 +378,12 @@ function DashboardPage() {
   };
 
   const handleExport = () => {
-    const headers = ['ID', 'Name', 'Email', 'Scholarship', 'Amount', 'GPA', 'Status', 'Submitted Date', 'Score'];
+    const headers = ['ID', 'Name', 'Email', 'Birthdate', 'Scholarship', 'Amount', 'GPA', 'Status', 'Submitted Date', 'Score'];
     const csvData = applications.map(app => [
       app.id,
       app.name,
       app.email,
+      app.birthdate ? format(new Date(app.birthdate), 'MMM dd, yyyy') : 'Not specified',
       app.scholarship,
       app.amount,
       app.gpa,
@@ -420,11 +421,23 @@ function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create scholarship');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        if (errorData.error === 'Validation failed' && errorData.details) {
+          // Display validation errors in a more user-friendly way
+          const errorMessage = errorData.details.length === 1 
+            ? errorData.details[0] 
+            : `Please fix the following errors:\n• ${errorData.details.join('\n• ')}`;
+          
+          toast.error(errorMessage);
+          return; // Don't close modal, let user fix errors
+        }
+        throw new Error(errorData.error || 'Failed to create scholarship');
+      }
       const newScholarship = await res.json();
       setScholarships(prev => [...prev, newScholarship]);
       toast.success('Scholarship created successfully!');
-    setPendingScholarshipType(null);
+      setPendingScholarshipType(null);
       setScholarshipTypeDialog(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create scholarship');
@@ -461,6 +474,18 @@ function DashboardPage() {
         avatar: "/placeholder.svg?height=32&width=32",
       };
       delete (payload as any).scholarship;
+      // Ensure legacy name populated if user entered split fields
+      if (!payload.name && (payload as any).firstName) {
+        (payload as any).name = [
+          (payload as any).firstName,
+          (payload as any).middleName,
+          (payload as any).lastName,
+        ].filter(Boolean).join(' ');
+      }
+      // Handle birthdate - convert to ISO string if present
+      if ((payload as any).birthdate) {
+        (payload as any).birthdate = new Date((payload as any).birthdate).toISOString();
+      }
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -468,6 +493,15 @@ function DashboardPage() {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        if (errorData.error === 'Validation failed' && errorData.details) {
+          // Display validation errors in a more user-friendly way
+          const errorMessage = errorData.details.length === 1 
+            ? errorData.details[0] 
+            : `Please fix the following errors:\n• ${errorData.details.join('\n• ')}`;
+          
+          toast.error(errorMessage);
+          return; // Don't close modal, let user fix errors
+        }
         throw new Error(errorData.error || 'Failed to create application');
       }
       let newApp = await res.json();
@@ -587,6 +621,10 @@ function DashboardPage() {
         avatar: app.avatar || "/placeholder.svg?height=32&width=32",
       };
       delete (payload as any).scholarship; // Remove scholarship name field
+      // Handle birthdate - convert to ISO string if present
+      if ((payload as any).birthdate) {
+        (payload as any).birthdate = new Date((payload as any).birthdate).toISOString();
+      }
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -774,7 +812,8 @@ function DashboardPage() {
         (app.gpa !== null && app.gpa.toString().toLowerCase().includes(q)) ||
         app.status.toLowerCase().includes(q) ||
         app.submittedDate.toLowerCase().includes(q) ||
-        app.region.toLowerCase().includes(q)
+        app.region.toLowerCase().includes(q) ||
+        (app.birthdate && format(new Date(app.birthdate), 'MMM dd, yyyy').toLowerCase().includes(q))
       );
     });
 
@@ -1039,6 +1078,19 @@ function DashboardPage() {
     }
     return scholarship.status;
   };
+
+  // 1. Confirmation dialog state
+  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
+  const [pendingCloseModal, setPendingCloseModal] = useState<null | (() => void)>(null);
+  const applicationFormRef = useRef<any>(null);
+
+  // ... existing code ...
+  // 2. Add Restore All logic
+  function handleRestoreAllApplicants() {
+    setApplications(prev => [...prev, ...trashBin]);
+    setTrashBin([]);
+    toast.success('All applicants have been restored.');
+  }
 
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
@@ -1405,7 +1457,15 @@ function DashboardPage() {
                               aria-label={`View ${app.name} in Ranking`}
                             >
                               <TableCell>{idx + 1}</TableCell>
-                              <TableCell>{app.name}</TableCell>
+                              <TableCell>
+                                {app.firstName && app.lastName ? (
+                                  <>
+                                    {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
+                                  </>
+                                ) : (
+                                  app.name
+                                )}
+                              </TableCell>
                               <TableCell>{app.gpa?.toFixed(2)}</TableCell>
                             </TableRow>
                           ))}
@@ -1693,159 +1753,212 @@ function DashboardPage() {
                     </div>
                   )}
                   {!loadingApplications && !applicationsError && (
-                  <div className="relative overflow-x-auto overflow-y-auto scrollbar-hover scrollbar-hover-mask max-w-full max-h-[420px] pb-2">
-                  <Table>
-                    <TableHeader>
-                        <TableRow>
-                      {selectionMode && (
-                        <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">
-                          <input
-                            type="checkbox"
-                            ref={el => {
-                              if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
-                            }}
-                            checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
-                            onChange={e => handleAppSelectAll(e.target.checked)}
-                            aria-label="Select all applications"
-                          />
-                        </TableHead>
-                      )}
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Applicant</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Region</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Scholarship</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Amount</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GPA</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Status</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Comment</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Submitted</TableHead>
-                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredApplications.map((app) => (
-                        <TableRow
-                          key={app.id}
-                          className={cn(
-                            "transition-all duration-200 cursor-pointer",
-                            highlightedApplicantId === app.id
-                              ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
-                              : "hover:scale-105 hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
-                          )}
-                          tabIndex={0}
-                            ref={el => {
-                              if (highlightedApplicantId === app.id && el) {
-                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              }
-                            }}
-                          onClick={() => setSelectedApplication(app)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              setSelectedApplication(app);
-                            }
-                          }}
-                          aria-label={`Show details for ${app.name}`}
-                          >
+                    <>
+                      {filteredApplications.length === 0 ? (
+                        <div className="text-center py-12">
+                          <div className="flex flex-col items-center space-y-4">
+                            <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600" />
+                            <div className="text-center">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No Applications Found</h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                {searchQuery.trim() || Object.values(filterStatus).some(Boolean) || Object.values(filterProvinces).some(Boolean) || Object.values(filterScholarships).some(Boolean) || gpaRange.min || gpaRange.max || amountRange.min || amountRange.max || dateRange.min || dateRange.max
+                                  ? "No applications match your current filters. Try adjusting your search criteria."
+                                  : "Get started by creating your first scholarship application."}
+                              </p>
+                            </div>
+                            {!searchQuery.trim() && !Object.values(filterStatus).some(Boolean) && !Object.values(filterProvinces).some(Boolean) && !Object.values(filterScholarships).some(Boolean) && !gpaRange.min && !gpaRange.max && !amountRange.min && !amountRange.max && !dateRange.min && !dateRange.max && (
+                              <Button 
+                                onClick={() => setModalMode("createApplication")}
+                                variant="purple"
+                                className="mt-4 hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                              >
+                                <FileText className="h-4 w-4 mr-2" />
+                                Create First Application
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative overflow-x-auto overflow-y-auto scrollbar-hover scrollbar-hover-mask max-w-full max-h-[420px] pb-2">
+                        <Table>
+                          <TableHeader>
+                              <TableRow>
                             {selectionMode && (
-                              <TableCell>
+                              <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">
                                 <input
                                   type="checkbox"
-                                  checked={selectedAppIds.includes(app.id)}
-                                onChange={e => handleAppCheckboxChange(e, app)}
-                                  aria-label={`Select application for ${app.name}`}
+                                  ref={el => {
+                                    if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
+                                  }}
+                                  checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
+                                  onChange={e => handleAppSelectAll(e.target.checked)}
+                                  aria-label="Select all applications"
                                 />
-                              </TableCell>
+                              </TableHead>
                             )}
-                            <TableCell>
-                              <div className="flex items-center space-x-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={app.avatar || "/placeholder.svg"} />
-                                  <AvatarFallback>
-                                  {app.name.split(" ").map((n) => n[0]).join("")}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{app.name}</p>
-                                  <p className="text-sm text-muted-foreground">{app.email}</p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{app.region}</TableCell>
-                          <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
-                          <TableCell>{typeof app.amount === 'object' ? JSON.stringify(app.amount) : app.amount.replace("$", "₱")}</TableCell>
-                            <TableCell>{app.gpa}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                {getStatusIcon(app.status)}
-                                {app.status === 'pending'
-                                  ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'pending' }); })
-                                  : app.status === 'under_review'
-                                    ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'under_review' }); })
-                                  : getStatusBadge(app.status)}
-                              </div>
-                            </TableCell>
-                          <TableCell>
-                            {app.review && app.review.trim() !== '' ? (
-                              <span>{app.review}</span>
-                            ) : (
-                              <span className="text-gray-400">None</span>
-                            )}
-                          </TableCell>
-                          <TableCell>{format(new Date(app.submittedDate), 'yyyy-MM-dd')}</TableCell>
-                            <TableCell className="text-right">
-                            {/* Modern action button with open/close state using controlled open state */}
-                            <DropdownMenu open={actionMenuOpenId === app.id} onOpenChange={open => setActionMenuOpenId(open ? app.id : null)}>
-                                <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className={cn(
-                                    "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200",
-                                    actionMenuOpenId === app.id ? "bg-purple-100 text-purple-700 border-purple-300 shadow-md" : "hover:bg-gray-100 dark:hover:bg-zinc-800"
-                                  )}
-                                  aria-label="Application Actions"
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Applicant</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Region</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Scholarship</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Amount</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GPA</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Status</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Comment</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Submitted</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {filteredApplications.map((app) => (
+                              <TableRow
+                                key={app.id}
+                                className={cn(
+                                  "transition-all duration-200 cursor-pointer",
+                                  highlightedApplicantId === app.id
+                                    ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
+                                    : "hover:scale-105 hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
+                                )}
+                                tabIndex={0}
+                                  ref={el => {
+                                    if (highlightedApplicantId === app.id && el) {
+                                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }
+                                  }}
+                                onClick={() => setSelectedApplication(app)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    setSelectedApplication(app);
+                                  }
+                                }}
+                                aria-label={`Show details for ${app.name}`}
                                 >
-                                  <span className="sr-only">Open actions</span>
-                                  <span className={cn("transition-transform duration-200", actionMenuOpenId === app.id ? "rotate-90 text-purple-700" : "") }>
-                                    <MoreHorizontal className="h-5 w-5" />
-                                  </span>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="rounded-xl shadow-lg border border-gray-200 dark:border-zinc-700">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                {/* Removed View Details option */}
-                                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => { setSelectedApplication(app); setModalMode("reviewApplication"); }}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Review & Score
-                                  </DropdownMenuItem>
-                                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => { setSelectedApplication(app); setModalMode("sendMessage"); }}>
-                                    <Mail className="h-4 w-4 mr-2" />
-                                    Send Message
-                                  </DropdownMenuItem>
-                                <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDownloadDocuments(app)}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download Documents
-                                  </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500 hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDeleteApplicant(app)}>
-                                    <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
-                                    Delete Applicant
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                  </div>
+                                  {selectionMode && (
+                                    <TableCell>
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedAppIds.includes(app.id)}
+                                      onChange={e => handleAppCheckboxChange(e, app)}
+                                        aria-label={`Select application for ${app.name}`}
+                                      />
+                                    </TableCell>
+                                  )}
+                                  <TableCell>
+                                    <div className="flex items-center space-x-3">
+                                      <Avatar className="h-8 w-8">
+                                        <AvatarImage src={app.avatar || "/placeholder.svg"} />
+                                        <AvatarFallback>
+                                        {app.name.split(" ").map((n) => n[0]).join("")}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                        <p className="font-medium">
+                                          {app.firstName && app.lastName ? (
+                                            <>
+                                              {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
+                                            </>
+                                          ) : (
+                                            app.name
+                                          )}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">{app.email}</p>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{app.region}</TableCell>
+                                <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
+                                <TableCell>{typeof app.amount === 'object' ? JSON.stringify(app.amount) : app.amount.replace("$", "₱")}</TableCell>
+                                  <TableCell>{app.gpa}</TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center space-x-2">
+                                      {getStatusIcon(app.status)}
+                                      {app.status === 'pending'
+                                        ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'pending' }); })
+                                        : app.status === 'under_review'
+                                          ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'under_review' }); })
+                                        : getStatusBadge(app.status)}
+                                    </div>
+                                  </TableCell>
+                                <TableCell>
+                                  {app.review && app.review.trim() !== '' ? (
+                                    <span>{app.review}</span>
+                                  ) : (
+                                    <span className="text-gray-400">None</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>{format(new Date(app.submittedDate), 'yyyy-MM-dd')}</TableCell>
+                                  <TableCell className="text-right">
+                                  {/* Modern action button with open/close state using controlled open state */}
+                                  <DropdownMenu open={actionMenuOpenId === app.id} onOpenChange={open => setActionMenuOpenId(open ? app.id : null)}>
+                                      <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        className={cn(
+                                          "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200",
+                                          actionMenuOpenId === app.id ? "bg-accent" : ""
+                                        )}
+                                        aria-haspopup="menu"
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                      >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Open menu</span>
+                                      </Button>
+                                      </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" sideOffset={4} onClick={(e)=>{e.stopPropagation();}}>
+                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                      <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); setSelectedApplication(app); setModalMode("reviewApplication"); }}>
+                                          <Edit className="h-4 w-4 mr-2" />
+                                          Review & Score
+                                        </DropdownMenuItem>
+                                      <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); setSelectedApplication(app); setModalMode("sendMessage"); }}>
+                                          <Mail className="h-4 w-4 mr-2" />
+                                          Send Message
+                                        </DropdownMenuItem>
+                                      <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); handleDownloadDocuments(app); }}>
+                                          <Download className="h-4 w-4 mr-2" />
+                                          Download Documents
+                                        </DropdownMenuItem>
+                                      <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500 hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); handleDeleteApplicant(app); }}>
+                                          <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
+                                          Delete Applicant
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
               {/* Application Create Modal */}
-              <Dialog open={modalMode === "createApplication"} onOpenChange={() => setModalMode(null)}>
+              <Dialog open={modalMode === "createApplication"} onOpenChange={open => {
+                if (!open && applicationFormRef.current && applicationFormRef.current.isDirty()) {
+                  setShowUnsavedConfirm(true);
+                  setPendingCloseModal(() => () => setModalMode(null));
+                } else if (!open) {
+                  setModalMode(null);
+                }
+              }}>
                 <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
                   <DialogHeader>
                     <DialogTitle>Create New Application</DialogTitle>
                   </DialogHeader>
-                  <ApplicationCreateForm onSave={handleCreateApplication} onCancel={() => setModalMode(null)} scholarships={scholarships} />
+                  <ApplicationCreateForm
+                    ref={applicationFormRef}
+                    onSave={handleCreateApplication}
+                    onCancel={() => {
+                      if (applicationFormRef.current && applicationFormRef.current.isDirty()) {
+                        setShowUnsavedConfirm(true);
+                        setPendingCloseModal(() => () => setModalMode(null));
+                      } else {
+                        setModalMode(null);
+                      }
+                    }}
+                    scholarships={scholarships}
+                  />
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline">Close</Button>
@@ -1862,6 +1975,18 @@ function DashboardPage() {
                   {selectedApplication && (
                     <div className="space-y-2 text-sm">
                       <p><strong>Applicant Name:</strong> {selectedApplication.name}</p>
+                      {selectedApplication.firstName && selectedApplication.lastName && (
+                        <>
+                          <p><strong>First Name:</strong> {selectedApplication.firstName}</p>
+                          {selectedApplication.middleName && (
+                            <p><strong>Middle Name:</strong> {selectedApplication.middleName}</p>
+                          )}
+                          <p><strong>Last Name:</strong> {selectedApplication.lastName}</p>
+                        </>
+                      )}
+                      {selectedApplication.birthdate && (
+                        <p><strong>Birthdate:</strong> {format(new Date(selectedApplication.birthdate), 'MMM dd, yyyy')}</p>
+                      )}
                       <p><strong>Email:</strong> {selectedApplication.email}</p>
                       <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
                       <p><strong>Amount:</strong> {selectedApplication.amount}</p>
@@ -1925,7 +2050,20 @@ function DashboardPage() {
                   </DialogHeader>
                   {downloadApplication && (
                     <div className="space-y-2 text-sm">
-                      <p>Are you sure you want to download the details of <span className="font-semibold">{downloadApplication.name}</span>?</p>
+                      <p>Are you sure you want to download the details of <span className="font-semibold">
+                        {downloadApplication.firstName && downloadApplication.lastName ? (
+                          <>
+                            {downloadApplication.firstName} {downloadApplication.middleName ? `${downloadApplication.middleName.charAt(0)}.` : ''} {downloadApplication.lastName}
+                          </>
+                        ) : (
+                          downloadApplication.name
+                        )}
+                      </span>?</p>
+                      {downloadApplication.birthdate && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          <strong>Birthdate:</strong> {format(new Date(downloadApplication.birthdate), 'MMM dd, yyyy')}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">Choose your preferred file format:</p>
                     </div>
                   )}
@@ -1944,7 +2082,20 @@ function DashboardPage() {
                   </DialogHeader>
                   {deleteApplication && (
                     <div className="space-y-2 text-sm">
-                      <p>Are you sure you want to delete the application of <span className="font-semibold">{deleteApplication.name}</span>?</p>
+                      <p>Are you sure you want to delete the application of <span className="font-semibold">
+                        {deleteApplication.firstName && deleteApplication.lastName ? (
+                          <>
+                            {deleteApplication.firstName} {deleteApplication.middleName ? `${deleteApplication.middleName.charAt(0)}.` : ''} {deleteApplication.lastName}
+                          </>
+                        ) : (
+                          deleteApplication.name
+                        )}
+                      </span>?</p>
+                      {deleteApplication.birthdate && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          <strong>Birthdate:</strong> {format(new Date(deleteApplication.birthdate), 'MMM dd, yyyy')}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
                     </div>
                   )}
@@ -1969,8 +2120,19 @@ function DashboardPage() {
                       {trashBin.map(app => (
                         <div key={app.id} className="flex items-center justify-between border-b pb-2">
                           <div>
-                            <div className="font-medium">{app.name}</div>
-                            <div className="text-xs text-muted-foreground">{app.email} | {app.scholarship} | {app.region}</div>
+                            <div className="font-medium">
+                              {app.firstName && app.lastName ? (
+                                <>
+                                  {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
+                                </>
+                              ) : (
+                                app.name
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {app.email} | {app.scholarship} | {app.region}
+                              {app.birthdate && ` | ${format(new Date(app.birthdate), 'MMM dd, yyyy')}`}
+                            </div>
                           </div>
                           <div className="flex space-x-2">
                             <Button size="sm" variant="outline" onClick={() => handleRestoreApplicant(app)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Restore</Button>
@@ -2005,7 +2167,20 @@ function DashboardPage() {
                       <DialogHeader>
                         <DialogTitle>Move to Under Review</DialogTitle>
                       </DialogHeader>
-                      <p>Do you want to change the status for <span className="font-semibold">{statusWorkflowDialog.app.name}</span> to 'Under Review'?</p>
+                      <p>Do you want to change the status for <span className="font-semibold">
+                        {statusWorkflowDialog.app.firstName && statusWorkflowDialog.app.lastName ? (
+                          <>
+                            {statusWorkflowDialog.app.firstName} {statusWorkflowDialog.app.middleName ? `${statusWorkflowDialog.app.middleName.charAt(0)}.` : ''} {statusWorkflowDialog.app.lastName}
+                          </>
+                        ) : (
+                          statusWorkflowDialog.app.name
+                        )}
+                      </span> to 'Under Review'?</p>
+                      {statusWorkflowDialog.app.birthdate && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          <strong>Birthdate:</strong> {format(new Date(statusWorkflowDialog.app.birthdate), 'MMM dd, yyyy')}
+                        </p>
+                      )}
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
                         <Button onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'under_review')} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
@@ -2017,7 +2192,20 @@ function DashboardPage() {
                       <DialogHeader>
                         <DialogTitle>Update Application Status</DialogTitle>
                       </DialogHeader>
-                      <p>Accept or reject the application for <span className="font-semibold">{statusWorkflowDialog.app.name}</span>?</p>
+                      <p>Accept or reject the application for <span className="font-semibold">
+                        {statusWorkflowDialog.app.firstName && statusWorkflowDialog.app.lastName ? (
+                          <>
+                            {statusWorkflowDialog.app.firstName} {statusWorkflowDialog.app.middleName ? `${statusWorkflowDialog.app.middleName.charAt(0)}.` : ''} {statusWorkflowDialog.app.lastName}
+                          </>
+                        ) : (
+                          statusWorkflowDialog.app.name
+                        )}
+                      </span>?</p>
+                      {statusWorkflowDialog.app.birthdate && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          <strong>Birthdate:</strong> {format(new Date(statusWorkflowDialog.app.birthdate), 'MMM dd, yyyy')}
+                        </p>
+                      )}
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
                         <Button variant="destructive" onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'rejected')} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Reject</Button>
@@ -2035,7 +2223,20 @@ function DashboardPage() {
                   </DialogHeader>
                   {permanentDeleteDialog.app && (
                     <div className="space-y-2 text-sm">
-                      <p>Are you sure you want to permanently delete <span className="font-semibold">{permanentDeleteDialog.app.name}</span>?</p>
+                      <p>Are you sure you want to permanently delete <span className="font-semibold">
+                        {permanentDeleteDialog.app.firstName && permanentDeleteDialog.app.lastName ? (
+                          <>
+                            {permanentDeleteDialog.app.firstName} {permanentDeleteDialog.app.middleName ? `${permanentDeleteDialog.app.middleName.charAt(0)}.` : ''} {permanentDeleteDialog.app.lastName}
+                          </>
+                        ) : (
+                          permanentDeleteDialog.app.name
+                        )}
+                      </span>?</p>
+                      {permanentDeleteDialog.app.birthdate && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          <strong>Birthdate:</strong> {format(new Date(permanentDeleteDialog.app.birthdate), 'MMM dd, yyyy')}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
                     </div>
                   )}
@@ -2205,8 +2406,19 @@ function DashboardPage() {
                               }}
                             >
                               <div>
-                                <div className="font-medium">{app.name}</div>
-                                <div className="text-xs text-muted-foreground">GPA: {app.gpa} | {app.scholarship}</div>
+                                <div className="font-medium">
+                                  {app.firstName && app.lastName ? (
+                                    <>
+                                      {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
+                                    </>
+                                  ) : (
+                                    app.name
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  GPA: {app.gpa} | {app.scholarship}
+                                  {app.birthdate && ` | ${format(new Date(app.birthdate), 'MMM dd, yyyy')}`}
+                                </div>
                               </div>
                                 </div>
                           ))
@@ -2265,8 +2477,19 @@ function DashboardPage() {
                                 <div className="flex items-center gap-4">
                                   <div className="w-8 h-8 flex items-center justify-center rounded-full font-bold bg-gray-200 text-gray-700">{idx + 1}</div>
                       <div>
-                                    <div className="font-medium">{app.name}</div>
-                                    <div className="text-xs text-muted-foreground">{app.region}</div>
+                                    <div className="font-medium">
+                                      {app.firstName && app.lastName ? (
+                                        <>
+                                          {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
+                                        </>
+                                      ) : (
+                                        app.name
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                  {app.region}
+                                  {app.birthdate && ` | ${format(new Date(app.birthdate), 'MMM dd, yyyy')}`}
+                                </div>
                         </div>
                       </div>
                                 <div className="flex items-center gap-4">

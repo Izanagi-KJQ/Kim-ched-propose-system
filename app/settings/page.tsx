@@ -240,7 +240,7 @@ function SettingsContent() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleSaveSettings} variant="action">Save Settings</Button>
+          <Button onClick={handleSaveSettings} variant="purple">Save Settings</Button>
         </CardFooter>
       </Card>
       {/* Cropping Modal */}
