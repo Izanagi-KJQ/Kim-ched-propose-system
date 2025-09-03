@@ -34,12 +34,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+      
+      // Check if response is JSON before parsing
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response received:', text);
+        return { success: false, error: 'Server error - unexpected response format' };
+      }
+      
       const data = await res.json();
       if (!res.ok) return { success: false, error: data.error || 'Login failed' };
       setUser(data.user);
       setToken(data.token);
       return { success: true };
     } catch (err: any) {
+      console.error('Login error:', err);
       return { success: false, error: err.message || 'Login failed' };
     }
   };
@@ -59,6 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, middleName, lastName, email, password, department }),
       });
+      
+      // Check if response is JSON before parsing
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response received:', text);
+        return { success: false, error: 'Server error - unexpected response format' };
+      }
+      
       const data = await res.json();
       if (!res.ok) return { success: false, error: data.error || 'Registration failed' };
       // Optionally auto-login after registration
@@ -66,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null); // No token returned on register, require login
       return { success: true };
     } catch (err: any) {
+      console.error('Registration error:', err);
       return { success: false, error: err.message || 'Registration failed' };
     }
   };
@@ -78,12 +98,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential }),
       });
+      
+      // Check if response is JSON before parsing
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response received:', text);
+        return { success: false, error: 'Server error - unexpected response format' };
+      }
+      
       const data = await res.json();
       if (!res.ok) return { success: false, error: data.error || 'Google authentication failed' };
       setUser(data.user);
       setToken(data.token);
       return { success: true };
     } catch (err: any) {
+      console.error('Google login error:', err);
       return { success: false, error: err.message || 'Google authentication failed' };
     }
   };

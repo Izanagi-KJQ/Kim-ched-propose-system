@@ -100,9 +100,16 @@ export async function POST(req: NextRequest) {
     }
     // Remove password before returning user
     const { password: _pw, ...userWithoutPassword } = user;
-    const token = signJwt({ userId: user.id, email: user.email, name: user.firstName, role: user.role });
-    return NextResponse.json({ token, user: userWithoutPassword, isNewUser });
+    
+    try {
+      const token = signJwt({ userId: user.id, email: user.email, name: user.firstName, role: user.role });
+      return NextResponse.json({ token, user: userWithoutPassword, isNewUser });
+    } catch (jwtError) {
+      console.error('JWT signing error in Google OAuth:', jwtError);
+      return NextResponse.json({ error: 'Authentication token generation failed.' }, { status: 500 });
+    }
   } catch (error: any) {
+    console.error('Google authentication error:', error);
     return NextResponse.json({ error: 'Google authentication failed.' }, { status: 500 });
   }
 } 
