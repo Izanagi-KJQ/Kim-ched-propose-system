@@ -24,9 +24,15 @@ export default function ApplicationReviewForm({ application, onSave, onCancel }:
     onSave(values)
   }
 
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full" onClick={(e) => e.stopPropagation()}>
         <FormField name="status" control={form.control} render={({ field }) => {
           // Determine which options to disable
           const currentStatus = application.status;
@@ -64,7 +70,7 @@ export default function ApplicationReviewForm({ application, onSave, onCancel }:
         )} />
         <div className="flex space-x-2">
           <Button type="submit" variant="purple" className="flex-1">Save Review</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>Cancel</Button>
         </div>
       </form>
     </Form>

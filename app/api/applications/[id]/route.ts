@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ApiApplicationUpdateSchema, validateRequest } from '@/lib/validations';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -19,31 +20,78 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const data = await req.json();
+    const body = await req.json();
+    
+    // Validate request with Zod
+    const validation = validateRequest(ApiApplicationUpdateSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ 
+        error: validation.error, 
+        details: validation.details 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    const data = validation.data;
+    
     const application = await prisma.application.update({
       where: { id: params.id },
       data: {
-        name: data.name,
-        firstName: data.firstName ?? null,
-        middleName: data.middleName ?? null,
-        lastName: data.lastName ?? null,
-        birthdate: data.birthdate ? new Date(data.birthdate) : null,
-        region: data.region,
-        email: data.email,
-        scholarshipId: data.scholarshipId,
-        amount: data.amount,
-        gpa: data.gpa,
-        status: data.status,
-        submittedDate: new Date(data.submittedDate),
-        avatar: data.avatar,
-        review: data.review,
-        score: data.score,
-        userId: data.userId,
+        ...(data.name && { name: data.name }),
+        ...(data.firstName !== undefined && { firstName: data.firstName ?? null }),
+        ...(data.middleName !== undefined && { middleName: data.middleName ?? null }),
+        ...(data.lastName !== undefined && { lastName: data.lastName ?? null }),
+        ...(data.birthdate !== undefined && { birthdate: data.birthdate ? new Date(data.birthdate) : null }),
+        ...(data.region && { region: data.region }),
+        ...(data.email && { email: data.email }),
+        ...(data.scholarshipId && { scholarshipId: data.scholarshipId }),
+        ...(data.amount && { amount: data.amount }),
+        ...(data.gpa !== undefined && { gpa: data.gpa }),
+        ...(data.status && { status: data.status }),
+        ...(data.submittedDate && { submittedDate: new Date(data.submittedDate) }),
+        ...(data.score !== undefined && { score: data.score }),
+      },
+      include: {
+        scholarship: true,
+        user: true,
       },
     });
-    return NextResponse.json(application);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to update application' }, { status: 500 });
+    
+    return NextResponse.json(application, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error: any) {
+    console.error('Application update error:', error);
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json({ 
+        error: 'Application not found',
+        details: ['The application you are trying to update does not exist']
+      }, { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    if (error.code === 'P2003') {
+      return NextResponse.json({ 
+        error: 'Invalid reference', 
+        details: ['Invalid scholarship or user reference'] 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to update application',
+      details: ['Internal server error occurred']
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
