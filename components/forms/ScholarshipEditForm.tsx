@@ -96,9 +96,15 @@ export default function ScholarshipEditForm({ scholarship, onSave, onCancel }: S
     setIsSubmitting(false);
   }
 
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" onClick={(e) => e.stopPropagation()}>
         {/* Validation Errors Display */}
         {validationErrors.length > 0 && (
           <Alert variant="destructive" className="border-red-200 bg-red-50">
@@ -226,7 +232,7 @@ export default function ScholarshipEditForm({ scholarship, onSave, onCancel }: S
             type="button" 
             variant="outline" 
             className="flex-1" 
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={isSubmitting}
           >
             Cancel

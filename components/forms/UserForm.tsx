@@ -18,9 +18,15 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
   function onSubmit(values: User) {
     onSave({ ...user, ...values, id: user?.id || '' });
   }
+  
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
+  };
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" onClick={(e) => e.stopPropagation()}>
         <FormField name="firstName" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>First Name</FormLabel>
@@ -112,7 +118,7 @@ export default function UserForm({ user, onSave, onCancel }: UserFormProps) {
         )} />
         <div className="flex space-x-2">
           <Button type="submit" variant="purple" className="flex-1">Save</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>Cancel</Button>
         </div>
       </form>
     </Form>

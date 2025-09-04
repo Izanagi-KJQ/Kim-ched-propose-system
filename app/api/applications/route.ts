@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ApiApplicationCreateSchema, validateRequest } from '@/lib/validations';
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,76 +18,91 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.json();
+    const body = await req.json();
     
-    // Server-side validation
-    const validationErrors: string[] = [];
-    
-    // Check required fields
-    if (!data.firstName?.trim()) validationErrors.push("First Name is required");
-    if (!data.lastName?.trim()) validationErrors.push("Last Name is required");
-    if (!data.email?.trim()) validationErrors.push("Email is required");
-    if (!data.region?.trim()) validationErrors.push("Province is required");
-    if (!data.scholarshipId?.trim()) validationErrors.push("Scholarship selection is required");
-    if (!data.amount?.trim()) validationErrors.push("Amount is required");
-    if (data.gpa === null || data.gpa === undefined) validationErrors.push("GPA is required");
-    if (!data.submittedDate?.trim()) validationErrors.push("Submitted Date is required");
-    
-    // Check email format
-    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-      validationErrors.push("Please enter a valid email address");
-    }
-    
-    // Check GPA range
-    if (data.gpa !== null && data.gpa !== undefined && (data.gpa < 0 || data.gpa > 5)) {
-      validationErrors.push("GPA must be between 0 and 5");
-    }
-    
-    // Check amount format
-    if (data.amount && !/^\d+(\.\d{1,2})?$/.test(data.amount.replace(/[^\d.]/g, ''))) {
-      validationErrors.push("Please enter a valid amount");
-    }
-    
-    // Check if at least one name field is filled
-    if (!data.firstName?.trim() && !data.lastName?.trim() && !data.name?.trim()) {
-      validationErrors.push("At least one name field must be filled");
-    }
-    
-    // Return validation errors if any
-    if (validationErrors.length > 0) {
+    // Validate request with Zod
+    const validation = validateRequest(ApiApplicationCreateSchema, body);
+    if (!validation.success) {
       return NextResponse.json({ 
-        error: 'Validation failed', 
-        details: validationErrors 
-      }, { status: 400 });
+        error: validation.error, 
+        details: validation.details 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    const data = validation.data;
+    
+    // Build the data object for Prisma create
+    const createData: any = {
+      name: data.name || '',
+      firstName: data.firstName ?? null,
+      middleName: data.middleName ?? null,
+      lastName: data.lastName ?? null,
+      birthdate: data.birthdate ? new Date(data.birthdate) : null,
+      region: data.region,
+      email: data.email,
+      amount: data.amount,
+      gpa: data.gpa,
+      status: data.status || 'pending',
+      submittedDate: new Date(data.submittedDate),
+      avatar: data.avatar || '',
+      review: data.review || '',
+      score: data.score,
+    };
+    
+    // Add optional foreign keys only if provided
+    if (data.scholarshipId) {
+      createData.scholarshipId = data.scholarshipId;
+    }
+    if (data.userId) {
+      createData.userId = data.userId;
     }
     
     // Expecting scholarshipId and (optionally) userId in the request body
     const application = await prisma.application.create({
-      data: {
-        name: data.name,
-        firstName: data.firstName ?? null,
-        middleName: data.middleName ?? null,
-        lastName: data.lastName ?? null,
-        birthdate: data.birthdate ? new Date(data.birthdate) : null,
-        region: data.region,
-        email: data.email,
-        scholarshipId: data.scholarshipId,
-        amount: data.amount,
-        gpa: data.gpa,
-        status: data.status,
-        submittedDate: new Date(data.submittedDate),
-        avatar: data.avatar || '',
-        review: data.review,
-        score: data.score,
-        userId: data.userId,
-      },
+      data: createData,
       include: {
         scholarship: true,
         user: true,
       },
     });
-    return NextResponse.json(application, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to create application' }, { status: 500 });
+    
+    return NextResponse.json(application, { 
+      status: 201,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error: any) {
+    console.error('Application creation error:', error);
+    
+    // Handle Prisma/database specific errors
+    if (error.code === 'P2002') {
+      return NextResponse.json({ 
+        error: 'Application already exists', 
+        details: ['An application with this information already exists'] 
+      }, { 
+        status: 409,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    if (error.code === 'P2003') {
+      return NextResponse.json({ 
+        error: 'Invalid reference', 
+        details: ['Invalid scholarship or user reference'] 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to create application',
+      details: ['Internal server error occurred']
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 

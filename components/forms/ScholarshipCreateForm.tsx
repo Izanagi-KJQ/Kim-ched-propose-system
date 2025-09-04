@@ -1,11 +1,12 @@
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Scholarship } from "@/lib/types";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { ScholarshipCreateSchema, type ScholarshipFormData } from "@/lib/validations";
+import { useState } from "react";
 
 interface ScholarshipCreateFormProps {
   onSave: (data: Omit<Scholarship, 'id'>) => void;
@@ -14,79 +15,42 @@ interface ScholarshipCreateFormProps {
 }
 
 export default function ScholarshipCreateForm({ onSave, onCancel, type }: ScholarshipCreateFormProps) {
-  const form = useForm<Omit<Scholarship, 'id'>>({
+  const form = useForm<ScholarshipFormData>({
+    resolver: zodResolver(ScholarshipCreateSchema),
     defaultValues: {
       name: "",
       amount: "",
       deadline: "",
-      status: "active", // Default status
+      status: "active" as const, // Default status
       applicants: 0,
       type: type || 'Full',
     },
     mode: "onChange", // Enable real-time validation
   })
 
-  // Add validation state
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  // Remove manual validation state since Zod handles it
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Validation function to check for incomplete fields
-  const validateForm = (values: Omit<Scholarship, 'id'>): string[] => {
-    const errors: string[] = [];
-    
-    // Check required fields
-    if (!values.name?.trim()) errors.push("Scholarship Name is required");
-    if (!values.amount?.trim()) errors.push("Amount is required");
-    if (!values.deadline?.trim()) errors.push("Deadline is required");
-    if (!values.status?.trim()) errors.push("Status is required");
-    
-    // Check name length
-    if (values.name && values.name.trim().length < 3) {
-      errors.push("Scholarship Name must be at least 3 characters long");
-    }
-    
-    // Check amount format
-    if (values.amount && !/^\d+(\.\d{1,2})?$/.test(values.amount.replace(/[^\d.]/g, ''))) {
-      errors.push("Please enter a valid amount");
-    }
-    
-    // Check deadline (must be in the future)
-    if (values.deadline) {
-      const deadlineDate = new Date(values.deadline);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (deadlineDate <= today) {
-        errors.push("Deadline must be in the future");
-      }
-    }
-    
-    // Check applicants count
-    if (values.applicants < 0) {
-      errors.push("Applicants count cannot be negative");
-    }
-    
-    return errors;
-  };
 
-  function onSubmit(values: Omit<Scholarship, 'id'>) {
+
+  function onSubmit(values: ScholarshipFormData) {
     setIsSubmitting(true);
-    setValidationErrors([]);
-    
-    // Validate form before submission
-    const errors = validateForm(values);
-    if (errors.length > 0) {
-      setValidationErrors(errors);
+    try {
+      onSave({ ...values, type: type || 'Full' });
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-    
-    onSave({ ...values, type: type || 'Full' });
-    setIsSubmitting(false);
   }
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full" onClick={(e) => e.stopPropagation()}>
         {/* Form Completion Progress */}
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
@@ -122,20 +86,6 @@ export default function ScholarshipCreateForm({ onSave, onCancel, type }: Schola
           </div>
         </div>
 
-        {/* Validation Errors Display */}
-        {validationErrors.length > 0 && (
-          <Alert variant="destructive" className="border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="font-medium mb-2">Please fix the following errors:</div>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                {validationErrors.map((error, index) => (
-                  <li key={index} className="text-red-700">{error}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
         
         <FormField name="name" control={form.control} render={({ field }) => (
           <FormItem>
@@ -242,7 +192,7 @@ export default function ScholarshipCreateForm({ onSave, onCancel, type }: Schola
             type="button" 
             variant="outline" 
             className="flex-1" 
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={isSubmitting}
           >
             Cancel

@@ -1961,7 +1961,7 @@ function DashboardPage() {
                   />
                   <DialogFooter>
                     <DialogClose asChild>
-                      <Button variant="outline">Close</Button>
+                      <Button variant="outline" onClick={(e) => { e.stopPropagation(); }}>Close</Button>
                     </DialogClose>
                   </DialogFooter>
                 </DialogContent>
@@ -2017,7 +2017,7 @@ function DashboardPage() {
                   )}
                   <DialogFooter>
                     <DialogClose asChild>
-                      <Button variant="outline">Close</Button>
+                      <Button variant="outline" onClick={(e) => { e.stopPropagation(); }}>Close</Button>
                     </DialogClose>
                   </DialogFooter>
                 </DialogContent>
@@ -2037,7 +2037,7 @@ function DashboardPage() {
                   )}
                   <DialogFooter>
                     <DialogClose asChild>
-                      <Button variant="outline">Close</Button>
+                      <Button variant="outline" onClick={(e) => { e.stopPropagation(); }}>Close</Button>
                     </DialogClose>
                   </DialogFooter>
                 </DialogContent>
@@ -2676,7 +2676,7 @@ function DashboardPage() {
               )}
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button variant="outline" onClick={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}>Cancel</Button>
+                  <Button variant="outline" onClick={(e) => { e.stopPropagation(); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}>Cancel</Button>
                 </DialogClose>
               </DialogFooter>
             </DialogContent>

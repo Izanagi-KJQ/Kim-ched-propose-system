@@ -1,9 +1,11 @@
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Application, Scholarship } from "@/lib/types";
+import { ApplicationCreateSchema, type ApplicationFormData } from "@/lib/validations";
 import { useState, useRef } from "react";
 import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
@@ -22,7 +24,8 @@ interface ApplicationCreateFormProps {
 const REQUIRED_FIELDS = ["firstName", "lastName", "email", "region", "scholarship", "amount", "gpa", "submittedDate"];
 
 const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave, onCancel, scholarships }: ApplicationCreateFormProps, ref) {
-  const form = useForm<Omit<Application, 'id' | 'avatar'>>({
+  const form = useForm<ApplicationFormData>({
+    resolver: zodResolver(ApplicationCreateSchema),
     defaultValues: {
       name: "",
       firstName: "",
@@ -34,7 +37,7 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
       scholarship: "",
       amount: "",
       gpa: 0,
-      status: "pending",
+      status: "pending" as const,
       submittedDate: "",
       score: null,
     },
@@ -51,8 +54,7 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
     }
   }), [form]);
 
-  // Add validation state
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  // Remove manual validation state since Zod handles it
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string>("/placeholder-user.jpg");
@@ -170,65 +172,29 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
     }
   };
 
-  // Validation function to check for incomplete fields
-  const validateForm = (values: Omit<Application, 'id' | 'avatar'>): string[] => {
-    const errors: string[] = [];
-    
-    // Check required fields
-    if (!values.firstName?.trim()) errors.push("First Name is required");
-    if (!values.lastName?.trim()) errors.push("Last Name is required");
-    if (!values.email?.trim()) errors.push("Email is required");
-    if (!values.region?.trim()) errors.push("Province is required");
-    if (!values.scholarship?.trim()) errors.push("Scholarship selection is required");
-    if (!values.amount?.trim()) errors.push("Amount is required");
-    if (values.gpa === null || values.gpa === undefined) errors.push("GPA is required");
-    if (!values.submittedDate?.trim()) errors.push("Submitted Date is required");
-    
-    // Check email format
-    if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
-      errors.push("Please enter a valid email address");
-    }
-    
-    // Check GPA range
-    if (values.gpa !== null && values.gpa !== undefined && (values.gpa < 0 || values.gpa > 5)) {
-      errors.push("GPA must be between 0 and 5");
-    }
-    
-    // Check amount format
-    if (values.amount && !/^\d+(\.\d{1,2})?$/.test(values.amount.replace(/[^\d.]/g, ''))) {
-      errors.push("Please enter a valid amount");
-    }
-    
-    // Check if at least one name field is filled
-    if (!values.firstName?.trim() && !values.lastName?.trim() && !values.name?.trim()) {
-      errors.push("At least one name field must be filled");
-    }
-    
-    return errors;
-  };
 
-  function onSubmit(values: Omit<Application, 'id' | 'avatar'>) {
+
+  function onSubmit(values: ApplicationFormData) {
     setIsSubmitting(true);
-    setValidationErrors([]);
-    
-    // Validate form before submission
-    const errors = validateForm(values);
-    if (errors.length > 0) {
-      setValidationErrors(errors);
+    try {
+      const computedName = [values.firstName, values.middleName, values.lastName]
+        .filter(Boolean)
+        .join(' ');
+      onSave({ ...values, name: values.name || computedName, avatar: avatarUrl });
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-    
-    const computedName = [values.firstName, values.middleName, values.lastName]
-      .filter(Boolean)
-      .join(' ');
-    onSave({ ...values, name: values.name || computedName, avatar: avatarUrl });
-    setIsSubmitting(false);
   }
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full" onClick={(e) => e.stopPropagation()}>
         {/* Form Completion Progress */}
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
@@ -264,20 +230,6 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
           </div>
         </div>
 
-        {/* Validation Errors Display */}
-        {validationErrors.length > 0 && (
-          <Alert variant="destructive" className="border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="font-medium mb-2">Please fix the following errors:</div>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                {validationErrors.map((error, index) => (
-                  <li key={index} className="text-red-700">{error}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
         
         <div className="flex items-center space-x-4 mb-2">
           <Avatar className="h-16 w-16">
@@ -516,7 +468,7 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
             type="button" 
             variant="outline" 
             className="flex-1" 
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={isSubmitting}
           >
             Cancel

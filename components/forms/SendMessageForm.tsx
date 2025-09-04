@@ -24,9 +24,15 @@ export default function SendMessageForm({ application, onSend, onCancel }: SendM
     onSend(values)
   }
 
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-full" onClick={(e) => e.stopPropagation()}>
         <FormField name="recipientEmail" control={form.control} render={({ field }) => (
           <FormItem>
             <FormLabel>Recipient Email</FormLabel>
@@ -56,7 +62,7 @@ export default function SendMessageForm({ application, onSend, onCancel }: SendM
         )} />
         <div className="flex space-x-2">
           <Button type="submit" className="flex-1">Send Message</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>Cancel</Button>
         </div>
       </form>
     </Form>
