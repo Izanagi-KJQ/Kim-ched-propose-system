@@ -2,8 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { ApiUserCreateSchema, validateRequest } from '@/lib/validations';
+import { validateAdminAccess } from '@/lib/jwt';
 
 export async function GET(req: NextRequest) {
+  // Validate admin access
+  const authResult = validateAdminAccess(req);
+  if (!authResult.success) {
+    return NextResponse.json({ 
+      error: authResult.error,
+      details: ['Administrator privileges required to access user management']
+    }, { 
+      status: authResult.error === 'Authentication required' ? 401 : 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -21,11 +34,30 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(users);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+    console.error('Failed to fetch users:', error);
+    return NextResponse.json({ 
+      error: 'Failed to fetch users',
+      details: ['An unexpected error occurred while retrieving users']
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 export async function POST(req: NextRequest) {
+  // Validate admin access
+  const authResult = validateAdminAccess(req);
+  if (!authResult.success) {
+    return NextResponse.json({ 
+      error: authResult.error,
+      details: ['Administrator privileges required to create users']
+    }, { 
+      status: authResult.error === 'Authentication required' ? 401 : 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
     const body = await req.json();
     

@@ -1,9 +1,13 @@
 import { z } from "zod";
 
 // Common validation patterns
-const emailSchema = z.string().email("Please enter a valid email address");
-const passwordSchema = z.string().min(6, "Password must be at least 6 characters long");
-const requiredStringSchema = (fieldName: string) => z.string().min(1, `${fieldName} is required`);
+const emailSchema = z.string()
+  .min(1, "Email is required")
+  .email("Please enter a valid email address");
+const passwordSchema = z.string()
+  .min(6, "Password must be at least 6 characters long");
+const requiredStringSchema = (fieldName: string) => z.string()
+  .min(1, `${fieldName} is required`);
 
 // Scholarship validation schema
 export const ScholarshipSchema = z.object({
@@ -88,30 +92,44 @@ export const ApplicationSchema = z.object({
   score: z.number().nullable().optional(),
 });
 
-// User validation schema
+// User validation schema with enhanced validation
 export const UserSchema = z.object({
   firstName: z
     .string()
-    .min(1, "First Name is required")
-    .max(50, "First Name is too long"),
+    .min(1, "First name is required")
+    .max(50, "First name must be less than 50 characters"),
   middleName: z
     .string()
-    .max(50, "Middle Name is too long")
+    .max(50, "Middle name must be less than 50 characters")
     .optional(),
   lastName: z
     .string()
-    .min(1, "Last Name is required")
-    .max(50, "Last Name is too long"),
+    .min(1, "Last name is required")
+    .max(50, "Last name must be less than 50 characters"),
   email: emailSchema,
   role: z
-    .string()
-    .min(1, "Role is required"),
+    .enum(["Administrator", "Staff", "Viewer"], {
+      required_error: "Role is required",
+      invalid_type_error: "Please select a valid role",
+    }),
   department: z
     .string()
-    .min(1, "Department is required"),
+    .min(1, "Department is required")
+    .max(100, "Department name must be less than 100 characters"),
   status: z.enum(["active", "inactive"], {
     required_error: "Status is required",
   }),
+});
+
+// User form schema (for frontend forms, excludes password)
+export const UserFormSchema = UserSchema.extend({
+  lastActive: z
+    .string()
+    .optional()
+    .refine((date) => {
+      if (!date) return true;
+      return !isNaN(Date.parse(date));
+    }, "Invalid date format"),
 });
 
 // API-specific schemas for server-side validation
@@ -128,7 +146,7 @@ export const RegisterSchema = z.object({
   lastName: requiredStringSchema("Last name"),
   email: emailSchema,
   password: passwordSchema,
-  department: z.string().optional(),
+  department: z.string().min(1, "Department is required"),
 });
 
 export const GoogleAuthSchema = z.object({
@@ -152,7 +170,7 @@ export const ApiApplicationUpdateSchema = ApiApplicationCreateSchema.partial().e
 export const ApiScholarshipCreateSchema = ScholarshipSchema;
 export const ApiScholarshipUpdateSchema = ScholarshipSchema.partial();
 
-// API User schemas
+// API User schemas with enhanced validation
 export const ApiUserCreateSchema = UserSchema.extend({
   password: passwordSchema,
 });
@@ -161,10 +179,93 @@ export const ApiUserUpdateSchema = UserSchema.partial().extend({
   password: passwordSchema.optional(),
 });
 
-// Bulk operations schema
+// Role change schema (admin-only operation)
+export const UserRoleChangeSchema = z.object({
+  role: z.enum(["Administrator", "Staff", "Viewer"], {
+    required_error: "Role is required",
+    invalid_type_error: "Please select a valid role",
+  }),
+});
+
+// User status change schema
+export const UserStatusChangeSchema = z.object({
+  status: z.enum(["active", "inactive"], {
+    required_error: "Status is required",
+  }),
+});
+
+// Password reset schema (admin-only operation)
+export const UserPasswordResetSchema = z.object({
+  password: passwordSchema,
+});
+
+// Enhanced bulk operations schemas
 export const BulkUpdateSchema = z.object({
-  ids: z.array(z.string().uuid("Invalid ID format")).min(1, "At least one ID is required"),
-  status: z.string().min(1, "Status is required"),
+  ids: z.array(z.string().uuid("Invalid ID format")).min(1, "At least one ID is required").max(100, "Maximum 100 items allowed per bulk operation"),
+  status: z.enum(["pending", "under_review", "approved", "rejected"], {
+    required_error: "Status is required",
+    invalid_type_error: "Invalid status value",
+  }),
+});
+
+// Bulk delete schema for applications
+export const BulkDeleteSchema = z.object({
+  ids: z.array(z.string().uuid("Invalid ID format")).min(1, "At least one ID is required").max(100, "Maximum 100 items allowed per bulk operation"),
+  permanent: z.boolean().default(false),
+});
+
+// Bulk user operations schemas
+export const BulkUserUpdateSchema = z.object({
+  ids: z.array(z.string().uuid("Invalid user ID format")).min(1, "At least one user ID is required").max(50, "Maximum 50 users allowed per bulk operation"),
+  operation: z.enum(["activate", "deactivate", "delete"], {
+    required_error: "Operation is required",
+    invalid_type_error: "Invalid operation type",
+  }),
+});
+
+export const BulkUserRoleChangeSchema = z.object({
+  ids: z.array(z.string().uuid("Invalid user ID format")).min(1, "At least one user ID is required").max(50, "Maximum 50 users allowed per bulk operation"),
+  role: z.enum(["Administrator", "Staff", "Viewer"], {
+    required_error: "Role is required",
+    invalid_type_error: "Invalid role value",
+  }),
+});
+
+// Bulk scholarship operations schemas
+export const BulkScholarshipUpdateSchema = z.object({
+  ids: z.array(z.string().uuid("Invalid scholarship ID format")).min(1, "At least one scholarship ID is required").max(50, "Maximum 50 scholarships allowed per bulk operation"),
+  status: z.enum(["pending", "under_review", "active", "closed"], {
+    required_error: "Status is required",
+    invalid_type_error: "Invalid status value",
+  }),
+});
+
+export const BulkScholarshipDeleteSchema = z.object({
+  ids: z.array(z.string().uuid("Invalid scholarship ID format")).min(1, "At least one scholarship ID is required").max(50, "Maximum 50 scholarships allowed per bulk operation"),
+  permanent: z.boolean().default(false),
+});
+
+// Enhanced bulk response schema
+export const BulkOperationResponseSchema = z.object({
+  success: z.boolean(),
+  summary: z.object({
+    total: z.number().int().nonnegative(),
+    successful: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative().optional(),
+  }),
+  updated: z.array(z.string().uuid()).optional(),
+  deleted: z.array(z.string().uuid()).optional(),
+  failed: z.array(z.object({
+    id: z.string().uuid(),
+    error: z.string(),
+    code: z.string().optional(),
+  })),
+  metadata: z.object({
+    operation: z.string(),
+    timestamp: z.date().default(() => new Date()),
+    batchId: z.string().optional(),
+  }),
 });
 
 // File upload schema
@@ -175,6 +276,118 @@ export const FileUploadSchema = z.object({
     const maxSize = 30 * 1024 * 1024; // 30MB
     return acceptedTypes.includes(file.type) && file.size <= maxSize;
   }, "File must be a valid image (JPG, PNG, GIF, WEBP) and less than 30MB"),
+});
+
+// Enhanced file upload validation schemas
+export const AvatarUploadSchema = z.object({
+  file: z.any()
+    .refine((file) => file instanceof File, "Please select a file")
+    .refine((file) => {
+      const acceptedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      return acceptedTypes.includes(file.type);
+    }, "Only JPG, PNG, GIF, or WEBP images are allowed")
+    .refine((file) => {
+      const maxSize = 30 * 1024 * 1024; // 30MB
+      return file.size <= maxSize;
+    }, "File size must be less than 30MB")
+    .refine((file) => {
+      const minSize = 1024; // 1KB minimum
+      return file.size >= minSize;
+    }, "File is too small. Minimum size is 1KB"),
+});
+
+// Document upload schema for general documents
+export const DocumentUploadSchema = z.object({
+  file: z.any()
+    .refine((file) => file instanceof File, "Please select a file")
+    .refine((file) => {
+      const acceptedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp"
+      ];
+      return acceptedTypes.includes(file.type);
+    }, "Only PDF, DOC, DOCX, TXT, and image files are allowed")
+    .refine((file) => {
+      const maxSize = 50 * 1024 * 1024; // 50MB for documents
+      return file.size <= maxSize;
+    }, "File size must be less than 50MB"),
+  description: z.string().min(1, "File description is required").max(255, "Description must be less than 255 characters").optional(),
+});
+
+// Bulk file upload schema
+export const BulkFileUploadSchema = z.object({
+  files: z.array(z.any())
+    .min(1, "At least one file is required")
+    .max(10, "Maximum 10 files allowed at once")
+    .refine((files) => {
+      return files.every(file => file instanceof File);
+    }, "All items must be valid files")
+    .refine((files) => {
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+      const maxTotalSize = 100 * 1024 * 1024; // 100MB total
+      return totalSize <= maxTotalSize;
+    }, "Total file size must be less than 100MB"),
+});
+
+// CSV import schema
+export const CsvImportSchema = z.object({
+  file: z.any()
+    .refine((file) => file instanceof File, "Please select a CSV file")
+    .refine((file) => {
+      const acceptedTypes = ["text/csv", "application/vnd.ms-excel"];
+      return acceptedTypes.includes(file.type) || file.name.endsWith('.csv');
+    }, "Only CSV files are allowed")
+    .refine((file) => {
+      const maxSize = 10 * 1024 * 1024; // 10MB for CSV
+      return file.size <= maxSize;
+    }, "CSV file size must be less than 10MB"),
+  hasHeaders: z.boolean().default(true),
+  delimiter: z.enum([",", ";", "\t", "|"], {
+    required_error: "Delimiter is required",
+  }).default(","),
+});
+
+// File validation helper functions
+export function validateFileType(file: File, allowedTypes: string[]): boolean {
+  return allowedTypes.includes(file.type);
+}
+
+export function validateFileSize(file: File, maxSizeBytes: number): boolean {
+  return file.size <= maxSizeBytes;
+}
+
+export function validateFileName(fileName: string): boolean {
+  // Check for valid file name (no special characters that could be harmful)
+  const validNamePattern = /^[\w\-. ]+$/;
+  return validNamePattern.test(fileName) && fileName.length <= 255;
+}
+
+export function getFileExtension(fileName: string): string {
+  return fileName.split('.').pop()?.toLowerCase() || '';
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// File upload response schema
+export const FileUploadResponseSchema = z.object({
+  url: z.string().url("Invalid file URL"),
+  filename: z.string().min(1, "Filename is required"),
+  originalName: z.string().min(1, "Original filename is required"),
+  size: z.number().positive("File size must be positive"),
+  mimeType: z.string().min(1, "MIME type is required"),
+  uploadedAt: z.date().default(() => new Date()),
 });
 
 // Password change schema
@@ -197,7 +410,8 @@ export const ApplicationReviewSchema = z.object({
 // Infer TypeScript types from Zod schemas
 export type ScholarshipFormData = z.infer<typeof ScholarshipSchema>;
 export type ApplicationFormData = z.infer<typeof ApplicationSchema>;
-export type UserFormData = z.infer<typeof UserSchema>;
+export type UserFormData = z.infer<typeof UserFormSchema>;
+export type UserData = z.infer<typeof UserSchema>;
 
 // API types
 export type LoginData = z.infer<typeof LoginSchema>;
@@ -209,9 +423,24 @@ export type ApiScholarshipCreateData = z.infer<typeof ApiScholarshipCreateSchema
 export type ApiScholarshipUpdateData = z.infer<typeof ApiScholarshipUpdateSchema>;
 export type ApiUserCreateData = z.infer<typeof ApiUserCreateSchema>;
 export type ApiUserUpdateData = z.infer<typeof ApiUserUpdateSchema>;
+export type UserRoleChangeData = z.infer<typeof UserRoleChangeSchema>;
+export type UserStatusChangeData = z.infer<typeof UserStatusChangeSchema>;
+export type UserPasswordResetData = z.infer<typeof UserPasswordResetSchema>;
 export type BulkUpdateData = z.infer<typeof BulkUpdateSchema>;
+export type BulkDeleteData = z.infer<typeof BulkDeleteSchema>;
+export type BulkUserUpdateData = z.infer<typeof BulkUserUpdateSchema>;
+export type BulkUserRoleChangeData = z.infer<typeof BulkUserRoleChangeSchema>;
+export type BulkScholarshipUpdateData = z.infer<typeof BulkScholarshipUpdateSchema>;
+export type BulkScholarshipDeleteData = z.infer<typeof BulkScholarshipDeleteSchema>;
+export type BulkOperationResponseData = z.infer<typeof BulkOperationResponseSchema>;
 export type ChangePasswordData = z.infer<typeof ChangePasswordSchema>;
 export type ApplicationReviewData = z.infer<typeof ApplicationReviewSchema>;
+export type FileUploadData = z.infer<typeof FileUploadSchema>;
+export type AvatarUploadData = z.infer<typeof AvatarUploadSchema>;
+export type DocumentUploadData = z.infer<typeof DocumentUploadSchema>;
+export type BulkFileUploadData = z.infer<typeof BulkFileUploadSchema>;
+export type CsvImportData = z.infer<typeof CsvImportSchema>;
+export type FileUploadResponseData = z.infer<typeof FileUploadResponseSchema>;
 
 // Create form schemas (without ID for creation forms)
 export const ScholarshipCreateSchema = ScholarshipSchema;
@@ -239,4 +468,17 @@ export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): { suc
       details: ["Invalid request data format"]
     };
   }
+}
+
+// Role-based access helper
+export function isAdministrator(userRole: string): boolean {
+  return userRole === "Administrator";
+}
+
+export function canAccessUserManagement(userRole: string): boolean {
+  return isAdministrator(userRole);
+}
+
+export function canModifyUserRole(userRole: string): boolean {
+  return isAdministrator(userRole);
 }

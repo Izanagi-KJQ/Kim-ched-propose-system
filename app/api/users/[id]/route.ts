@@ -2,8 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { ApiUserUpdateSchema, validateRequest, ChangePasswordSchema } from '@/lib/validations';
+import { validateAdminAccess } from '@/lib/jwt';
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  // Validate admin access
+  const authResult = validateAdminAccess(req);
+  if (!authResult.success) {
+    return NextResponse.json({ 
+      error: authResult.error,
+      details: ['Administrator privileges required to update users']
+    }, { 
+      status: authResult.error === 'Authentication required' ? 401 : 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
     const body = await req.json();
     
@@ -108,6 +121,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  // Validate admin access
+  const authResult = validateAdminAccess(req);
+  if (!authResult.success) {
+    return NextResponse.json({ 
+      error: authResult.error,
+      details: ['Administrator privileges required to modify users']
+    }, { 
+      status: authResult.error === 'Authentication required' ? 401 : 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
     const data = await req.json();
     const user = await prisma.user.update({
@@ -120,6 +145,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       },
       select: {
         id: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
         name: true,
         email: true,
         role: true,
@@ -129,13 +157,34 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         avatar: true,
       },
     });
-    return NextResponse.json(user);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+    return NextResponse.json(user, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error: any) {
+    console.error('User patch error:', error);
+    return NextResponse.json({ 
+      error: 'Failed to update user',
+      details: ['An unexpected error occurred during user update']
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  // Validate admin access for password reset
+  const authResult = validateAdminAccess(req);
+  if (!authResult.success) {
+    return NextResponse.json({ 
+      error: authResult.error,
+      details: ['Administrator privileges required to reset passwords']
+    }, { 
+      status: authResult.error === 'Authentication required' ? 401 : 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   // For reset password
   try {
     const newPassword = Math.random().toString(36).slice(-8); // Generate a random password
@@ -143,21 +192,79 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await prisma.user.update({
       where: { id: params.id },
       data: {
-        // password: hashedPassword,
+        password: hashedPassword,
         lastActive: new Date(),
       },
     });
-    return NextResponse.json({ message: `Password reset. New password: ${newPassword}` });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
+    return NextResponse.json({ 
+      message: `Password reset successfully. New password: ${newPassword}`,
+      newPassword 
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error: any) {
+    console.error('Password reset error:', error);
+    return NextResponse.json({ 
+      error: 'Failed to reset password',
+      details: ['An unexpected error occurred during password reset']
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  // Validate admin access
+  const authResult = validateAdminAccess(req);
+  if (!authResult.success) {
+    return NextResponse.json({ 
+      error: authResult.error,
+      details: ['Administrator privileges required to delete users']
+    }, { 
+      status: authResult.error === 'Authentication required' ? 401 : 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
+    // Check if user exists and prevent self-deletion
+    const userToDelete = await prisma.user.findUnique({ where: { id: params.id } });
+    if (!userToDelete) {
+      return NextResponse.json({ 
+        error: 'User not found',
+        details: ['The user you are trying to delete does not exist']
+      }, { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Prevent deleting yourself
+    if (authResult.user.id === params.id) {
+      return NextResponse.json({ 
+        error: 'Cannot delete yourself',
+        details: ['You cannot delete your own account']
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     await prisma.user.delete({ where: { id: params.id } });
-    return NextResponse.json({ message: 'User deleted' });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+    return NextResponse.json({ 
+      message: 'User deleted successfully' 
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error: any) {
+    console.error('User deletion error:', error);
+    return NextResponse.json({ 
+      error: 'Failed to delete user',
+      details: ['An unexpected error occurred during user deletion']
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 
