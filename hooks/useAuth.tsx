@@ -25,6 +25,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize auth state on mount to prevent hydration mismatches
+  useEffect(() => {
+    setIsInitialized(true);
+  }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
@@ -125,8 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value: AuthContextType = {
-    user,
-    token,
+    user: isInitialized ? user : null,
+    token: isInitialized ? token : null,
     login,
     register,
     loginWithGoogle,
