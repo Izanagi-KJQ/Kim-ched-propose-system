@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -50,17 +50,8 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogC
 import { useRouter } from "next/navigation";
 import { Slider } from "@/components/ui/slider";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
-import AddStudentModal from "@/components/ranking/AddStudentModal";
 import { ThemeSwitcher, ThemeSwitcherButtonPurple } from "@/components/ui/theme-switcher";
 import { Scholarship, Application, User } from "@/lib/types";
-import ApplicationCreateForm from "@/components/forms/ApplicationCreateForm";
-import ScholarshipEditForm from "@/components/forms/ScholarshipEditForm";
-import ScholarshipCreateForm from "@/components/forms/ScholarshipCreateForm";
-import UserForm from "@/components/forms/UserForm";
-import ApplicationReviewForm from "@/components/forms/ApplicationReviewForm";
-import SendMessageForm from "@/components/forms/SendMessageForm";
-import ChangePasswordForm from "@/components/forms/ChangePasswordForm";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -70,6 +61,36 @@ import { useAuth } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useShiftSelect } from "@/hooks/useShiftSelect";
 import { format } from "date-fns";
+import {
+  bulkUpdateApplications,
+  bulkDeleteApplications,
+  bulkUpdateUsers,
+  bulkChangeUserRoles,
+  bulkUpdateScholarships,
+  bulkDeleteScholarships,
+  validateBulkPayload,
+  getBulkConfirmationMessage,
+  type BulkOperationResult
+} from "@/lib/bulk-operations";
+
+// Dynamically import heavy components to improve chunk loading
+const ApplicationCreateForm = lazy(() => import("@/components/forms/ApplicationCreateForm"));
+const ScholarshipEditForm = lazy(() => import("@/components/forms/ScholarshipEditForm"));
+const ScholarshipCreateForm = lazy(() => import("@/components/forms/ScholarshipCreateForm"));
+const UserForm = lazy(() => import("@/components/forms/UserForm"));
+const ApplicationReviewForm = lazy(() => import("@/components/forms/ApplicationReviewForm"));
+const SendMessageForm = lazy(() => import("@/components/forms/SendMessageForm"));
+const ChangePasswordForm = lazy(() => import("@/components/forms/ChangePasswordForm"));
+const RequirementsChecklist = lazy(() => import("@/components/ranking/RequirementsChecklist"));
+const AddStudentModal = lazy(() => import("@/components/ranking/AddStudentModal"));
+
+// Loading component for dynamic imports
+const FormLoadingSpinner = () => (
+  <div className="flex items-center justify-center p-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+    <span className="ml-2 text-sm text-gray-600">Loading form...</span>
+  </div>
+);
 
 // Add TabName type
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
@@ -880,9 +901,23 @@ function DashboardPage() {
     }
   };
 
-  // Add after the useState for users
+  // Redirect non-administrators away from users tab
+  useEffect(() => {
+    if (activeTab === "users" && user?.role !== "Administrator") {
+      setActiveTab("dashboard");
+      toast.error("Access denied. Administrator privileges required for User Management.");
+    }
+  }, [activeTab, user?.role]);
+
+  // Fetch users when users tab is accessed (admin only)
   useEffect(() => {
     async function fetchUsers() {
+      if (user?.role !== "Administrator") {
+        setUsers([]);
+        setLoadingUsers(false);
+        return;
+      }
+      
       setLoadingUsers(true);
       try {
         const res = await fetch('/api/users');
@@ -891,14 +926,16 @@ function DashboardPage() {
         setUsers(data);
       } catch (err) {
         setUsers([]);
+        toast.error('Failed to load users. Please try again.');
       } finally {
         setLoadingUsers(false);
       }
     }
+    
     if (activeTab === 'users') {
       fetchUsers();
     }
-  }, [activeTab]);
+  }, [activeTab, user?.role]);
 
   // 1. Add state for delete user dialog
   const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
@@ -1193,14 +1230,17 @@ function DashboardPage() {
               <Star className="h-4 w-4 mr-2" />
               Ranking
             </Button>
-            <Button
-              variant={activeTab === "users" ? "default" : "ghost"}
-              className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
-              onClick={() => setActiveTab("users")}
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Users
-            </Button>
+            {/* Only show Users tab to Administrators */}
+            {user?.role === "Administrator" && (
+              <Button
+                variant={activeTab === "users" ? "default" : "ghost"}
+                className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
+                onClick={() => setActiveTab("users")}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Users
+              </Button>
+            )}
           </nav>
         </aside>
       {/* Main Content - only this scrolls */}
@@ -1946,19 +1986,21 @@ function DashboardPage() {
                   <DialogHeader>
                     <DialogTitle>Create New Application</DialogTitle>
                   </DialogHeader>
-                  <ApplicationCreateForm
-                    ref={applicationFormRef}
-                    onSave={handleCreateApplication}
-                    onCancel={() => {
-                      if (applicationFormRef.current && applicationFormRef.current.isDirty()) {
-                        setShowUnsavedConfirm(true);
-                        setPendingCloseModal(() => () => setModalMode(null));
-                      } else {
-                        setModalMode(null);
-                      }
-                    }}
-                    scholarships={scholarships}
-                  />
+                  <Suspense fallback={<FormLoadingSpinner />}>
+                    <ApplicationCreateForm
+                      ref={applicationFormRef}
+                      onSave={handleCreateApplication}
+                      onCancel={() => {
+                        if (applicationFormRef.current && applicationFormRef.current.isDirty()) {
+                          setShowUnsavedConfirm(true);
+                          setPendingCloseModal(() => () => setModalMode(null));
+                        } else {
+                          setModalMode(null);
+                        }
+                      }}
+                      scholarships={scholarships}
+                    />
+                  </Suspense>
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline" onClick={(e) => { e.stopPropagation(); }}>Close</Button>
@@ -2009,11 +2051,13 @@ function DashboardPage() {
                     <DialogTitle>Review Application</DialogTitle>
                   </DialogHeader>
                   {selectedApplication && (
-                    <ApplicationReviewForm
-                      application={selectedApplication}
-                      onSave={handleSaveApplicationReview}
-                      onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
-                    />
+                    <Suspense fallback={<FormLoadingSpinner />}>
+                      <ApplicationReviewForm
+                        application={selectedApplication}
+                        onSave={handleSaveApplicationReview}
+                        onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
+                      />
+                    </Suspense>
                   )}
                   <DialogFooter>
                     <DialogClose asChild>
@@ -2029,11 +2073,13 @@ function DashboardPage() {
                     <DialogTitle>Send Message</DialogTitle>
                   </DialogHeader>
                   {selectedApplication && (
-                    <SendMessageForm
-                      application={selectedApplication}
-                      onSend={handleSendMessage}
-                      onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
-                    />
+                    <Suspense fallback={<FormLoadingSpinner />}>
+                      <SendMessageForm
+                        application={selectedApplication}
+                        onSend={handleSendMessage}
+                        onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
+                      />
+                    </Suspense>
                   )}
                   <DialogFooter>
                     <DialogClose asChild>
@@ -2668,11 +2714,13 @@ function DashboardPage() {
                 <DialogTitle>Create {pendingScholarshipType} Scholarship</DialogTitle>
               </DialogHeader>
               {pendingScholarshipType && (
-                <ScholarshipCreateForm
-                  onSave={data => { handleCreateScholarship({ ...data, type: pendingScholarshipType }); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
-                  onCancel={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
-                  type={pendingScholarshipType}
-                />
+                <Suspense fallback={<FormLoadingSpinner />}>
+                  <ScholarshipCreateForm
+                    onSave={data => { handleCreateScholarship({ ...data, type: pendingScholarshipType }); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
+                    onCancel={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
+                    type={pendingScholarshipType}
+                  />
+                </Suspense>
               )}
               <DialogFooter>
                 <DialogClose asChild>
@@ -2726,7 +2774,9 @@ function DashboardPage() {
                         </div>
                       ) : (
                           // Always pass the latestScholarship object to the edit form
-                          <ScholarshipEditForm scholarship={latestScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
+                          <Suspense fallback={<FormLoadingSpinner />}>
+                            <ScholarshipEditForm scholarship={latestScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
+                          </Suspense>
                       )}
                     </div>
                     );
@@ -2809,12 +2859,12 @@ function DashboardPage() {
             </div>
           )}
 
-          {activeTab === "users" && (
+          {activeTab === "users" && user?.role === "Administrator" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">User Management</h2>
-                  <p className="text-muted-foreground">Manage system users and permissions</p>
+                  <p className="text-muted-foreground">Manage system users and permissions (Administrator Only)</p>
                 </div>
             <Button variant="purple" onClick={() => setShowAddUserModal(true)}>
                   <Users className="h-4 w-4 mr-2" />
@@ -2927,48 +2977,59 @@ function DashboardPage() {
               <DialogHeader>
                 <DialogTitle>{userModal?.mode === 'edit' ? 'Edit User' : userModal?.mode === 'role' ? 'Change Role' : userModal?.mode === 'reset' ? 'Reset Password' : userModal?.mode === 'deactivate' ? 'Deactivate User' : 'Add User'}</DialogTitle>
               </DialogHeader>
-              <UserForm
-                user={userModal?.user}
-                onSave={async (user) => {
-                  if (user.id) {
-                    // Edit existing user
-                    try {
-                    const res = await fetch(`/api/users/${user.id}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(user),
-                    });
-                      if (!res.ok) throw new Error('Failed to update user');
-                      const updatedUser = await res.json();
-                      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-                      toast.success('User updated successfully!');
-                    } catch (err: any) {
-                      toast.error(err.message || 'Failed to update user');
-                    }
-                  } else {
-                    // Add new user
-                    try {
-                    const res = await fetch('/api/users', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(user),
-                    });
-                      if (!res.ok) {
-                        const error = await res.json();
-                        throw new Error(error.error || 'Failed to create user');
+              <Suspense fallback={<FormLoadingSpinner />}>
+                <UserForm
+                  user={userModal?.user}
+                  currentUserRole={user?.role}
+                  onSave={async (userData) => {
+                    if (userModal?.user?.id) {
+                      // Edit existing user
+                      try {
+                        const res = await fetch(`/api/users/${userModal.user.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ ...userData, id: userModal.user.id }),
+                        });
+                        if (!res.ok) {
+                          const error = await res.json();
+                          throw new Error(error.error || 'Failed to update user');
+                        }
+                        const updatedUser = await res.json();
+                        setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+                        toast.success('User updated successfully!');
+                      } catch (err: any) {
+                        toast.error(err.message || 'Failed to update user');
                       }
-                      const newUser = await res.json();
-                      setUsers(prev => [...prev, newUser]);
-                      toast.success('User created successfully!');
-                    } catch (err: any) {
-                      toast.error(err.message || 'Failed to create user');
+                    } else {
+                      // Add new user (requires password for creation)
+                      const createUserData = {
+                        ...userData,
+                        password: 'temp123456' // Default password for admin-created users
+                      };
+                      
+                      try {
+                        const res = await fetch('/api/users', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(createUserData),
+                        });
+                        if (!res.ok) {
+                          const error = await res.json();
+                          throw new Error(error.error || 'Failed to create user');
+                        }
+                        const newUser = await res.json();
+                        setUsers(prev => [...prev, newUser]);
+                        toast.success('User created successfully! Default password: temp123456');
+                      } catch (err: any) {
+                        toast.error(err.message || 'Failed to create user');
+                      }
                     }
-                  }
-                  setUserModal(null);
-                  setShowAddUserModal(false);
-                }}
-                onCancel={() => { setUserModal(null); setShowAddUserModal(false); }}
-              />
+                    setUserModal(null);
+                    setShowAddUserModal(false);
+                  }}
+                  onCancel={() => { setUserModal(null); setShowAddUserModal(false); }}
+                />
+              </Suspense>
               <DialogFooter>
                 <DialogClose asChild>
                   <Button variant="outline">Close</Button>
