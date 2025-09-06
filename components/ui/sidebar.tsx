@@ -536,10 +536,7 @@ const sidebarMenuButtonVariants = cva(
       variant: {
         default: "",
         outline:
-          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] data-[active=false]:hover:bg-sidebar-accent data-[active=false]:hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))] data-[active=true]:hover:bg-purple-900 data-[active=true]:hover:text-white dark:shadow-none dark:data-[active=false]:hover:border-purple-400/50 dark:data-[active=true]:border-purple-400",
-        // Dark mode outline variant hover/active tweaks
-        "dark:data-[active=false]:hover:border-purple-400/40 dark:data-[active=false]:hover:text-purple-200 dark:data-[active=false]:hover:bg-purple-900/20",
-        "dark:data-[active=true]:border-2 dark:data-[active=true]:border-purple-500/40 dark:data-[active=true]:text-purple-200 dark:data-[active=true]:bg-purple-900/30 dark:data-[active=true]:hover:bg-purple-700/70 dark:data-[active=true]:hover:text-white dark:data-[active=true]:hover:border-purple-400",
+          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] data-[active=false]:hover:bg-sidebar-accent data-[active=false]:hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))] data-[active=true]:hover:bg-purple-900 data-[active=true]:hover:text-white dark:shadow-none dark:data-[active=false]:hover:border-purple-400/50 dark:data-[active=true]:border-purple-400 dark:data-[active=false]:hover:border-purple-400/40 dark:data-[active=false]:hover:text-purple-200 dark:data-[active=false]:hover:bg-purple-900/20 dark:data-[active=true]:border-2 dark:data-[active=true]:border-purple-500/40 dark:data-[active=true]:text-purple-200 dark:data-[active=true]:bg-purple-900/30 dark:data-[active=true]:hover:bg-purple-700/70 dark:data-[active=true]:hover:text-white dark:data-[active=true]:hover:border-purple-400",
       },
       size: {
         default: "h-8 text-sm",
@@ -671,10 +668,15 @@ const SidebarMenuSkeleton = React.forwardRef<
     showIcon?: boolean
   }
 >(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
+  // Hydration-safe random width between 50 to 90%.
+  const [width, setWidth] = React.useState('75%'); // Default fallback width
+  const [isMounted, setIsMounted] = React.useState(false);
+  
+  React.useEffect(() => {
+    setIsMounted(true);
+    // Generate random width only on client side to prevent hydration mismatch
+    setWidth(`${Math.floor(Math.random() * 40) + 50}%`);
+  }, []);
 
   return (
     <div

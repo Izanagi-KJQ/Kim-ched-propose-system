@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Application, Scholarship } from "@/lib/types";
-import { ApplicationCreateSchema, type ApplicationFormData } from "@/lib/validations";
+import { ApplicationCreateSchema, type ApplicationFormData, AvatarUploadSchema, validateFileType, validateFileSize, formatFileSize } from "@/lib/validations";
 import { useState, useRef } from "react";
 import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
@@ -75,16 +75,16 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
     setAvatarError(null);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (!acceptedTypes.includes(file.type)) {
-        setAvatarError("Only JPG, PNG, GIF, or WEBP images are allowed.");
+      
+      // Enhanced Zod validation
+      const validation = AvatarUploadSchema.safeParse({ file });
+      if (!validation.success) {
+        const errors = validation.error.errors.map(err => err.message).join(', ');
+        setAvatarError(errors);
         setNewAvatarFile(null);
         return;
       }
-      if (file.size > maxSize) {
-        setAvatarError("File is too large. Max size is 30MB.");
-        setNewAvatarFile(null);
-        return;
-      }
+      
       setNewAvatarFile(file);
       const reader = new FileReader();
       reader.onload = () => {
@@ -241,7 +241,7 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
               {avatarUrl === "/placeholder-user.jpg" ? 'Add Photo' : 'Change Photo'}
             </Button>
             <Input ref={fileInputRef} id="avatar-upload" type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
-            <p className="text-xs text-muted-foreground mt-1">JPG, GIF, PNG, WEBP. 30MB max.</p>
+            <p className="text-xs text-muted-foreground mt-1">JPG, GIF, PNG, WEBP. {formatFileSize(maxSize)} max.</p>
             {avatarError && <p className="text-sm text-destructive mt-1">{avatarError}</p>}
             {avatarUrl !== "/placeholder-user.jpg" && (
               <div className="flex gap-2 mt-2">

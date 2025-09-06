@@ -1,12 +1,15 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "./card";
 import { Input } from "./input";
 import { Button } from "./button";
 import { Label } from "./label";
 import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, User, Mail, Lock, Briefcase, CheckCircle, XCircle, Info, AlertTriangle, CheckCircle as SuccessIcon, Loader2, } from "lucide-react";
+import { RegisterSchema, type RegisterData } from "@/lib/validations";
 import zxcvbn from "zxcvbn";
 
 // Extend the Window interface to include google
@@ -28,22 +31,57 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-interface RegisterFormInputs {
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  department: string;
-  otherDepartment?: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
+// Complete RegisterForm schema with all validations
+const RegisterFormSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  middleName: z.string().optional(),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters long"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+  department: z.string().min(1, "Department is required"),
+  otherDepartment: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+}).refine((data) => {
+  // If department is "Other", otherDepartment must be provided
+  if (data.department === "Other") {
+    return data.otherDepartment && data.otherDepartment.trim().length > 0;
+  }
+  return true;
+}, {
+  message: "Please specify your department",
+  path: ["otherDepartment"],
+});
+
+interface RegisterFormInputs extends z.infer<typeof RegisterFormSchema> {}
 
 export function RegisterForm() {
-  const { register: registerField, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterFormInputs>();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registerSuccess, setRegisterSuccess] = useState<boolean>(false);
   const { register: registerUser, loginWithGoogle } = useAuth();
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const { register: registerField, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterFormInputs>({
+    resolver: zodResolver(RegisterFormSchema),
+    mode: "onChange",
+    defaultValues: {
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      department: "",
+      otherDepartment: "",
+    }
+  });
   const department = watch("department");
   const otherDepartment = watch("otherDepartment");
   const [showPassword, setShowPassword] = useState(false);
@@ -89,12 +127,12 @@ export function RegisterForm() {
   const tips = unmet.map(r => r.label);
 
   const onSubmit = async (data: RegisterFormInputs) => {
+    // Prevent submission if not properly mounted
+    if (!isMounted) return;
+    
     setRegisterError(null);
     setRegisterSuccess(false);
-    if (data.password !== data.confirmPassword) {
-      setRegisterError("Passwords do not match");
-      return;
-    }
+    
     let departmentValue = data.department === "Other" ? data.otherDepartment || "Other" : data.department;
     const result = await registerUser(data.firstName, data.middleName, data.lastName, data.email, data.password, departmentValue);
     if (!result.success) {
@@ -161,6 +199,24 @@ export function RegisterForm() {
     // google.accounts.id.renderButton(googleButtonRef.current, { theme: "outline", size: "large" });
   }, [googleLoaded]);
 
+  // Don't render until mounted to prevent hydration issues
+  if (!isMounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted px-2 sm:px-0">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardContent className="space-y-4 p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted px-2 sm:px-0">
       <Card className="w-full max-w-md shadow-lg">
@@ -220,7 +276,7 @@ export function RegisterForm() {
                   placeholder="First Name"
                   autoComplete="given-name"
                   className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("firstName", { required: "First name is required" })}
+                  {...registerField("firstName")}
                   disabled={isSubmitting}
                   aria-invalid={!!errors.firstName}
                   aria-describedby={errors.firstName ? "firstName-error" : undefined}
@@ -253,7 +309,7 @@ export function RegisterForm() {
                   placeholder="Last Name"
                   autoComplete="family-name"
                   className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("lastName", { required: "Last name is required" })}
+                  {...registerField("lastName")}
                   disabled={isSubmitting}
                   aria-invalid={!!errors.lastName}
                   aria-describedby={errors.lastName ? "lastName-error" : undefined}
@@ -268,7 +324,7 @@ export function RegisterForm() {
                 <select
                   id="department"
                   className="w-full border rounded px-3 py-2 mt-1 pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("department", { required: "Department is required" })}
+                  {...registerField("department")}
                   disabled={isSubmitting}
                   defaultValue=""
                   aria-invalid={!!errors.department}
@@ -294,7 +350,7 @@ export function RegisterForm() {
                     type="text"
                     placeholder="Enter department"
                     className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                    {...registerField("otherDepartment", { required: "Please specify your department" })}
+                    {...registerField("otherDepartment")}
                     disabled={isSubmitting}
                     aria-invalid={!!errors.otherDepartment}
                     aria-describedby={errors.otherDepartment ? "otherDepartment-error" : undefined}
@@ -313,7 +369,7 @@ export function RegisterForm() {
                   placeholder="you@example.com"
                   autoComplete="email"
                   className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("email", { required: "Email is required", pattern: { value: /.+@.+\..+/, message: "Invalid email" } })}
+                  {...registerField("email")}
                   disabled={isSubmitting}
                   aria-invalid={!!errors.email}
                   aria-describedby={errors.email ? "email-error" : undefined}
@@ -331,7 +387,7 @@ export function RegisterForm() {
                   placeholder="••••••••"
                   autoComplete="new-password"
                   className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("password", { required: "Password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } })}
+                  {...registerField("password")}
                   disabled={isSubmitting}
                   aria-describedby="password-requirements password-strength-tips"
                   aria-invalid={!!errors.password}
@@ -414,7 +470,7 @@ export function RegisterForm() {
                   placeholder="••••••••"
                   autoComplete="new-password"
                   className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("confirmPassword", { required: "Please confirm your password" })}
+                  {...registerField("confirmPassword")}
                   disabled={isSubmitting}
                   aria-invalid={!!errors.confirmPassword}
                   aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}

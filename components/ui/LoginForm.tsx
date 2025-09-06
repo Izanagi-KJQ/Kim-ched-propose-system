@@ -1,27 +1,51 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "./card";
 import { Input } from "./input";
 import { Button } from "./button";
 import { Checkbox } from "./checkbox";
 import { Label } from "./label";
 import { useAuth } from "@/hooks/useAuth";
+import { LoginSchema, type LoginData } from "@/lib/validations";
 
-interface LoginFormInputs {
-  email: string;
-  password: string;
-  remember: boolean;
-}
+// Simple extended schema for login form
+const LoginFormSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+  remember: z.boolean().optional(),
+});
+
+interface LoginFormInputs extends z.infer<typeof LoginFormSchema> {}
 
 export function LoginForm() {
   const router = useRouter();
   const { login } = useAuth();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>({
+    resolver: zodResolver(LoginFormSchema),
+    mode: "onChange",
+    defaultValues: {
+      email: "",
+      password: "",
+      remember: false,
+    }
+  });
 
   const onSubmit = async (data: LoginFormInputs) => {
+    // Prevent submission if not properly mounted
+    if (!isMounted) return;
+    
     setAuthError(null);
     const result = await login(data.email, data.password);
     if (!result.success) {
@@ -30,6 +54,24 @@ export function LoginForm() {
       router.push("/");
     }
   };
+
+  // Don't render until mounted to prevent hydration issues
+  if (!isMounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardContent className="space-y-4 p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">
@@ -47,7 +89,7 @@ export function LoginForm() {
                 type="email"
                 placeholder="you@example.com"
                 autoComplete="email"
-                {...register("email", { required: "Email is required", pattern: { value: /.+@.+\..+/, message: "Invalid email" } })}
+                {...register("email")}
                 disabled={isSubmitting}
               />
               {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
@@ -59,7 +101,7 @@ export function LoginForm() {
                 type="password"
                 placeholder="••••••••"
                 autoComplete="current-password"
-                {...register("password", { required: "Password is required" })}
+                {...register("password")}
                 disabled={isSubmitting}
               />
               {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
