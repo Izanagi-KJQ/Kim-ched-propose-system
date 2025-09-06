@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { BulkUpdateSchema, validateRequest } from '@/lib/validations';
+import { BulkScholarshipUpdateSchema, validateRequest } from '@/lib/validations';
+
+export const runtime = 'nodejs';
 
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
     
-    // Validate request with enhanced Zod schema
-    const validation = validateRequest(BulkUpdateSchema, body);
+    // Validate request with Zod
+    const validation = validateRequest(BulkScholarshipUpdateSchema, body);
     if (!validation.success) {
       return NextResponse.json({ 
         error: validation.error, 
@@ -25,39 +27,43 @@ export async function PATCH(req: NextRequest) {
     
     for (const id of ids) {
       try {
-        // Check if application exists and get current status
-        const currentApp = await prisma.application.findUnique({
+        // Check if scholarship exists
+        const scholarship = await prisma.scholarship.findUnique({
           where: { id },
-          select: { id: true, status: true }
+          select: { id: true, status: true, deadline: true }
         });
         
-        if (!currentApp) {
-          failed.push({ id, error: 'Application not found', code: 'NOT_FOUND' });
+        if (!scholarship) {
+          failed.push({ id, error: 'Scholarship not found', code: 'NOT_FOUND' });
+          continue;
+        }
+        
+        // Business logic: prevent reopening expired scholarships
+        const now = new Date();
+        if (scholarship.deadline < now && status === 'active') {
+          failed.push({ id, error: 'Cannot activate expired scholarship', code: 'EXPIRED' });
           continue;
         }
         
         // Skip if status is already the same
-        if (currentApp.status === status) {
-          failed.push({ id, error: 'Application already has this status', code: 'NO_CHANGE_NEEDED' });
+        if (scholarship.status === status) {
+          failed.push({ id, error: 'Scholarship already has this status', code: 'NO_CHANGE_NEEDED' });
           continue;
         }
         
-        await prisma.application.update({
+        await prisma.scholarship.update({
           where: { id },
-          data: { status },
+          data: { status }
         });
         
         updated.push(id);
       } catch (err: any) {
-        let errorMsg = 'Update failed';
+        let errorMsg = 'Status update failed';
         let errorCode = undefined;
         
         if (err?.code === 'P2025') {
-          errorMsg = 'Application not found';
+          errorMsg = 'Scholarship not found';
           errorCode = 'NOT_FOUND';
-        } else if (err?.code === 'P2003') {
-          errorMsg = 'Invalid reference';
-          errorCode = 'INVALID_REFERENCE';
         }
         
         failed.push({ id, error: errorMsg, code: errorCode });
@@ -68,16 +74,16 @@ export async function PATCH(req: NextRequest) {
     const success = failed.length === 0;
     
     const responseData = {
-      success, 
-      updated, 
-      failed,
+      success,
       summary: {
         total: ids.length,
         successful: updated.length,
         failed: failed.length
       },
+      updated,
+      failed,
       metadata: {
-        operation: 'bulk_status_update',
+        operation: 'bulk_scholarship_status_update',
         timestamp: new Date(),
         batchId,
         newStatus: status
@@ -87,13 +93,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(responseData, {
       headers: { 'Content-Type': 'application/json' }
     });
+    
   } catch (error: any) {
-    console.error('Bulk update error:', error);
+    console.error('Bulk scholarship update error:', error);
     
     if (error.name === 'ZodError') {
       return NextResponse.json({ 
-        error: 'Bulk update validation failed',
-        details: error.errors?.map((e: any) => e.message) || ['Invalid request format']
+        error: 'Bulk scholarship update validation failed',
+        details: error.errors?.map((e: any) => e.message) || ['Invalid request data']
       }, { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -101,11 +108,11 @@ export async function PATCH(req: NextRequest) {
     }
     
     return NextResponse.json({ 
-      error: 'Batch update failed',
-      details: ['Internal server error occurred during bulk update']
+      error: 'Bulk scholarship update failed',
+      details: ['An unexpected error occurred during bulk scholarship update']
     }, { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
-} 
+}
