@@ -41,6 +41,9 @@ import {
   Key,
   User as UserIcon,
   Settings as SettingsIcon,
+  MapPin,
+  MessageSquare,
+  X,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
@@ -51,7 +54,7 @@ import { useRouter } from "next/navigation";
 import { Slider } from "@/components/ui/slider";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ThemeSwitcher, ThemeSwitcherButtonPurple } from "@/components/ui/theme-switcher";
-import { Scholarship, Application, User } from "@/lib/types";
+import { Scholarship, Application, User as UserType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -174,9 +177,9 @@ function DashboardPage() {
   const [rankingDialogOpen, setRankingDialogOpen] = useState(false);
   const [statusWorkflowDialog, setStatusWorkflowDialog] = useState<{ open: boolean, app: Application | null, step: 'pending' | 'under_review' | null }>({ open: false, app: null, step: null });
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
+  const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: UserType }>(null);
 
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -360,10 +363,10 @@ function DashboardPage() {
     return null;
   };
 
-  // --- FIXED: Sort from lowest to highest GWA (GPA) ---
+  // --- FIXED: Sort from lowest to highest GWA ---
   const ranking = applications
-    .filter(app => app.gpa !== null && app.gpa !== undefined)
-    .sort((a, b) => (a.gpa || 0) - (b.gpa || 0));
+    .filter(app => app.gwa !== null && app.gwa !== undefined)
+    .sort((a, b) => (a.gwa || 0) - (b.gwa || 0));
 
   const approved = applications.filter(app => app.status === 'approved' || app.status === 'accepted');
   const pending = applications.filter(app => app.status === 'pending' || app.status === 'under_review');
@@ -399,7 +402,7 @@ function DashboardPage() {
   };
 
   const handleExport = () => {
-    const headers = ['ID', 'Name', 'Email', 'Birthdate', 'Scholarship', 'Amount', 'GPA', 'Status', 'Submitted Date', 'Score'];
+    const headers = ['ID', 'Name', 'Email', 'Birthdate', 'Scholarship', 'Amount', 'GWA', 'Status', 'Submitted Date', 'Score'];
     const csvData = applications.map(app => [
       app.id,
       app.name,
@@ -407,7 +410,7 @@ function DashboardPage() {
       app.birthdate ? format(new Date(app.birthdate), 'MMM dd, yyyy') : 'Not specified',
       app.scholarship,
       app.amount,
-      app.gpa,
+      app.gwa,
       app.status,
       app.submittedDate,
       app.score || 'Not scored'
@@ -466,18 +469,23 @@ function DashboardPage() {
   }
 
   // Handler for creating new application
-  async function handleCreateApplication(data: Omit<Application, 'id' | 'avatar'>) {
+  async function handleCreateApplication(data: Omit<Application, 'id'>) {
+    console.log('handleCreateApplication called with:', data);
     try {
       // Map scholarship name to scholarshipId
       const selectedScholarship = scholarships.find(s => s.name === data.scholarship);
       if (!selectedScholarship) {
+        console.error('Scholarship not found:', data.scholarship);
         toast.error('Please select a valid scholarship.');
         return;
       }
+      
+      console.log('Selected scholarship:', selectedScholarship);
+      
       // Clean amount (remove currency symbols, ensure string)
       const cleanedAmount = typeof data.amount === 'string' ? data.amount.replace(/[^\d.]/g, '') : String(data.amount);
-      // Ensure GPA is a number
-      const gpa = typeof data.gpa === 'string' ? parseFloat(data.gpa) : data.gpa;
+      // Ensure GWA is a number
+      const gwa = typeof data.gwa === 'string' ? parseFloat(data.gwa) : data.gwa;
       // Convert submittedDate to ISO string (or Date object)
       let submittedDate: string | Date = data.submittedDate;
       if (submittedDate) {
@@ -485,16 +493,18 @@ function DashboardPage() {
       } else {
         submittedDate = new Date().toISOString();
       }
+      
       const payload = {
         ...data,
         scholarshipId: selectedScholarship.id,
         scholarship: selectedScholarship.name, // for frontend display
         amount: cleanedAmount,
-        gpa,
+        gwa,
         submittedDate,
-        avatar: "/placeholder.svg?height=32&width=32",
+        avatar: data.avatar || "/placeholder.svg?height=32&width=32",
       };
       delete (payload as any).scholarship;
+      
       // Ensure legacy name populated if user entered split fields
       if (!payload.name && (payload as any).firstName) {
         (payload as any).name = [
@@ -503,17 +513,25 @@ function DashboardPage() {
           (payload as any).lastName,
         ].filter(Boolean).join(' ');
       }
+      
       // Handle birthdate - convert to ISO string if present
       if ((payload as any).birthdate) {
         (payload as any).birthdate = new Date((payload as any).birthdate).toISOString();
       }
+      
+      console.log('Payload to send:', payload);
+      
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      
+      console.log('API response status:', res.status);
+      
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        console.error('API error:', errorData);
         if (errorData.error === 'Validation failed' && errorData.details) {
           // Display validation errors in a more user-friendly way
           const errorMessage = errorData.details.length === 1 
@@ -525,7 +543,10 @@ function DashboardPage() {
         }
         throw new Error(errorData.error || 'Failed to create application');
       }
+      
       let newApp = await res.json();
+      console.log('New application created:', newApp);
+      
       // Normalize scholarship to always be the name string
       newApp = {
         ...newApp,
@@ -533,10 +554,13 @@ function DashboardPage() {
           ? newApp.scholarship.name
           : newApp.scholarship
       };
+      
       setApplications(prev => [...prev, newApp]);
       toast.success('Application created successfully!');
-    setModalMode(null);
+      setModalMode(null);
+      
     } catch (err: any) {
+      console.error('Application creation failed:', err);
       toast.error(err.message || 'Failed to create application');
     }
   }
@@ -775,12 +799,12 @@ function DashboardPage() {
   if (scholarshipFilters.length > 0) {
     processedApplications = processedApplications.filter(app => scholarshipFilters.includes(app.scholarship));
   }
-  // Range filtering for GPA
+  // Range filtering for GWA
   if (gpaRange.min || gpaRange.max) {
     processedApplications = processedApplications.filter(app => {
-      const gpa = parseFloat(app.gpa !== null && app.gpa !== undefined ? app.gpa.toString() : '');
-      if (gpaRange.min && gpa < parseFloat(gpaRange.min)) return false;
-      if (gpaRange.max && gpa > parseFloat(gpaRange.max)) return false;
+      const gwa = parseFloat(app.gwa !== null && app.gwa !== undefined ? app.gwa.toString() : '');
+      if (gpaRange.min && gwa < parseFloat(gpaRange.min)) return false;
+      if (gpaRange.max && gwa > parseFloat(gpaRange.max)) return false;
       return true;
     });
   }
@@ -803,8 +827,8 @@ function DashboardPage() {
     });
   }
   // Exclusive sorting logic
-  if (sortOption === 'gpaDesc') processedApplications.sort((a, b) => (b.gpa || 0) - (a.gpa || 0));
-  else if (sortOption === 'gpaAsc') processedApplications.sort((a, b) => (a.gpa || 0) - (b.gpa || 0));
+  if (sortOption === 'gpaDesc') processedApplications.sort((a, b) => (b.gwa || 0) - (a.gwa || 0));
+  else if (sortOption === 'gpaAsc') processedApplications.sort((a, b) => (a.gwa || 0) - (b.gwa || 0));
   else if (sortOption === 'amountDesc') processedApplications.sort((a, b) => {
     const aNum = parseFloat((a.amount || '').replace(/[^\d.]/g, ''));
     const bNum = parseFloat((b.amount || '').replace(/[^\d.]/g, ''));
@@ -830,7 +854,7 @@ function DashboardPage() {
         app.email.toLowerCase().includes(q) ||
         app.scholarship.toLowerCase().includes(q) ||
         app.amount.toLowerCase().includes(q) ||
-        (app.gpa !== null && app.gpa.toString().toLowerCase().includes(q)) ||
+        (app.gwa !== null && app.gwa.toString().toLowerCase().includes(q)) ||
         app.status.toLowerCase().includes(q) ||
         app.submittedDate.toLowerCase().includes(q) ||
         app.region.toLowerCase().includes(q) ||
@@ -880,13 +904,13 @@ function DashboardPage() {
   }
 
   // Add handler stubs for user actions
-  function handleDeactivateUser(user: User) {
+  function handleDeactivateUser(user: UserType) {
     // TODO: Implement deactivate logic
   }
-  function handleReactivateUser(user: User) {
+  function handleReactivateUser(user: UserType) {
     // TODO: Implement reactivate logic
   }
-  function handleDeleteUser(user: User) {
+  function handleDeleteUser(user: UserType) {
     setDeleteUserDialog({ open: true, user });
   }
 
@@ -938,7 +962,7 @@ function DashboardPage() {
   }, [activeTab, user?.role]);
 
   // 1. Add state for delete user dialog
-  const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+  const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
 
   async function confirmDeleteUser() {
     if (!deleteUserDialog.user) return;
@@ -954,8 +978,8 @@ function DashboardPage() {
     }
   }
 
-  const [roleDialog, setRoleDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
-  const [resetDialog, setResetDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+  const [roleDialog, setRoleDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
+  const [resetDialog, setResetDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
   const [selectedRole, setSelectedRole] = useState<string>("");
 
   // Add state for bulk status update dialog
@@ -979,7 +1003,7 @@ function DashboardPage() {
     let completed = 0;
     const progressInterval = setInterval(() => {
       setBulkProgress((prev) => {
-        if (prev < 90) return prev + Math.floor(10 + Math.random() * 10);
+        if (prev < 90) return prev + Math.floor(12 + (Math.sin(Date.now() / 100) * 5)); // Use time-based deterministic progress
         return prev;
       });
     }, 200);
@@ -1078,7 +1102,7 @@ function DashboardPage() {
   }, []);
 
   // 1. Add state for department change dialog
-  const [deptDialog, setDeptDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+  const [deptDialog, setDeptDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
   const [deptValue, setDeptValue] = useState<string>("");
   const [deptOther, setDeptOther] = useState<string>("");
 
@@ -1506,7 +1530,7 @@ function DashboardPage() {
                                   app.name
                                 )}
                               </TableCell>
-                              <TableCell>{app.gpa?.toFixed(2)}</TableCell>
+                              <TableCell>{app.gwa?.toFixed(2)}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -1594,11 +1618,11 @@ function DashboardPage() {
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <RadioGroupItem value="gpaDesc" id="sort-gpaDesc" />
-                        <span>GPA: Highest to Lowest</span>
+                        <span>GWA: Highest to Lowest</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <RadioGroupItem value="gpaAsc" id="sort-gpaAsc" />
-                        <span>GPA: Lowest to Highest</span>
+                        <span>GWA: Lowest to Highest</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <RadioGroupItem value="amountDesc" id="sort-amountDesc" />
@@ -1670,7 +1694,7 @@ function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="font-semibold mb-2">GPA Range</div>
+                    <div className="font-semibold mb-2">GWA Range</div>
                     <div className="flex gap-2 items-center">
                       <input
                         type="number"
@@ -1681,7 +1705,7 @@ function DashboardPage() {
                         className="border rounded px-2 py-1 w-20"
                         value={gpaRange.min}
                         onChange={e => setGpaRange(r => ({ ...r, min: e.target.value }))}
-                        aria-label="Minimum GPA"
+                        aria-label="Minimum GWA"
                       />
                       <span>-</span>
                       <input
@@ -1693,7 +1717,7 @@ function DashboardPage() {
                         className="border rounded px-2 py-1 w-20"
                         value={gpaRange.max}
                         onChange={e => setGpaRange(r => ({ ...r, max: e.target.value }))}
-                        aria-label="Maximum GPA"
+                        aria-label="Maximum GWA"
                       />
                     </div>
                   </div>
@@ -1840,7 +1864,7 @@ function DashboardPage() {
                               <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Region</TableHead>
                               <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Scholarship</TableHead>
                               <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Amount</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GPA</TableHead>
+                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GWA</TableHead>
                               <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Status</TableHead>
                               <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Comment</TableHead>
                               <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Submitted</TableHead>
@@ -1906,7 +1930,7 @@ function DashboardPage() {
                                   <TableCell>{app.region}</TableCell>
                                 <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
                                 <TableCell>{typeof app.amount === 'object' ? JSON.stringify(app.amount) : app.amount.replace("$", "₱")}</TableCell>
-                                  <TableCell>{app.gpa}</TableCell>
+                                  <TableCell>{app.gwa}</TableCell>
                                   <TableCell>
                                     <div className="flex items-center space-x-2">
                                       {getStatusIcon(app.status)}
@@ -2001,47 +2025,209 @@ function DashboardPage() {
                       scholarships={scholarships}
                     />
                   </Suspense>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline" onClick={(e) => { e.stopPropagation(); }}>Close</Button>
-                    </DialogClose>
-                  </DialogFooter>
                 </DialogContent>
               </Dialog>
               {/* Application Details Modal */}
               <Dialog open={!!selectedApplication && modalMode !== "reviewApplication"} onOpenChange={() => setSelectedApplication(null)}>
-                <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Application Details</DialogTitle>
-                  </DialogHeader>
+                <DialogContent className="max-w-2xl w-full p-0 max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border-2 border-purple-200 dark:border-purple-800">
                   {selectedApplication && (
-                    <div className="space-y-2 text-sm">
-                      <p><strong>Applicant Name:</strong> {selectedApplication.name}</p>
-                      {selectedApplication.firstName && selectedApplication.lastName && (
-                        <>
-                          <p><strong>First Name:</strong> {selectedApplication.firstName}</p>
-                          {selectedApplication.middleName && (
-                            <p><strong>Middle Name:</strong> {selectedApplication.middleName}</p>
+                    <>
+                      {/* Header with gradient background */}
+                      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-6 text-white" style={{
+                        background: `linear-gradient(to right, ${getComputedStyle(document.documentElement).getPropertyValue('--application-theme-color') || '#7C3AED'}, ${getComputedStyle(document.documentElement).getPropertyValue('--application-theme-color') || '#6366F1'})`
+                      }}>
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-16 w-16 border-4 border-white/20">
+                            <AvatarImage src={selectedApplication.avatar || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-white/20 text-white text-lg font-bold">
+                              {selectedApplication.name.split(" ").map((n) => n[0]).join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <h2 className="text-2xl font-bold">
+                              {selectedApplication.firstName && selectedApplication.lastName ? (
+                                <>
+                                  {selectedApplication.firstName} {selectedApplication.middleName ? `${selectedApplication.middleName.charAt(0)}.` : ''} {selectedApplication.lastName}
+                                </>
+                              ) : (
+                                selectedApplication.name
+                              )}
+                            </h2>
+                            <p className="text-purple-100">{selectedApplication.email}</p>
+                            <div className="mt-2">
+                              {getStatusBadge(selectedApplication.status)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Scrollable content area */}
+                      <div className="overflow-y-auto max-h-[60vh] px-8 py-6">
+                        {/* Documents Section - At the top */}
+                        {selectedApplication.documents && selectedApplication.documents.length > 0 && (
+                          <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                              <FileText className="h-5 w-5 text-purple-600" />
+                              Uploaded Documents
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {selectedApplication.documents.map((docUrl, index) => {
+                                const fileName = docUrl.split('/').pop() || `Document ${index + 1}`;
+                                const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
+                                return (
+                                  <div
+                                    key={index}
+                                    onClick={() => window.open(docUrl, '_blank')}
+                                    className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                                  >
+                                    <div className="flex-shrink-0">
+                                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
+                                        <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                      </div>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{fileName}</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">{fileExt} Document</p>
+                                    </div>
+                                    <Download className="h-4 w-4 text-gray-400 group-hover:text-purple-600 transition-colors" />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Application Information */}
+                        <div className="space-y-6">
+                          {/* Personal Information */}
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                              <UserIcon className="h-5 w-5 text-purple-600" />
+                              Personal Information
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {selectedApplication.firstName && selectedApplication.lastName && (
+                                <>
+                                  <div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">First Name</p>
+                                    <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.firstName}</p>
+                                  </div>
+                                  {selectedApplication.middleName && (
+                                    <div>
+                                      <p className="text-sm text-gray-500 dark:text-gray-400">Middle Name</p>
+                                      <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.middleName}</p>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Last Name</p>
+                                    <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.lastName}</p>
+                                  </div>
+                                </>
+                              )}
+                              {selectedApplication.birthdate && (
+                                <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Birthdate</p>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">{format(new Date(selectedApplication.birthdate), 'MMM dd, yyyy')}</p>
+                                </div>
+                              )}
+                              {selectedApplication.gender && (
+                                <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Gender</p>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.gender}</p>
+                                </div>
+                              )}
+                              {selectedApplication.mobileNumber && (
+                                <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Mobile Number</p>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.mobileNumber}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Location Information */}
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                              <MapPin className="h-5 w-5 text-purple-600" />
+                              Location & School
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Province</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.region}</p>
+                              </div>
+                              {selectedApplication.city && (
+                                <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">City</p>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.city}</p>
+                                </div>
+                              )}
+                              {selectedApplication.schoolSector && (
+                                <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">School Sector</p>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.schoolSector}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Academic Information */}
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                              <GraduationCap className="h-5 w-5 text-purple-600" />
+                              Academic & Scholarship Details
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Scholarship</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.scholarship}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.amount}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">GWA</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.gwa}%</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Submitted Date</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{format(new Date(selectedApplication.submittedDate), 'MMM dd, yyyy')}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Review Information */}
+                          {selectedApplication.review && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                                <MessageSquare className="h-5 w-5 text-purple-600" />
+                                Review Comments
+                              </h3>
+                              <p className="text-gray-700 dark:text-gray-300">{selectedApplication.review}</p>
+                              {selectedApplication.score && (
+                                <div className="mt-3 flex items-center gap-2">
+                                  <Star className="h-4 w-4 text-yellow-500" />
+                                  <span className="text-sm font-medium">Score: {selectedApplication.score}/100</span>
+                                </div>
+                              )}
+                            </div>
                           )}
-                          <p><strong>Last Name:</strong> {selectedApplication.lastName}</p>
-                        </>
-                      )}
-                      {selectedApplication.birthdate && (
-                        <p><strong>Birthdate:</strong> {format(new Date(selectedApplication.birthdate), 'MMM dd, yyyy')}</p>
-                      )}
-                      <p><strong>Email:</strong> {selectedApplication.email}</p>
-                      <p><strong>Scholarship:</strong> {selectedApplication.scholarship}</p>
-                      <p><strong>Amount:</strong> {selectedApplication.amount}</p>
-                      <p><strong>GPA:</strong> {selectedApplication.gpa}</p>
-                      <p><strong>Status:</strong> {getStatusBadge(selectedApplication.status)}</p>
-                      <p><strong>Submitted Date:</strong> {format(new Date(selectedApplication.submittedDate), 'yyyy-MM-dd')}</p>
-                    </div>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="border-t border-gray-200 dark:border-gray-700 px-8 py-4 bg-gray-50 dark:bg-gray-800/50">
+                        <div className="flex justify-end">
+                          <DialogClose asChild>
+                            <Button variant="outline" className="hover:scale-105 transition-transform">
+                              Close
+                            </Button>
+                          </DialogClose>
+                        </div>
+                      </div>
+                    </>
                   )}
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Close</Button>
-                    </DialogClose>
-                  </DialogFooter>
                 </DialogContent>
               </Dialog>
               {/* Application Review Modal */}
@@ -2462,7 +2648,7 @@ function DashboardPage() {
                                   )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  GPA: {app.gpa} | {app.scholarship}
+                                  GWA: {app.gwa} | {app.scholarship}
                                   {app.birthdate && ` | ${format(new Date(app.birthdate), 'MMM dd, yyyy')}`}
                                 </div>
                               </div>
@@ -2483,7 +2669,7 @@ function DashboardPage() {
                   // Sort applicants by GPA ascending (lowest to highest)
                   const rankedApps = applications
                     .filter(app => app.scholarship === scholarship.name)
-                    .sort((a, b) => (a.gpa || 0) - (b.gpa || 0));
+                    .sort((a, b) => (a.gwa || 0) - (b.gwa || 0));
                   return (
                     <Card key={scholarship.id} className="dark:bg-[#23232a] dark:text-gray-100">
                     <CardHeader>
@@ -2539,7 +2725,7 @@ function DashboardPage() {
                         </div>
                       </div>
                                 <div className="flex items-center gap-4">
-                                  <span className="font-semibold">{app.gpa?.toFixed(2)}</span>
+                                  <span className="font-semibold">{app.gwa?.toFixed(2)}</span>
                                   {/* Status badge clickable: go to Applications table and highlight applicant */}
                                   <span
                                     className="cursor-pointer"
@@ -2711,7 +2897,9 @@ function DashboardPage() {
           <Dialog open={!!pendingScholarshipType} onOpenChange={open => { if (!open) { setPendingScholarshipType(null); setScholarshipTypeDialog(false); } }}>
             <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
               <DialogHeader>
-                <DialogTitle>Create {pendingScholarshipType} Scholarship</DialogTitle>
+                <DialogTitle>
+                  <span>Create {pendingScholarshipType} Scholarship</span>
+                </DialogTitle>
               </DialogHeader>
               {pendingScholarshipType && (
                 <Suspense fallback={<FormLoadingSpinner />}>
@@ -2722,11 +2910,6 @@ function DashboardPage() {
                   />
                 </Suspense>
               )}
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline" onClick={(e) => { e.stopPropagation(); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}>Cancel</Button>
-                </DialogClose>
-              </DialogFooter>
             </DialogContent>
           </Dialog>
               {/* Scholarship Remove Confirmation Modal */}
@@ -2754,40 +2937,209 @@ function DashboardPage() {
               </Dialog>
               {/* Scholarship View/Edit Modal */}
               <Dialog open={!!modalMode && (modalMode === 'view' || modalMode === 'edit')} onOpenChange={() => { setModalMode(null); setSelectedScholarship(null); }}>
-                <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>{modalMode === "view" ? "Scholarship Details" : "Edit Scholarship"}</DialogTitle>
-                  </DialogHeader>
+                <DialogContent className="max-w-2xl w-full p-0 max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border-2 border-indigo-200 dark:border-indigo-800">
                   {selectedScholarship && (() => {
                     // Always get the latest scholarship object from state by id
                     const latestScholarship = scholarships.find(s => s.id === selectedScholarship.id) || selectedScholarship;
                     const applicantsCount = applications.filter(app => app.scholarship === latestScholarship.name).length;
                     return (
-                    <div>
-                      {modalMode === "view" ? (
-                        <div className="space-y-2">
-                            <p><strong>Name:</strong> {latestScholarship.name}</p>
-                            <p><strong>Amount:</strong> ₱ {latestScholarship.amount.replace(/[$₱]/g, "")}</p>
-                            <p><strong>Deadline:</strong> {format(new Date(latestScholarship.deadline), 'yyyy-MM-dd')}</p>
-                            <div className="flex items-center gap-2"><strong>Status:</strong> {getStatusBadge(latestScholarship.status)}</div>
-                            <p><strong>Applicants:</strong> {applicantsCount}</p>
-                        </div>
-                      ) : (
-                          // Always pass the latestScholarship object to the edit form
-                          <Suspense fallback={<FormLoadingSpinner />}>
-                            <ScholarshipEditForm scholarship={latestScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
-                          </Suspense>
-                      )}
-                    </div>
+                      <>
+                        {modalMode === "view" ? (
+                          <>
+                            {/* Header with gradient background */}
+                            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-8 py-6 text-white" style={{
+                              background: `linear-gradient(to right, ${getComputedStyle(document.documentElement).getPropertyValue('--scholarship-theme-color') || '#6366F1'}, ${getComputedStyle(document.documentElement).getPropertyValue('--scholarship-theme-color') || '#3B82F6'})`
+                            }}>
+                              <div className="flex items-center gap-4">
+                                <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                  <Award className="h-8 w-8 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                  <h2 className="text-2xl font-bold text-white mb-1">{latestScholarship.name}</h2>
+                                  <div className="flex items-center gap-2">
+                                    {getStatusBadge(latestScholarship.status)}
+                                    {latestScholarship.type && (
+                                      <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                                        {latestScholarship.type} Scholarship
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Content sections */}
+                            <div className="px-8 py-6 max-h-[calc(85vh-140px)] overflow-y-auto">
+                              <div className="space-y-6">
+                                {/* Scholarship Information Section */}
+                                <div className="bg-white dark:bg-gray-800/50 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                    <Award className="h-5 w-5 text-indigo-600" />
+                                    Scholarship Information
+                                  </h3>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Amount</label>
+                                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">₱ {latestScholarship.amount.replace(/[$₱]/g, "")}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Deadline</label>
+                                      <div className="text-lg font-semibold text-gray-900 dark:text-white">{format(new Date(latestScholarship.deadline), 'MMM dd, yyyy')}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Applicants</label>
+                                      <div className="text-lg font-semibold text-gray-900 dark:text-white">{applicantsCount}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
+                                      <div>{getStatusBadge(latestScholarship.status)}</div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Statistics Section */}
+                                <div className="bg-white dark:bg-gray-800/50 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5 text-indigo-600" />
+                                    Application Statistics
+                                  </h3>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-900/30">
+                                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                                        {applications.filter(app => app.scholarship === latestScholarship.name && app.status === 'pending').length}
+                                      </div>
+                                      <div className="text-sm text-orange-700 dark:text-orange-300 font-medium">Pending</div>
+                                    </div>
+                                    <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                        {applications.filter(app => app.scholarship === latestScholarship.name && app.status === 'under_review').length}
+                                      </div>
+                                      <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">Under Review</div>
+                                    </div>
+                                    <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-900/30">
+                                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                        {applications.filter(app => app.scholarship === latestScholarship.name && (app.status === 'approved' || app.status === 'accepted')).length}
+                                      </div>
+                                      <div className="text-sm text-green-700 dark:text-green-300 font-medium">Approved</div>
+                                    </div>
+                                    <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-900/30">
+                                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                        {applications.filter(app => app.scholarship === latestScholarship.name && app.status === 'rejected').length}
+                                      </div>
+                                      <div className="text-sm text-red-700 dark:text-red-300 font-medium">Rejected</div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Recent Applications Section */}
+                                {applicantsCount > 0 && (
+                                  <div className="bg-white dark:bg-gray-800/50 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                      <Users className="h-5 w-5 text-indigo-600" />
+                                      Recent Applications
+                                    </h3>
+                                    <div className="space-y-3">
+                                      {applications
+                                        .filter(app => app.scholarship === latestScholarship.name)
+                                        .sort((a, b) => new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime())
+                                        .slice(0, 5)
+                                        .map((app, index) => (
+                                          <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                              <Avatar className="h-8 w-8">
+                                                <AvatarImage src={app.avatar} />
+                                                <AvatarFallback className="text-xs">
+                                                  {app.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <div>
+                                                <div className="font-medium text-gray-900 dark:text-white">{app.name}</div>
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                  GWA: {app.gwa}% • {format(new Date(app.submittedDate), 'MMM dd, yyyy')}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              {getStatusBadge(app.status)}
+                                              <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => {
+                                                  setSelectedApplication(app);
+                                                  setModalMode(null);
+                                                  setSelectedScholarship(null);
+                                                }}
+                                                className="h-8 w-8 p-0 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                                              >
+                                                <Eye className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                    </div>
+                                    {applicantsCount > 5 && (
+                                      <div className="mt-4 text-center">
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => {
+                                            setActiveTab('applications');
+                                            setScholarshipFilter(latestScholarship.name);
+                                            setModalMode(null);
+                                            setSelectedScholarship(null);
+                                          }}
+                                          className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-800 dark:hover:bg-indigo-900/50"
+                                        >
+                                          View All {applicantsCount} Applications
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-8 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-2xl">
+                              <div className="flex justify-between items-center">
+                                <div className="flex gap-2">
+                                  <Button 
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setModalMode('edit')}
+                                    className="hover:bg-indigo-50 hover:border-indigo-300 dark:hover:bg-indigo-900/50"
+                                  >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Scholarship
+                                  </Button>
+                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => { setModalMode(null); setSelectedScholarship(null); }}
+                                  className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  Close
+                                </Button>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          // Edit mode with enhanced container
+                          <div className="p-8">
+                            <div className="mb-6">
+                              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Edit Scholarship</h2>
+                              <p className="text-gray-600 dark:text-gray-400">Update scholarship information and settings</p>
+                            </div>
+                            <Suspense fallback={<FormLoadingSpinner />}>
+                              <ScholarshipEditForm scholarship={latestScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
+                            </Suspense>
+                          </div>
+                        )}
+                      </>
                     );
                   })()}
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Close</Button>
-                    </DialogClose>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
           {/* Scholarship Trash Bin Modal */}
           <Dialog open={scholarshipTrashOpen} onOpenChange={setScholarshipTrashOpen}>
             <DialogContent className="max-w-lg w-full p-6 rounded-xl">
