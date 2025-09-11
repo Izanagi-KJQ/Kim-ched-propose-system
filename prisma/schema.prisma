@@ -43,14 +43,19 @@ model Application {
   middleName    String?
   lastName      String?
   birthdate     DateTime?
+  gender        String?
+  mobileNumber  String?
   region        String
+  city          String?
   email         String
+  schoolSector  String?
   scholarship   Scholarship @relation(fields: [scholarshipId], references: [id])
   scholarshipId String
   amount        String
-  gpa           Float?
+  gwa           Float?
   status        String
   submittedDate DateTime
+  documents     String?     // JSON array of document URLs
   avatar        String
   review        String?
   score         Float?
