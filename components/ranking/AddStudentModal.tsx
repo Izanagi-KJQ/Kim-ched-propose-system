@@ -15,7 +15,7 @@ interface AddStudentModalProps {
 
 const AddStudentModal: React.FC<AddStudentModalProps> = ({ open, onClose, onAdd, scholarships }) => {
   const [name, setName] = useState('');
-  const [gpa, setGpa] = useState('');
+  const [gwa, setGwa] = useState('');
   const [scholarship, setScholarship] = useState(scholarships[0]?.name || '');
   const [requirements, setRequirements] = useState<Record<string, { valid: boolean; falseDoc: boolean }>>({});
 
@@ -37,14 +37,14 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ open, onClose, onAdd,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !gpa || !scholarship) {
+    if (!name || !gwa || !scholarship) {
       // Basic validation
       return;
     }
     onAdd({
       id: `APP${Date.now()}`, // More consistent ID
       name,
-      gpa: parseFloat(gpa),
+      gwa: parseFloat(gwa),
       scholarship,
       requirements, // Pass the new requirements structure
       status: 'pending',
@@ -53,7 +53,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ open, onClose, onAdd,
     onClose();
     // Reset form
     setName('');
-    setGpa('');
+    setGwa('');
     setScholarship(scholarships[0]?.name || '');
   };
 
@@ -71,10 +71,10 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ open, onClose, onAdd,
             <Input id="name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" required />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="gpa" className="text-right">
-              GPA
+            <Label htmlFor="gwa" className="text-right">
+              GWA
             </Label>
-            <Input id="gpa" type="number" step="0.01" value={gpa} onChange={e => setGpa(e.target.value)} className="col-span-3" required />
+            <Input id="gwa" type="number" step="0.01" value={gwa} onChange={e => setGwa(e.target.value)} className="col-span-3" required />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="scholarship" className="text-right">
