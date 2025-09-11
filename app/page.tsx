@@ -98,6 +98,15 @@ const FormLoadingSpinner = () => (
 // Add TabName type
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
 
+// Safe date formatting to prevent hydration issues
+const safeFormatDate = (date: string | Date, formatStr: string = 'yyyy-MM-dd') => {
+  try {
+    return format(new Date(date), formatStr);
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
 // Add after imports:
 function getUserFullName(user: any) {
   if (user.firstName || user.lastName) {
@@ -120,6 +129,7 @@ function DashboardPage() {
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
   const [modalMode, setModalMode] = useState<"view" | "edit" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null)
   const [avatarUrl, setAvatarUrl] = useState("/placeholder-user.jpg");
+  const [isClient, setIsClient] = useState(false);
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [loadingScholarships, setLoadingScholarships] = useState(true);
   const [scholarshipsError, setScholarshipsError] = useState<string | null>(null);
@@ -257,6 +267,7 @@ function DashboardPage() {
   }, [allScholarships]);
 
   useEffect(() => {
+    setIsClient(true);
     const savedAvatar = localStorage.getItem('user-avatar');
     if (savedAvatar) setAvatarUrl(savedAvatar);
   }, []);
@@ -402,12 +413,14 @@ function DashboardPage() {
   };
 
   const handleExport = () => {
+    if (!isClient) return; // Prevent SSR execution
+    
     const headers = ['ID', 'Name', 'Email', 'Birthdate', 'Scholarship', 'Amount', 'GWA', 'Status', 'Submitted Date', 'Score'];
     const csvData = applications.map(app => [
       app.id,
       app.name,
       app.email,
-      app.birthdate ? format(new Date(app.birthdate), 'MMM dd, yyyy') : 'Not specified',
+      app.birthdate ? safeFormatDate(app.birthdate, 'MMM dd, yyyy') : 'Not specified',
       app.scholarship,
       app.amount,
       app.gwa,
@@ -858,7 +871,7 @@ function DashboardPage() {
         app.status.toLowerCase().includes(q) ||
         app.submittedDate.toLowerCase().includes(q) ||
         app.region.toLowerCase().includes(q) ||
-        (app.birthdate && format(new Date(app.birthdate), 'MMM dd, yyyy').toLowerCase().includes(q))
+        (app.birthdate && safeFormatDate(app.birthdate, 'MMM dd, yyyy').toLowerCase().includes(q))
       );
     });
 
@@ -876,7 +889,7 @@ function DashboardPage() {
 
   const handleBulkDelete = async () => {
     if (selectedAppIds.length === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedAppIds.length} selected applications?`)) return;
+    if (!isClient || !window.confirm(`Are you sure you want to delete ${selectedAppIds.length} selected applications?`)) return;
     const toTrash: Application[] = [];
     for (const id of selectedAppIds) {
       const app = applications.find(a => a.id === id);
@@ -1003,7 +1016,7 @@ function DashboardPage() {
     let completed = 0;
     const progressInterval = setInterval(() => {
       setBulkProgress((prev) => {
-        if (prev < 90) return prev + Math.floor(12 + (Math.sin(Date.now() / 100) * 5)); // Use time-based deterministic progress
+        if (prev < 90) return prev + Math.floor(12 + (Math.sin(prev / 100) * 5)); // Use deterministic progress based on current value
         return prev;
       });
     }, 200);
@@ -1038,7 +1051,7 @@ function DashboardPage() {
         // Push to undo stack
         setBulkUndoStack(stack => [...stack, { ids: data.updated, prevStatuses, newStatus }]);
         // Show undo toast (with unique id to prevent duplicate toasts)
-        const toastId = `undo-bulk-${Date.now()}`;
+        const toastId = `undo-bulk-${Math.random().toString(36).substr(2, 9)}`;
         undoToastIdRef.current = toastId;
         toast.success(`${data.updated.length} application(s) updated to '${newStatus}'.`, {
           id: toastId,
@@ -1123,7 +1136,7 @@ function DashboardPage() {
   useEffect(() => {
     if (activeTab === 'ranking' && dashboardRankingHighlightId) {
       setTimeout(() => {
-        const el = document.getElementById(`ranking-row-${dashboardRankingHighlightId}`);
+        const el = isClient ? document.getElementById(`ranking-row-${dashboardRankingHighlightId}`) : null;
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -1155,6 +1168,18 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
+      {/* Render loading state until client hydration is complete to prevent hydration mismatch */}
+      {!isClient && (
+        <div className="col-span-2 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+          </div>
+        </div>
+      )}
+      {/* Main content - only render after client hydration */}
+      {isClient && (
+        <>
       {/* Header */}
       <header className="bg-card border-b border-border fixed top-0 left-0 w-full z-30 col-span-2" style={{ gridArea: 'header' }}>
         <div className="px-6 py-4 flex items-center justify-between">
@@ -1948,7 +1973,7 @@ function DashboardPage() {
                                     <span className="text-gray-400">None</span>
                                   )}
                                 </TableCell>
-                                <TableCell>{format(new Date(app.submittedDate), 'yyyy-MM-dd')}</TableCell>
+                                <TableCell>{safeFormatDate(app.submittedDate)}</TableCell>
                                   <TableCell className="text-right">
                                   {/* Modern action button with open/close state using controlled open state */}
                                   <DropdownMenu open={actionMenuOpenId === app.id} onOpenChange={open => setActionMenuOpenId(open ? app.id : null)}>
@@ -2034,7 +2059,7 @@ function DashboardPage() {
                     <>
                       {/* Header with gradient background */}
                       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-6 text-white" style={{
-                        background: `linear-gradient(to right, ${getComputedStyle(document.documentElement).getPropertyValue('--application-theme-color') || '#7C3AED'}, ${getComputedStyle(document.documentElement).getPropertyValue('--application-theme-color') || '#6366F1'})`
+                        background: `linear-gradient(to right, #7C3AED, #6366F1)` // Use fixed colors instead of computed styles
                       }}>
                         <div className="flex items-center gap-4">
                           <Avatar className="h-16 w-16 border-4 border-white/20">
@@ -2077,7 +2102,7 @@ function DashboardPage() {
                                 return (
                                   <div
                                     key={index}
-                                    onClick={() => window.open(docUrl, '_blank')}
+                                    onClick={() => isClient && window.open(docUrl, '_blank')}
                                     className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md transition-all duration-200 cursor-pointer group"
                                   >
                                     <div className="flex-shrink-0">
@@ -2127,7 +2152,7 @@ function DashboardPage() {
                               {selectedApplication.birthdate && (
                                 <div>
                                   <p className="text-sm text-gray-500 dark:text-gray-400">Birthdate</p>
-                                  <p className="font-medium text-gray-900 dark:text-gray-100">{format(new Date(selectedApplication.birthdate), 'MMM dd, yyyy')}</p>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">{safeFormatDate(selectedApplication.birthdate, 'MMM dd, yyyy')}</p>
                                 </div>
                               )}
                               {selectedApplication.gender && (
@@ -2192,7 +2217,7 @@ function DashboardPage() {
                               </div>
                               <div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Submitted Date</p>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{format(new Date(selectedApplication.submittedDate), 'MMM dd, yyyy')}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{safeFormatDate(selectedApplication.submittedDate, 'MMM dd, yyyy')}</p>
                               </div>
                             </div>
                           </div>
@@ -3521,7 +3546,9 @@ function DashboardPage() {
             </div>
           )}
         </main>
-            </div>
+        </>
+      )}
+    </div>
   );
 }
 
