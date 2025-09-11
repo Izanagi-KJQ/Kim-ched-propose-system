@@ -15,13 +15,18 @@ export interface Application {
   middleName?: string;
   lastName?: string;
   birthdate?: string;
+  gender?: string;
+  mobileNumber?: string;
   region: string;
+  city?: string;
   email: string;
+  schoolSector?: string;
   scholarship: string;
   amount: string;
-  gpa: number | null;
+  gwa: number | null;
   status: string;
   submittedDate: string;
+  documents?: string[]; // Array of document URLs
   avatar: string;
   review?: string;
   requirements?: Record<string, { valid: boolean; falseDoc: boolean }>;

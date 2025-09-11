@@ -56,18 +56,40 @@ export const ApplicationSchema = z.object({
     .max(50, "Last Name is too long"),
   birthdate: z
     .string()
-    .optional()
+    .min(1, "Birthdate is required")
     .refine((date) => {
-      if (!date) return true; // Optional field
+      if (!date) return false; // Required field
       const birthDate = new Date(date);
       const today = new Date();
       return birthDate < today;
     }, "Birthdate must be in the past"),
+  gender: z
+    .enum(["Male", "Female"], {
+      required_error: "Gender is required",
+      invalid_type_error: "Please select a valid gender",
+    }),
+  mobileNumber: z
+    .string()
+    .min(1, "Mobile Number is required")
+    .refine((phone) => {
+      if (!phone) return false; // Required field
+      const phoneRegex = /^(09|\+639)\d{9}$/;
+      return phoneRegex.test(phone.replace(/\s/g, ''));
+    }, "Please enter a valid Philippine mobile number (e.g., 09270122300)"),
   region: z
     .string()
     .min(1, "Province is required")
     .max(100, "Province name is too long"),
+  city: z
+    .string()
+    .min(1, "City is required")
+    .max(100, "City name is too long"),
   email: emailSchema,
+  schoolSector: z
+    .enum(["Public", "Private"], {
+      required_error: "School Sector is required",
+      invalid_type_error: "Please select a valid school sector",
+    }),
   scholarship: z
     .string()
     .min(1, "Scholarship selection is required"),
@@ -75,13 +97,13 @@ export const ApplicationSchema = z.object({
     .string()
     .min(1, "Amount is required")
     .regex(/^\d+(\.\d{1,2})?$/, "Please enter a valid amount"),
-  gpa: z
+  gwa: z
     .number({
-      required_error: "GPA is required",
-      invalid_type_error: "GPA must be a number",
+      required_error: "GWA is required",
+      invalid_type_error: "GWA must be a number",
     })
-    .min(0, "GPA must be at least 0")
-    .max(5, "GPA must be at most 5"),
+    .min(0, "GWA must be at least 0")
+    .max(100, "GWA must be at most 100"),
   status: z.enum(["pending", "under_review", "approved", "rejected"], {
     required_error: "Status is required",
   }).default("pending"),
@@ -89,6 +111,10 @@ export const ApplicationSchema = z.object({
     .string()
     .min(1, "Submitted Date is required")
     .refine((date) => !isNaN(Date.parse(date)), "Invalid date format"),
+  documents: z
+    .array(z.string().url("Invalid document URL"))
+    .min(1, "At least one document is required")
+    .max(5, "Maximum 5 documents allowed"),
   score: z.number().nullable().optional(),
 });
 
@@ -294,6 +320,30 @@ export const AvatarUploadSchema = z.object({
       const minSize = 1024; // 1KB minimum
       return file.size >= minSize;
     }, "File is too small. Minimum size is 1KB"),
+});
+
+// Document upload schema for application documents
+export const ApplicationDocumentUploadSchema = z.object({
+  files: z.array(z.any())
+    .min(1, "At least one document is required")
+    .max(5, "Maximum 5 documents allowed")
+    .refine((files) => {
+      return files.every(file => file instanceof File);
+    }, "All items must be valid files")
+    .refine((files) => {
+      const acceptedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.oasis.opendocument.text"
+      ];
+      return files.every(file => acceptedTypes.includes(file.type));
+    }, "Only PDF, DOCX, DOC, and ODT files are allowed")
+    .refine((files) => {
+      const maxSize = 30 * 1024 * 1024; // 30MB total
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+      return totalSize <= maxSize;
+    }, "Total file size must be less than 30MB"),
 });
 
 // Document upload schema for general documents

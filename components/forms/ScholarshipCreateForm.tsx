@@ -54,7 +54,19 @@ export default function ScholarshipCreateForm({ onSave, onCancel, type }: Schola
         {/* Form Completion Progress */}
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Form Completion</span>
+            <div className="flex items-center gap-2">
+              {/* Color Picker for Scholarship Details */}
+              <input 
+                type="color" 
+                className="w-6 h-6 rounded border cursor-pointer" 
+                defaultValue="#6366F1" 
+                title="Choose theme color for scholarship details"
+                onChange={(e) => {
+                  document.documentElement.style.setProperty('--scholarship-theme-color', e.target.value);
+                }}
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Form Completion</span>
+            </div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {(() => {
                 const formValues = form.getValues();
