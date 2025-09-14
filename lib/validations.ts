@@ -181,7 +181,7 @@ export const GoogleAuthSchema = z.object({
 
 // API Application schema (includes scholarshipId for server-side)
 export const ApiApplicationCreateSchema = ApplicationSchema.extend({
-  scholarshipId: z.string().uuid("Invalid scholarship ID format").optional(),
+  scholarshipId: z.string().uuid("Invalid scholarship ID format"),
   userId: z.string().uuid("Invalid user ID format").optional(),
   avatar: z.string().optional(),
   review: z.string().optional(),

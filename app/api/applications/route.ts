@@ -19,10 +19,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log('Received request body:', JSON.stringify(body, null, 2));
     
     // Validate request with Zod
     const validation = validateRequest(ApiApplicationCreateSchema, body);
     if (!validation.success) {
+      console.error('Validation failed:', validation.details);
       return NextResponse.json({ 
         error: validation.error, 
         details: validation.details 
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
     }
     
     const data = validation.data;
+    console.log('Validated data:', JSON.stringify(data, null, 2));
     
     // Build the data object for Prisma create
     const createData: any = {
@@ -65,6 +68,8 @@ export async function POST(req: NextRequest) {
       createData.userId = data.userId;
     }
     
+    console.log('Prisma create data:', JSON.stringify(createData, null, 2));
+    
     // Expecting scholarshipId and (optionally) userId in the request body
     const application = await prisma.application.create({
       data: createData,
@@ -73,6 +78,8 @@ export async function POST(req: NextRequest) {
         user: true,
       },
     });
+    
+    console.log('Application created successfully:', application.id);
     
     return NextResponse.json(application, { 
       status: 201,
@@ -110,4 +117,4 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json' }
     });
   }
-} 
+}

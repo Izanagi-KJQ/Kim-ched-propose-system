@@ -275,7 +275,7 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
     }
     
     // Validate with Zod schema
-    const validation = ApplicationDocumentUploadSchema.safeParse({ files: [...uploadedDocuments, ...newFiles] });
+    const validation = ApplicationDocumentUploadSchema.safeParse({ files: newFiles });
     if (!validation.success) {
       const errors = validation.error.errors.map(err => err.message).join(', ');
       setDocumentError(errors);
@@ -319,7 +319,7 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
       const droppedFiles = Array.from(e.dataTransfer.files);
       addFiles(droppedFiles);
     }
-  }, [uploadedDocuments]);
+  }, []);
   
   const removeDocument = (index: number) => {
     setUploadedDocuments(prev => prev.filter((_, i) => i !== index));
@@ -337,30 +337,34 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
       for (let i = 0; i < uploadedDocuments.length; i++) {
         const file = uploadedDocuments[i];
         
-        // Convert file to base64 for localStorage
+        // Store in localStorage
+        const docId = `doc_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Create a proper document URL format that will pass validation
+        const documentUrl = `http://localhost:3000/api/documents/${docId}`;
+        
+        // Store the document URL
+        documentUrls.push(documentUrl);
+        
+        // Store the actual file in localStorage (base64 encoded)
         const base64 = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
           reader.readAsDataURL(file);
         });
         
-        // Create a unique identifier for the document
-        const docId = `doc_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Store in localStorage
+        // Store document metadata
         const docData = {
           id: docId,
           name: file.name,
           type: file.type,
           size: file.size,
-          data: base64,
+          data: base64, // Store base64 encoded file
+          url: documentUrl,
           uploadedAt: new Date().toISOString()
         };
         
         localStorage.setItem(`document_${docId}`, JSON.stringify(docData));
-        
-        // Return the document ID as the "URL"
-        documentUrls.push(docId);
       }
       
       return documentUrls;
@@ -372,12 +376,18 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
     }
   };
 
-
-
   async function onSubmit(values: ApplicationFormData) {
     console.log('Form submission started', values);
     setIsSubmitting(true);
+    
     try {
+      // Validate that we have at least one document
+      if (uploadedDocuments.length === 0) {
+        setDocumentError('At least one document is required');
+        setIsSubmitting(false);
+        return;
+      }
+      
       // Upload documents first
       let documentUrls: string[] = [];
       try {
@@ -385,27 +395,92 @@ const ApplicationCreateForm = forwardRef(function ApplicationCreateForm({ onSave
         console.log('Documents uploaded successfully:', documentUrls);
       } catch (error) {
         console.error('Document upload failed:', error);
-        // Don't stop form submission if document upload fails
-        setDocumentError('Document upload failed, but form will still be submitted');
+        setDocumentError('Document upload failed. Please try again.');
+        setIsSubmitting(false);
+        return; // Stop submission if documents fail
+      }
+      
+      // Get the selected scholarship's ID
+      const selectedScholarship = scholarships.find(s => s.name === values.scholarship);
+      if (!selectedScholarship) {
+        console.error('Scholarship not found:', values.scholarship);
+        setDocumentError('Please select a valid scholarship.');
+        setIsSubmitting(false);
+        return;
       }
       
       const computedName = [values.firstName, values.middleName, values.lastName]
         .filter(Boolean)
         .join(' ');
       
-      const submitData = { 
-        ...values, 
-        name: values.name || computedName, 
+      // Clean amount (remove currency symbols, ensure string)
+      const cleanedAmount = typeof values.amount === 'string' ? 
+        values.amount.replace(/[^\d.]/g, '') : 
+        String(values.amount);
+      
+      // Ensure GWA is a number
+      const gwa = typeof values.gwa === 'string' ? 
+        parseFloat(values.gwa) : 
+        values.gwa;
+      
+      // Convert submittedDate to ISO string (or Date object)
+      let submittedDate: string | Date = values.submittedDate;
+      if (submittedDate) {
+        submittedDate = new Date(submittedDate).toISOString();
+      } else {
+        submittedDate = new Date().toISOString();
+      }
+      
+      const submitData = {
+        ...values,
+        name: values.name || computedName,
+        scholarshipId: selectedScholarship.id,
+        firstName: values.firstName,
+        middleName: values.middleName,
+        lastName: values.lastName,
+        birthdate: values.birthdate ? new Date(values.birthdate).toISOString() : undefined,
+        gender: values.gender,
+        mobileNumber: values.mobileNumber,
+        city: values.city,
+        schoolSector: values.schoolSector,
+        // Don't include scholarship field as API omits it
+        amount: cleanedAmount,
+        gwa,
+        status: values.status || 'pending',
+        submittedDate,
+        documents: documentUrls,
         avatar: avatarUrl,
-        documents: documentUrls
+        review: '', // Default review value
+        score: values.score,
+        userId: undefined, // Default userId as undefined
       };
       
+      // Remove scholarship field to match API schema
+      delete (submitData as any).scholarship;
+      
       console.log('Calling onSave with:', submitData);
+      
+      // Await the onSave callback and handle any errors it might throw
       await onSave(submitData);
+      
       console.log('Form submission completed successfully');
+      
+      // Reset form state on successful submission
+      setUploadedDocuments([]);
+      setDocumentError(null);
+      
     } catch (error) {
       console.error('Form submission failed:', error);
-      // Don't throw the error, just log it to prevent form from breaking
+      
+      // Show error to user
+      if (error instanceof Error) {
+        setDocumentError(`Submission failed: ${error.message}`);
+      } else {
+        setDocumentError('Submission failed. Please try again.');
+      }
+      
+      // Re-throw the error so the modal stays open
+      throw error;
     } finally {
       setIsSubmitting(false);
     }

@@ -510,12 +510,13 @@ function DashboardPage() {
       const payload = {
         ...data,
         scholarshipId: selectedScholarship.id,
-        scholarship: selectedScholarship.name, // for frontend display
         amount: cleanedAmount,
         gwa,
         submittedDate,
         avatar: data.avatar || "/placeholder.svg?height=32&width=32",
       };
+      
+      // Remove scholarship field as the API schema omits it
       delete (payload as any).scholarship;
       
       // Ensure legacy name populated if user entered split fields
@@ -541,10 +542,22 @@ function DashboardPage() {
       });
       
       console.log('API response status:', res.status);
+      console.log('API response headers:', res.headers);
       
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('API error:', errorData);
+        const errorText = await res.text();
+        console.error('API error response text:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          console.error('Failed to parse error response as JSON:', e);
+          errorData = { error: `HTTP ${res.status}: ${errorText}` };
+        }
+        
+        console.error('API error data:', errorData);
+        
         if (errorData.error === 'Validation failed' && errorData.details) {
           // Display validation errors in a more user-friendly way
           const errorMessage = errorData.details.length === 1 
@@ -554,7 +567,7 @@ function DashboardPage() {
           toast.error(errorMessage);
           return; // Don't close modal, let user fix errors
         }
-        throw new Error(errorData.error || 'Failed to create application');
+        throw new Error(errorData.error || `Failed to create application (HTTP ${res.status})`);
       }
       
       let newApp = await res.json();
