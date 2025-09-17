@@ -61,4 +61,4 @@ model Application {
   score         Float?
   user          User?       @relation(fields: [userId], references: [id])
   userId        String?
-} 
+}
