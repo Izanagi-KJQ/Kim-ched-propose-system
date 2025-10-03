@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,9 +41,8 @@ import {
   Key,
   User as UserIcon,
   Settings as SettingsIcon,
-  MapPin,
-  MessageSquare,
-  X,
+  Upload,
+  Filter,
 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetClose, SheetTitle } from "@/components/ui/sheet";
@@ -53,8 +52,17 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogC
 import { useRouter } from "next/navigation";
 import { Slider } from "@/components/ui/slider";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import RequirementsChecklist from "@/components/ranking/RequirementsChecklist";
+import AddStudentModal from "@/components/ranking/AddStudentModal";
 import { ThemeSwitcher, ThemeSwitcherButtonPurple } from "@/components/ui/theme-switcher";
-import { Scholarship, Application, User as UserType } from "@/lib/types";
+import { Scholarship, Application, User } from "@/lib/types";
+import ApplicationCreateForm from "@/components/forms/ApplicationCreateForm";
+import ScholarshipEditForm from "@/components/forms/ScholarshipEditForm";
+import ScholarshipCreateForm from "@/components/forms/ScholarshipCreateForm";
+import UserForm from "@/components/forms/UserForm";
+import ApplicationReviewForm from "@/components/forms/ApplicationReviewForm";
+import SendMessageForm from "@/components/forms/SendMessageForm";
+import ChangePasswordForm from "@/components/forms/ChangePasswordForm";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -64,48 +72,10 @@ import { useAuth } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useShiftSelect } from "@/hooks/useShiftSelect";
 import { format } from "date-fns";
-import {
-  bulkUpdateApplications,
-  bulkDeleteApplications,
-  bulkUpdateUsers,
-  bulkChangeUserRoles,
-  bulkUpdateScholarships,
-  bulkDeleteScholarships,
-  validateBulkPayload,
-  getBulkConfirmationMessage,
-  type BulkOperationResult
-} from "@/lib/bulk-operations";
-
-// Dynamically import heavy components to improve chunk loading
-const ApplicationCreateForm = lazy(() => import("@/components/forms/ApplicationCreateForm"));
-const ScholarshipEditForm = lazy(() => import("@/components/forms/ScholarshipEditForm"));
-const ScholarshipCreateForm = lazy(() => import("@/components/forms/ScholarshipCreateForm"));
-const UserForm = lazy(() => import("@/components/forms/UserForm"));
-const ApplicationReviewForm = lazy(() => import("@/components/forms/ApplicationReviewForm"));
-const SendMessageForm = lazy(() => import("@/components/forms/SendMessageForm"));
-const ChangePasswordForm = lazy(() => import("@/components/forms/ChangePasswordForm"));
-const RequirementsChecklist = lazy(() => import("@/components/ranking/RequirementsChecklist"));
-const AddStudentModal = lazy(() => import("@/components/ranking/AddStudentModal"));
-
-// Loading component for dynamic imports
-const FormLoadingSpinner = () => (
-  <div className="flex items-center justify-center p-8">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-    <span className="ml-2 text-sm text-gray-600">Loading form...</span>
-  </div>
-);
+import * as XLSX from 'xlsx';
 
 // Add TabName type
 type TabName = "dashboard" | "applications" | "scholarships" | "ranking" | "users";
-
-// Safe date formatting to prevent hydration issues
-const safeFormatDate = (date: string | Date, formatStr: string = 'yyyy-MM-dd') => {
-  try {
-    return format(new Date(date), formatStr);
-  } catch {
-    return 'Invalid Date';
-  }
-};
 
 // Add after imports:
 function getUserFullName(user: any) {
@@ -129,7 +99,6 @@ function DashboardPage() {
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null)
   const [modalMode, setModalMode] = useState<"view" | "edit" | "createApplication" | "reviewApplication" | "sendMessage" | null>(null)
   const [avatarUrl, setAvatarUrl] = useState("/placeholder-user.jpg");
-  const [isClient, setIsClient] = useState(false);
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [loadingScholarships, setLoadingScholarships] = useState(true);
   const [scholarshipsError, setScholarshipsError] = useState<string | null>(null);
@@ -187,9 +156,9 @@ function DashboardPage() {
   const [rankingDialogOpen, setRankingDialogOpen] = useState(false);
   const [statusWorkflowDialog, setStatusWorkflowDialog] = useState<{ open: boolean, app: Application | null, step: 'pending' | 'under_review' | null }>({ open: false, app: null, step: null });
 
-  const [users, setUsers] = useState<UserType[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: UserType }>(null);
+  const [userModal, setUserModal] = useState<null | { mode: 'add' | 'edit' | 'role' | 'reset' | 'deactivate', user?: User }>(null);
 
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -267,7 +236,6 @@ function DashboardPage() {
   }, [allScholarships]);
 
   useEffect(() => {
-    setIsClient(true);
     const savedAvatar = localStorage.getItem('user-avatar');
     if (savedAvatar) setAvatarUrl(savedAvatar);
   }, []);
@@ -374,7 +342,7 @@ function DashboardPage() {
     return null;
   };
 
-  // --- FIXED: Sort from lowest to highest GWA ---
+  // --- FIXED: Sort from lowest to highest GWA (GPA) ---
   const ranking = applications
     .filter(app => app.gwa !== null && app.gwa !== undefined)
     .sort((a, b) => (a.gwa || 0) - (b.gwa || 0));
@@ -413,16 +381,12 @@ function DashboardPage() {
   };
 
   const handleExport = () => {
-    if (!isClient) return; // Prevent SSR execution
-    
-    const headers = ['ID', 'Name', 'Email', 'Birthdate', 'Scholarship', 'Amount', 'GWA', 'Status', 'Submitted Date', 'Score'];
+    const headers = ['ID', 'Name', 'Email', 'Scholarship', 'GPA', 'Status', 'Submitted Date', 'Score'];
     const csvData = applications.map(app => [
       app.id,
       app.name,
       app.email,
-      app.birthdate ? safeFormatDate(app.birthdate, 'MMM dd, yyyy') : 'Not specified',
       app.scholarship,
-      app.amount,
       app.gwa,
       app.status,
       app.submittedDate,
@@ -458,23 +422,11 @@ function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        if (errorData.error === 'Validation failed' && errorData.details) {
-          // Display validation errors in a more user-friendly way
-          const errorMessage = errorData.details.length === 1 
-            ? errorData.details[0] 
-            : `Please fix the following errors:\n• ${errorData.details.join('\n• ')}`;
-          
-          toast.error(errorMessage);
-          return; // Don't close modal, let user fix errors
-        }
-        throw new Error(errorData.error || 'Failed to create scholarship');
-      }
+      if (!res.ok) throw new Error('Failed to create scholarship');
       const newScholarship = await res.json();
       setScholarships(prev => [...prev, newScholarship]);
       toast.success('Scholarship created successfully!');
-      setPendingScholarshipType(null);
+    setPendingScholarshipType(null);
       setScholarshipTypeDialog(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create scholarship');
@@ -482,21 +434,14 @@ function DashboardPage() {
   }
 
   // Handler for creating new application
-  async function handleCreateApplication(data: Omit<Application, 'id'>) {
-    console.log('handleCreateApplication called with:', data);
+  async function handleCreateApplication(data: Omit<Application, 'id' | 'avatar'>) {
     try {
       // Map scholarship name to scholarshipId
       const selectedScholarship = scholarships.find(s => s.name === data.scholarship);
       if (!selectedScholarship) {
-        console.error('Scholarship not found:', data.scholarship);
         toast.error('Please select a valid scholarship.');
         return;
       }
-      
-      console.log('Selected scholarship:', selectedScholarship);
-      
-      // Clean amount (remove currency symbols, ensure string)
-      const cleanedAmount = typeof data.amount === 'string' ? data.amount.replace(/[^\d.]/g, '') : String(data.amount);
       // Ensure GWA is a number
       const gwa = typeof data.gwa === 'string' ? parseFloat(data.gwa) : data.gwa;
       // Convert submittedDate to ISO string (or Date object)
@@ -506,73 +451,25 @@ function DashboardPage() {
       } else {
         submittedDate = new Date().toISOString();
       }
-      
       const payload = {
         ...data,
         scholarshipId: selectedScholarship.id,
-        amount: cleanedAmount,
+        scholarship: selectedScholarship.name, // for frontend display
         gwa,
         submittedDate,
-        avatar: data.avatar || "/placeholder.svg?height=32&width=32",
+        avatar: "/placeholder.svg?height=32&width=32",
       };
-      
-      // Remove scholarship field as the API schema omits it
       delete (payload as any).scholarship;
-      
-      // Ensure legacy name populated if user entered split fields
-      if (!payload.name && (payload as any).firstName) {
-        (payload as any).name = [
-          (payload as any).firstName,
-          (payload as any).middleName,
-          (payload as any).lastName,
-        ].filter(Boolean).join(' ');
-      }
-      
-      // Handle birthdate - convert to ISO string if present
-      if ((payload as any).birthdate) {
-        (payload as any).birthdate = new Date((payload as any).birthdate).toISOString();
-      }
-      
-      console.log('Payload to send:', payload);
-      
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      
-      console.log('API response status:', res.status);
-      console.log('API response headers:', res.headers);
-      
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error('API error response text:', errorText);
-        
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          console.error('Failed to parse error response as JSON:', e);
-          errorData = { error: `HTTP ${res.status}: ${errorText}` };
-        }
-        
-        console.error('API error data:', errorData);
-        
-        if (errorData.error === 'Validation failed' && errorData.details) {
-          // Display validation errors in a more user-friendly way
-          const errorMessage = errorData.details.length === 1 
-            ? errorData.details[0] 
-            : `Please fix the following errors:\n• ${errorData.details.join('\n• ')}`;
-          
-          toast.error(errorMessage);
-          return; // Don't close modal, let user fix errors
-        }
-        throw new Error(errorData.error || `Failed to create application (HTTP ${res.status})`);
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create application');
       }
-      
       let newApp = await res.json();
-      console.log('New application created:', newApp);
-      
       // Normalize scholarship to always be the name string
       newApp = {
         ...newApp,
@@ -580,13 +477,10 @@ function DashboardPage() {
           ? newApp.scholarship.name
           : newApp.scholarship
       };
-      
       setApplications(prev => [...prev, newApp]);
       toast.success('Application created successfully!');
-      setModalMode(null);
-      
+    setModalMode(null);
     } catch (err: any) {
-      console.error('Application creation failed:', err);
       toast.error(err.message || 'Failed to create application');
     }
   }
@@ -692,10 +586,6 @@ function DashboardPage() {
         avatar: app.avatar || "/placeholder.svg?height=32&width=32",
       };
       delete (payload as any).scholarship; // Remove scholarship name field
-      // Handle birthdate - convert to ISO string if present
-      if ((payload as any).birthdate) {
-        (payload as any).birthdate = new Date((payload as any).birthdate).toISOString();
-      }
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -805,7 +695,6 @@ function DashboardPage() {
 
   // Range filter state
   const [gpaRange, setGpaRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
-  const [amountRange, setAmountRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
   const [dateRange, setDateRange] = useState<{ min: string; max: string }>({ min: '', max: '' }); // YYYY-MM-DD
 
   // Multi-criteria sorting/filtering logic
@@ -834,15 +723,6 @@ function DashboardPage() {
       return true;
     });
   }
-  // Range filtering for Amount
-  if (amountRange.min || amountRange.max) {
-    processedApplications = processedApplications.filter(app => {
-      const amt = parseFloat((app.amount || '').replace(/[^\d.]/g, ''));
-      if (amountRange.min && amt < parseFloat(amountRange.min)) return false;
-      if (amountRange.max && amt > parseFloat(amountRange.max)) return false;
-      return true;
-    });
-  }
   // Date filtering (Submitted Date)
   if (dateRange.min || dateRange.max) {
     processedApplications = processedApplications.filter(app => {
@@ -855,16 +735,6 @@ function DashboardPage() {
   // Exclusive sorting logic
   if (sortOption === 'gpaDesc') processedApplications.sort((a, b) => (b.gwa || 0) - (a.gwa || 0));
   else if (sortOption === 'gpaAsc') processedApplications.sort((a, b) => (a.gwa || 0) - (b.gwa || 0));
-  else if (sortOption === 'amountDesc') processedApplications.sort((a, b) => {
-    const aNum = parseFloat((a.amount || '').replace(/[^\d.]/g, ''));
-    const bNum = parseFloat((b.amount || '').replace(/[^\d.]/g, ''));
-    return bNum - aNum;
-  });
-  else if (sortOption === 'amountAsc') processedApplications.sort((a, b) => {
-    const aNum = parseFloat((a.amount || '').replace(/[^\d.]/g, ''));
-    const bNum = parseFloat((b.amount || '').replace(/[^\d.]/g, ''));
-    return aNum - bNum;
-  });
   else if (sortOption === 'provinceAsc') processedApplications.sort((a, b) => a.region.localeCompare(b.region));
   else if (sortOption === 'provinceDesc') processedApplications.sort((a, b) => b.region.localeCompare(a.region));
   else if (sortOption === 'dateNewest') processedApplications.sort((a, b) => new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime());
@@ -875,16 +745,14 @@ function DashboardPage() {
     .filter(app => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
-  return (
+      return (
         app.name.toLowerCase().includes(q) ||
         app.email.toLowerCase().includes(q) ||
         app.scholarship.toLowerCase().includes(q) ||
-        app.amount.toLowerCase().includes(q) ||
         (app.gwa !== null && app.gwa.toString().toLowerCase().includes(q)) ||
         app.status.toLowerCase().includes(q) ||
         app.submittedDate.toLowerCase().includes(q) ||
-        app.region.toLowerCase().includes(q) ||
-        (app.birthdate && safeFormatDate(app.birthdate, 'MMM dd, yyyy').toLowerCase().includes(q))
+        app.region.toLowerCase().includes(q)
       );
     });
 
@@ -902,7 +770,7 @@ function DashboardPage() {
 
   const handleBulkDelete = async () => {
     if (selectedAppIds.length === 0) return;
-    if (!isClient || !window.confirm(`Are you sure you want to delete ${selectedAppIds.length} selected applications?`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedAppIds.length} selected applications?`)) return;
     const toTrash: Application[] = [];
     for (const id of selectedAppIds) {
       const app = applications.find(a => a.id === id);
@@ -930,13 +798,13 @@ function DashboardPage() {
   }
 
   // Add handler stubs for user actions
-  function handleDeactivateUser(user: UserType) {
+  function handleDeactivateUser(user: User) {
     // TODO: Implement deactivate logic
   }
-  function handleReactivateUser(user: UserType) {
+  function handleReactivateUser(user: User) {
     // TODO: Implement reactivate logic
   }
-  function handleDeleteUser(user: UserType) {
+  function handleDeleteUser(user: User) {
     setDeleteUserDialog({ open: true, user });
   }
 
@@ -951,23 +819,9 @@ function DashboardPage() {
     }
   };
 
-  // Redirect non-administrators away from users tab
-  useEffect(() => {
-    if (activeTab === "users" && user?.role !== "Administrator") {
-      setActiveTab("dashboard");
-      toast.error("Access denied. Administrator privileges required for User Management.");
-    }
-  }, [activeTab, user?.role]);
-
-  // Fetch users when users tab is accessed (admin only)
+  // Add after the useState for users
   useEffect(() => {
     async function fetchUsers() {
-      if (user?.role !== "Administrator") {
-        setUsers([]);
-        setLoadingUsers(false);
-        return;
-      }
-      
       setLoadingUsers(true);
       try {
         const res = await fetch('/api/users');
@@ -976,19 +830,17 @@ function DashboardPage() {
         setUsers(data);
       } catch (err) {
         setUsers([]);
-        toast.error('Failed to load users. Please try again.');
       } finally {
         setLoadingUsers(false);
       }
     }
-    
     if (activeTab === 'users') {
       fetchUsers();
     }
-  }, [activeTab, user?.role]);
+  }, [activeTab]);
 
   // 1. Add state for delete user dialog
-  const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
+  const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
 
   async function confirmDeleteUser() {
     if (!deleteUserDialog.user) return;
@@ -1004,8 +856,8 @@ function DashboardPage() {
     }
   }
 
-  const [roleDialog, setRoleDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
-  const [resetDialog, setResetDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
+  const [roleDialog, setRoleDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
+  const [resetDialog, setResetDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
   const [selectedRole, setSelectedRole] = useState<string>("");
 
   // Add state for bulk status update dialog
@@ -1029,7 +881,7 @@ function DashboardPage() {
     let completed = 0;
     const progressInterval = setInterval(() => {
       setBulkProgress((prev) => {
-        if (prev < 90) return prev + Math.floor(12 + (Math.sin(prev / 100) * 5)); // Use deterministic progress based on current value
+        if (prev < 90) return prev + Math.floor(10 + Math.random() * 10);
         return prev;
       });
     }, 200);
@@ -1064,7 +916,7 @@ function DashboardPage() {
         // Push to undo stack
         setBulkUndoStack(stack => [...stack, { ids: data.updated, prevStatuses, newStatus }]);
         // Show undo toast (with unique id to prevent duplicate toasts)
-        const toastId = `undo-bulk-${Math.random().toString(36).substr(2, 9)}`;
+        const toastId = `undo-bulk-${Date.now()}`;
         undoToastIdRef.current = toastId;
         toast.success(`${data.updated.length} application(s) updated to '${newStatus}'.`, {
           id: toastId,
@@ -1128,7 +980,7 @@ function DashboardPage() {
   }, []);
 
   // 1. Add state for department change dialog
-  const [deptDialog, setDeptDialog] = useState<{ open: boolean, user: UserType | null }>({ open: false, user: null });
+  const [deptDialog, setDeptDialog] = useState<{ open: boolean, user: User | null }>({ open: false, user: null });
   const [deptValue, setDeptValue] = useState<string>("");
   const [deptOther, setDeptOther] = useState<string>("");
 
@@ -1149,7 +1001,7 @@ function DashboardPage() {
   useEffect(() => {
     if (activeTab === 'ranking' && dashboardRankingHighlightId) {
       setTimeout(() => {
-        const el = isClient ? document.getElementById(`ranking-row-${dashboardRankingHighlightId}`) : null;
+        const el = document.getElementById(`ranking-row-${dashboardRankingHighlightId}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -1166,33 +1018,65 @@ function DashboardPage() {
     return scholarship.status;
   };
 
-  // 1. Confirmation dialog state
-  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
-  const [pendingCloseModal, setPendingCloseModal] = useState<null | (() => void)>(null);
-  const applicationFormRef = useRef<any>(null);
+  // Add state for Excel import
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
-  // ... existing code ...
-  // 2. Add Restore All logic
-  function handleRestoreAllApplicants() {
-    setApplications(prev => [...prev, ...trashBin]);
-    setTrashBin([]);
-    toast.success('All applicants have been restored.');
-  }
+  // Add Excel import handler
+  const handleExcelImport = async (file: File) => {
+    setImportLoading(true);
+    setImportError(null);
+    
+    try {
+      // Read the Excel file
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      // Process the imported data
+      const importedApplications = jsonData.map((row: any, index: number) => ({
+        id: `imported-${Date.now()}-${index}`,
+        name: row.Name || row.name || row['Full Name'] || 'Unknown',
+        email: row.Email || row.email || row['Email Address'] || '',
+        region: row.Region || row.region || row.Province || row.province || 'Unknown',
+        scholarship: row.Scholarship || row.scholarship || row['Scholarship Name'] || 'Unknown',
+        amount: row.Amount || row.amount || '0',
+        gwa: parseFloat(row.GWA || row.gwa || row.GPA || row.gpa || '0') || 0,
+        status: row.Status || row.status || 'pending',
+        submittedDate: row['Submitted Date'] || row['Submission Date'] || row.submittedDate || new Date().toISOString(),
+        avatar: "/placeholder.svg?height=32&width=32",
+        review: row.Remarks || row.remarks || row.Comment || row.comment || '',
+        requirements: {
+          eligibility: { valid: true, falseDoc: false },
+          documents: { valid: true, falseDoc: false },
+          gpa: { valid: true, falseDoc: false }
+        }
+      }));
+      
+      // Sort by GWA (GPA) - lowest to highest (best GWA first)
+      importedApplications.sort((a: any, b: any) => (a.gwa || 0) - (b.gwa || 0));
+      
+      // Add to existing applications
+      setApplications(prev => [...prev, ...importedApplications]);
+      
+      toast.success(`Successfully imported ${importedApplications.length} applications!`);
+      setImportModalOpen(false);
+      setImportFile(null);
+      
+    } catch (error: any) {
+      setImportError(error.message || 'Failed to import Excel file');
+      toast.error('Failed to import Excel file');
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background grid grid-cols-[16rem_1fr] grid-rows-[64px_1fr]" style={{ gridTemplateAreas: `'sidebar header' 'sidebar main'` }}>
-      {/* Render loading state until client hydration is complete to prevent hydration mismatch */}
-      {!isClient && (
-        <div className="col-span-2 flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
-          </div>
-        </div>
-      )}
-      {/* Main content - only render after client hydration */}
-      {isClient && (
-        <>
       {/* Header */}
       <header className="bg-card border-b border-border fixed top-0 left-0 w-full z-30 col-span-2" style={{ gridArea: 'header' }}>
         <div className="px-6 py-4 flex items-center justify-between">
@@ -1292,17 +1176,14 @@ function DashboardPage() {
               <Star className="h-4 w-4 mr-2" />
               Ranking
             </Button>
-            {/* Only show Users tab to Administrators */}
-            {user?.role === "Administrator" && (
-              <Button
-                variant={activeTab === "users" ? "default" : "ghost"}
-                className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
-                onClick={() => setActiveTab("users")}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Users
-              </Button>
-            )}
+            <Button
+              variant={activeTab === "users" ? "default" : "ghost"}
+              className={`w-full justify-start ${activeTab === 'users' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : ''}`}
+              onClick={() => setActiveTab("users")}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Users
+            </Button>
           </nav>
         </aside>
       {/* Main Content - only this scrolls */}
@@ -1559,15 +1440,7 @@ function DashboardPage() {
                               aria-label={`View ${app.name} in Ranking`}
                             >
                               <TableCell>{idx + 1}</TableCell>
-                              <TableCell>
-                                {app.firstName && app.lastName ? (
-                                  <>
-                                    {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
-                                  </>
-                                ) : (
-                                  app.name
-                                )}
-                              </TableCell>
+                              <TableCell>{app.name}</TableCell>
                               <TableCell>{app.gwa?.toFixed(2)}</TableCell>
                             </TableRow>
                           ))}
@@ -1588,15 +1461,6 @@ function DashboardPage() {
                   <p className="text-muted-foreground">Manage and review scholarship applications</p>
                 </div>
                 <div className="flex items-center space-x-4">
-                <Button 
-                  variant="altAction" 
-                  onClick={() => setTrashBinOpen(true)} 
-                  aria-label="Open Trash Bin"
-                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
-                >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Trash Bin {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
-                  </Button>
                 <Button 
                   variant={selectionMode ? "altAction" : "altAction"} 
                   onClick={() => setSelectionMode(m => !m)} 
@@ -1630,15 +1494,34 @@ function DashboardPage() {
                         />
                       </div>
                     </div>
-              {/* Only show Sort + Filter button here, dropdown removed */}
-              <Button 
-                variant="altAction" 
-                onClick={() => setSortModalOpen(true)} 
-                aria-label="Sort and filter applications" 
-                className="w-48 hover:scale-110 hover:shadow-lg transition-shadow duration-200"
-              >
-                Sort & Filter
-              </Button>
+              {/* Action buttons group */}
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="altAction" 
+                  onClick={() => setImportModalOpen(true)} 
+                  aria-label="Import Excel file"
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                >
+                  <Upload className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="altAction" 
+                  onClick={() => setTrashBinOpen(true)} 
+                  aria-label="Open Trash Bin"
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {trashBin.length > 0 && <span className="ml-1">({trashBin.length})</span>}
+                </Button>
+                <Button 
+                  variant="altAction" 
+                  onClick={() => setSortModalOpen(true)} 
+                  aria-label="Sort and filter applications" 
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </div>
               </div>
             {/* Sort Modal */}
             <Dialog open={sortModalOpen} onOpenChange={setSortModalOpen}>
@@ -1656,19 +1539,11 @@ function DashboardPage() {
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <RadioGroupItem value="gpaDesc" id="sort-gpaDesc" />
-                        <span>GWA: Highest to Lowest</span>
+                        <span>GPA: Highest to Lowest</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <RadioGroupItem value="gpaAsc" id="sort-gpaAsc" />
-                        <span>GWA: Lowest to Highest</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <RadioGroupItem value="amountDesc" id="sort-amountDesc" />
-                        <span>Amount: Highest to Lowest</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <RadioGroupItem value="amountAsc" id="sort-amountAsc" />
-                        <span>Amount: Lowest to Highest</span>
+                        <span>GPA: Lowest to Highest</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <RadioGroupItem value="provinceAsc" id="sort-provinceAsc" />
@@ -1732,7 +1607,7 @@ function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="font-semibold mb-2">GWA Range</div>
+                    <div className="font-semibold mb-2">GPA Range</div>
                     <div className="flex gap-2 items-center">
                       <input
                         type="number"
@@ -1743,7 +1618,7 @@ function DashboardPage() {
                         className="border rounded px-2 py-1 w-20"
                         value={gpaRange.min}
                         onChange={e => setGpaRange(r => ({ ...r, min: e.target.value }))}
-                        aria-label="Minimum GWA"
+                        aria-label="Minimum GPA"
                       />
                       <span>-</span>
                       <input
@@ -1755,33 +1630,7 @@ function DashboardPage() {
                         className="border rounded px-2 py-1 w-20"
                         value={gpaRange.max}
                         onChange={e => setGpaRange(r => ({ ...r, max: e.target.value }))}
-                        aria-label="Maximum GWA"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="font-semibold mb-2">Amount Range</div>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Min"
-                        className="border rounded px-2 py-1 w-24"
-                        value={amountRange.min}
-                        onChange={e => setAmountRange(r => ({ ...r, min: e.target.value }))}
-                        aria-label="Minimum Amount"
-                      />
-                      <span>-</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Max"
-                        className="border rounded px-2 py-1 w-24"
-                        value={amountRange.max}
-                        onChange={e => setAmountRange(r => ({ ...r, max: e.target.value }))}
-                        aria-label="Maximum Amount"
+                        aria-label="Maximum GPA"
                       />
                     </div>
                   </div>
@@ -1790,7 +1639,7 @@ function DashboardPage() {
                     <div className="flex gap-2 items-center">
                       <input
                         type="date"
-                        className="border rounded px-2 py-1"
+                        className="border rounded px-3 py-2"
                         value={dateRange.min}
                         onChange={e => setDateRange(r => ({ ...r, min: e.target.value }))}
                         aria-label="Submitted Date From"
@@ -1798,7 +1647,7 @@ function DashboardPage() {
                       <span>-</span>
                       <input
                         type="date"
-                        className="border rounded px-2 py-1"
+                        className="border rounded px-3 py-2"
                         value={dateRange.max}
                         onChange={e => setDateRange(r => ({ ...r, max: e.target.value }))}
                         aria-label="Submitted Date To"
@@ -1816,7 +1665,6 @@ function DashboardPage() {
                       setFilterProvinces(Object.fromEntries(allProvinces.map(r => [r, false])));
                       setFilterScholarships(Object.fromEntries(allScholarships.map(s => [s, false])));
                       setGpaRange({ min: '', max: '' });
-                      setAmountRange({ min: '', max: '' });
                       setDateRange({ min: '', max: '' });
                     }}
                   >Reset</Button>
@@ -1826,971 +1674,181 @@ function DashboardPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-              {/* Applications Table */}
-              <Card className="dark:bg-[#23232a] dark:text-gray-100">
-                <CardContent className="pt-6">
-                  {loadingApplications ? (
-                    <div className="text-center text-muted-foreground py-8">Loading applications...</div>
-                  ) : applicationsError ? (
-                    <div className="text-center text-red-500 py-8">{applicationsError}</div>
-                  ) : selectionMode && selectedAppIds.length > 0 && (
-                    <div className="mb-2 flex items-center gap-4">
-                      <span className="text-sm font-medium">{selectedAppIds.length} selected</span>
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        onClick={handleBulkDelete}
-                        className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
-                      >
-                        Move to Trash Bin
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setSelectionMode(false)}
-                        className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
-                      >
-                        Cancel Selection
-                      </Button>
-                    </div>
-                  )}
-                  {!loadingApplications && !applicationsError && (
-                    <>
-                      {filteredApplications.length === 0 ? (
-                        <div className="text-center py-12">
-                          <div className="flex flex-col items-center space-y-4">
-                            <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600" />
-                            <div className="text-center">
-                              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No Applications Found</h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                {searchQuery.trim() || Object.values(filterStatus).some(Boolean) || Object.values(filterProvinces).some(Boolean) || Object.values(filterScholarships).some(Boolean) || gpaRange.min || gpaRange.max || amountRange.min || amountRange.max || dateRange.min || dateRange.max
-                                  ? "No applications match your current filters. Try adjusting your search criteria."
-                                  : "Get started by creating your first scholarship application."}
-                              </p>
-                            </div>
-                            {!searchQuery.trim() && !Object.values(filterStatus).some(Boolean) && !Object.values(filterProvinces).some(Boolean) && !Object.values(filterScholarships).some(Boolean) && !gpaRange.min && !gpaRange.max && !amountRange.min && !amountRange.max && !dateRange.min && !dateRange.max && (
-                              <Button 
-                                onClick={() => setModalMode("createApplication")}
-                                variant="purple"
-                                className="mt-4 hover:scale-110 hover:shadow-lg transition-shadow duration-200"
-                              >
-                                <FileText className="h-4 w-4 mr-2" />
-                                Create First Application
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="relative overflow-x-auto overflow-y-auto scrollbar-hover scrollbar-hover-mask max-w-full max-h-[420px] pb-2">
-                        <Table>
-                          <TableHeader>
-                              <TableRow>
-                            {selectionMode && (
-                              <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">
-                                <input
-                                  type="checkbox"
-                                  ref={el => {
-                                    if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
-                                  }}
-                                  checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
-                                  onChange={e => handleAppSelectAll(e.target.checked)}
-                                  aria-label="Select all applications"
-                                />
-                              </TableHead>
-                            )}
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Applicant</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Region</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Scholarship</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Amount</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GWA</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Status</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Comment</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Submitted</TableHead>
-                              <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {filteredApplications.map((app) => (
-                              <TableRow
-                                key={app.id}
-                                className={cn(
-                                  "transition-all duration-200 cursor-pointer",
-                                  highlightedApplicantId === app.id
-                                    ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
-                                    : "hover:scale-105 hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
-                                )}
-                                tabIndex={0}
-                                  ref={el => {
-                                    if (highlightedApplicantId === app.id && el) {
-                                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    }
-                                  }}
-                                onClick={() => setSelectedApplication(app)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    setSelectedApplication(app);
-                                  }
-                                }}
-                                aria-label={`Show details for ${app.name}`}
-                                >
-                                  {selectionMode && (
-                                    <TableCell>
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedAppIds.includes(app.id)}
-                                      onChange={e => handleAppCheckboxChange(e, app)}
-                                        aria-label={`Select application for ${app.name}`}
-                                      />
-                                    </TableCell>
-                                  )}
-                                  <TableCell>
-                                    <div className="flex items-center space-x-3">
-                                      <Avatar className="h-8 w-8">
-                                        <AvatarImage src={app.avatar || "/placeholder.svg"} />
-                                        <AvatarFallback>
-                                        {app.name.split(" ").map((n) => n[0]).join("")}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div>
-                                        <p className="font-medium">
-                                          {app.firstName && app.lastName ? (
-                                            <>
-                                              {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
-                                            </>
-                                          ) : (
-                                            app.name
-                                          )}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">{app.email}</p>
-                                      </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>{app.region}</TableCell>
-                                <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
-                                <TableCell>{typeof app.amount === 'object' ? JSON.stringify(app.amount) : app.amount.replace("$", "₱")}</TableCell>
-                                  <TableCell>{app.gwa}</TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center space-x-2">
-                                      {getStatusIcon(app.status)}
-                                      {app.status === 'pending'
-                                        ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'pending' }); })
-                                        : app.status === 'under_review'
-                                          ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'under_review' }); })
-                                        : getStatusBadge(app.status)}
-                                    </div>
-                                  </TableCell>
-                                <TableCell>
-                                  {app.review && app.review.trim() !== '' ? (
-                                    <span>{app.review}</span>
-                                  ) : (
-                                    <span className="text-gray-400">None</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>{safeFormatDate(app.submittedDate)}</TableCell>
-                                  <TableCell className="text-right">
-                                  {/* Modern action button with open/close state using controlled open state */}
-                                  <DropdownMenu open={actionMenuOpenId === app.id} onOpenChange={open => setActionMenuOpenId(open ? app.id : null)}>
-                                      <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        className={cn(
-                                          "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200",
-                                          actionMenuOpenId === app.id ? "bg-accent" : ""
-                                        )}
-                                        aria-haspopup="menu"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                      >
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        <span className="sr-only">Open menu</span>
-                                      </Button>
-                                      </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" sideOffset={4} onClick={(e)=>{e.stopPropagation();}}>
-                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                      <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); setSelectedApplication(app); setModalMode("reviewApplication"); }}>
-                                          <Edit className="h-4 w-4 mr-2" />
-                                          Review & Score
-                                        </DropdownMenuItem>
-                                      <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); setSelectedApplication(app); setModalMode("sendMessage"); }}>
-                                          <Mail className="h-4 w-4 mr-2" />
-                                          Send Message
-                                        </DropdownMenuItem>
-                                      <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); handleDownloadDocuments(app); }}>
-                                          <Download className="h-4 w-4 mr-2" />
-                                          Download Documents
-                                        </DropdownMenuItem>
-                                      <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500 hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenuOpenId(null); handleDeleteApplicant(app); }}>
-                                          <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
-                                          Delete Applicant
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                          </TableBody>
-                        </Table>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-              {/* Application Create Modal */}
-              <Dialog open={modalMode === "createApplication"} onOpenChange={open => {
-                if (!open && applicationFormRef.current && applicationFormRef.current.isDirty()) {
-                  setShowUnsavedConfirm(true);
-                  setPendingCloseModal(() => () => setModalMode(null));
-                } else if (!open) {
-                  setModalMode(null);
-                }
-              }}>
-                <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Create New Application</DialogTitle>
-                  </DialogHeader>
-                  <Suspense fallback={<FormLoadingSpinner />}>
-                    <ApplicationCreateForm
-                      ref={applicationFormRef}
-                      onSave={handleCreateApplication}
-                      onCancel={() => {
-                        if (applicationFormRef.current && applicationFormRef.current.isDirty()) {
-                          setShowUnsavedConfirm(true);
-                          setPendingCloseModal(() => () => setModalMode(null));
-                        } else {
-                          setModalMode(null);
-                        }
-                      }}
-                      scholarships={scholarships}
-                    />
-                  </Suspense>
-                </DialogContent>
-              </Dialog>
-              {/* Application Details Modal */}
-              <Dialog open={!!selectedApplication && modalMode !== "reviewApplication"} onOpenChange={() => setSelectedApplication(null)}>
-                <DialogContent className="max-w-2xl w-full p-0 max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border-2 border-purple-200 dark:border-purple-800">
-                  {selectedApplication && (
-                    <>
-                      {/* Header with gradient background */}
-                      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-6 text-white" style={{
-                        background: `linear-gradient(to right, #7C3AED, #6366F1)` // Use fixed colors instead of computed styles
-                      }}>
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-16 w-16 border-4 border-white/20">
-                            <AvatarImage src={selectedApplication.avatar || "/placeholder.svg"} />
-                            <AvatarFallback className="bg-white/20 text-white text-lg font-bold">
-                              {selectedApplication.name.split(" ").map((n) => n[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h2 className="text-2xl font-bold">
-                              {selectedApplication.firstName && selectedApplication.lastName ? (
-                                <>
-                                  {selectedApplication.firstName} {selectedApplication.middleName ? `${selectedApplication.middleName.charAt(0)}.` : ''} {selectedApplication.lastName}
-                                </>
-                              ) : (
-                                selectedApplication.name
-                              )}
-                            </h2>
-                            <p className="text-purple-100">{selectedApplication.email}</p>
-                            <div className="mt-2">
-                              {getStatusBadge(selectedApplication.status)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Scrollable content area */}
-                      <div className="overflow-y-auto max-h-[60vh] px-8 py-6">
-                        {/* Documents Section - At the top */}
-                        {selectedApplication.documents && selectedApplication.documents.length > 0 && (
-                          <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                              <FileText className="h-5 w-5 text-purple-600" />
-                              Uploaded Documents
-                            </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {selectedApplication.documents.map((docUrl, index) => {
-                                const fileName = docUrl.split('/').pop() || `Document ${index + 1}`;
-                                const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
-                                return (
-                                  <div
-                                    key={index}
-                                    onClick={() => isClient && window.open(docUrl, '_blank')}
-                                    className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md transition-all duration-200 cursor-pointer group"
-                                  >
-                                    <div className="flex-shrink-0">
-                                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
-                                        <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                      </div>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{fileName}</p>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">{fileExt} Document</p>
-                                    </div>
-                                    <Download className="h-4 w-4 text-gray-400 group-hover:text-purple-600 transition-colors" />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Application Information */}
-                        <div className="space-y-6">
-                          {/* Personal Information */}
-                          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                              <UserIcon className="h-5 w-5 text-purple-600" />
-                              Personal Information
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {selectedApplication.firstName && selectedApplication.lastName && (
-                                <>
-                                  <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">First Name</p>
-                                    <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.firstName}</p>
-                                  </div>
-                                  {selectedApplication.middleName && (
-                                    <div>
-                                      <p className="text-sm text-gray-500 dark:text-gray-400">Middle Name</p>
-                                      <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.middleName}</p>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Last Name</p>
-                                    <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.lastName}</p>
-                                  </div>
-                                </>
-                              )}
-                              {selectedApplication.birthdate && (
-                                <div>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">Birthdate</p>
-                                  <p className="font-medium text-gray-900 dark:text-gray-100">{safeFormatDate(selectedApplication.birthdate, 'MMM dd, yyyy')}</p>
-                                </div>
-                              )}
-                              {selectedApplication.gender && (
-                                <div>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">Gender</p>
-                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.gender}</p>
-                                </div>
-                              )}
-                              {selectedApplication.mobileNumber && (
-                                <div>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">Mobile Number</p>
-                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.mobileNumber}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Location Information */}
-                          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                              <MapPin className="h-5 w-5 text-purple-600" />
-                              Location & School
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Province</p>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.region}</p>
-                              </div>
-                              {selectedApplication.city && (
-                                <div>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">City</p>
-                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.city}</p>
-                                </div>
-                              )}
-                              {selectedApplication.schoolSector && (
-                                <div>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">School Sector</p>
-                                  <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.schoolSector}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Academic Information */}
-                          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                              <GraduationCap className="h-5 w-5 text-purple-600" />
-                              Academic & Scholarship Details
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Scholarship</p>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.scholarship}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.amount}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">GWA</p>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{selectedApplication.gwa}%</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Submitted Date</p>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{safeFormatDate(selectedApplication.submittedDate, 'MMM dd, yyyy')}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Review Information */}
-                          {selectedApplication.review && (
-                            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                                <MessageSquare className="h-5 w-5 text-purple-600" />
-                                Review Comments
-                              </h3>
-                              <p className="text-gray-700 dark:text-gray-300">{selectedApplication.review}</p>
-                              {selectedApplication.score && (
-                                <div className="mt-3 flex items-center gap-2">
-                                  <Star className="h-4 w-4 text-yellow-500" />
-                                  <span className="text-sm font-medium">Score: {selectedApplication.score}/100</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="border-t border-gray-200 dark:border-gray-700 px-8 py-4 bg-gray-50 dark:bg-gray-800/50">
-                        <div className="flex justify-end">
-                          <DialogClose asChild>
-                            <Button variant="outline" className="hover:scale-105 transition-transform">
-                              Close
-                            </Button>
-                          </DialogClose>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </DialogContent>
-              </Dialog>
-              {/* Application Review Modal */}
-              <Dialog open={modalMode === "reviewApplication"} onOpenChange={() => { setModalMode(null); setSelectedApplication(null); }}>
-                <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Review Application</DialogTitle>
-                  </DialogHeader>
-                  {selectedApplication && (
-                    <Suspense fallback={<FormLoadingSpinner />}>
-                      <ApplicationReviewForm
-                        application={selectedApplication}
-                        onSave={handleSaveApplicationReview}
-                        onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
-                      />
-                    </Suspense>
-                  )}
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline" onClick={(e) => { e.stopPropagation(); }}>Close</Button>
-                    </DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Send Message Modal */}
-              <Dialog open={modalMode === "sendMessage"} onOpenChange={() => { setModalMode(null); setSelectedApplication(null); }}>
-                <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Send Message</DialogTitle>
-                  </DialogHeader>
-                  {selectedApplication && (
-                    <Suspense fallback={<FormLoadingSpinner />}>
-                      <SendMessageForm
-                        application={selectedApplication}
-                        onSend={handleSendMessage}
-                        onCancel={() => { setModalMode(null); setSelectedApplication(null); }}
-                      />
-                    </Suspense>
-                  )}
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline" onClick={(e) => { e.stopPropagation(); }}>Close</Button>
-                    </DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Download Confirmation Modal */}
-              <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
-                <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Download Application</DialogTitle>
-                  </DialogHeader>
-                  {downloadApplication && (
-                    <div className="space-y-2 text-sm">
-                      <p>Are you sure you want to download the details of <span className="font-semibold">
-                        {downloadApplication.firstName && downloadApplication.lastName ? (
-                          <>
-                            {downloadApplication.firstName} {downloadApplication.middleName ? `${downloadApplication.middleName.charAt(0)}.` : ''} {downloadApplication.lastName}
-                          </>
-                        ) : (
-                          downloadApplication.name
-                        )}
-                      </span>?</p>
-                      {downloadApplication.birthdate && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          <strong>Birthdate:</strong> {format(new Date(downloadApplication.birthdate), 'MMM dd, yyyy')}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">Choose your preferred file format:</p>
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDownloadDialogOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                    <Button onClick={handleConfirmDownloadPDF} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Download PDF</Button>
-                    <Button onClick={handleConfirmDownloadDOCX} variant="secondary" className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Download DOCX</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Delete Applicant Confirmation Modal */}
-              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Delete Applicant</DialogTitle>
-                  </DialogHeader>
-                  {deleteApplication && (
-                    <div className="space-y-2 text-sm">
-                      <p>Are you sure you want to delete the application of <span className="font-semibold">
-                        {deleteApplication.firstName && deleteApplication.lastName ? (
-                          <>
-                            {deleteApplication.firstName} {deleteApplication.middleName ? `${deleteApplication.middleName.charAt(0)}.` : ''} {deleteApplication.lastName}
-                          </>
-                        ) : (
-                          deleteApplication.name
-                        )}
-                      </span>?</p>
-                      {deleteApplication.birthdate && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          <strong>Birthdate:</strong> {format(new Date(deleteApplication.birthdate), 'MMM dd, yyyy')}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                    <Button variant="destructive" onClick={handleConfirmDeleteApplicant} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Trash Bin Modal */}
-              <Dialog open={trashBinOpen} onOpenChange={setTrashBinOpen}>
-                <DialogContent className="max-w-lg w-full p-6 rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Trash Bin</DialogTitle>
-                  </DialogHeader>
-                  {trashBin.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8">No deleted applicants.</div>
-                  ) : (
-                    <div
-                      className={`space-y-4${trashBin.length >= 5 ? ' max-h-[320px] overflow-y-auto scrollbar-hover' : ''}`}
+            {/* Applications Table */}
+            <Card className="dark:bg-[#23232a] dark:text-gray-100">
+              <CardContent className="pt-6">
+                {loadingApplications ? (
+                  <div className="text-center text-muted-foreground py-8">Loading applications...</div>
+                ) : applicationsError ? (
+                  <div className="text-center text-red-500 py-8">{applicationsError}</div>
+                ) : selectionMode && selectedAppIds.length > 0 && (
+                  <div className="mb-2 flex items-center gap-4">
+                    <span className="text-sm font-medium">{selectedAppIds.length} selected</span>
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      onClick={handleBulkDelete}
+                      className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
                     >
-                      {trashBin.map(app => (
-                        <div key={app.id} className="flex items-center justify-between border-b pb-2">
-                          <div>
-                            <div className="font-medium">
-                              {app.firstName && app.lastName ? (
-                                <>
-                                  {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
-                                </>
-                              ) : (
-                                app.name
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {app.email} | {app.scholarship} | {app.region}
-                              {app.birthdate && ` | ${format(new Date(app.birthdate), 'MMM dd, yyyy')}`}
-                            </div>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => handleRestoreApplicant(app)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Restore</Button>
-                            <Button size="sm" variant="destructive" onClick={() => handlePermanentDeleteApplicant(app)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
-                          </div>
-                        </div>
-                      ))}
-                      {trashBin.length > 1 && (
-                        <div className="flex justify-end mt-4">
-                          <Button
-                            size="lg"
-                            variant="destructive"
-                            onClick={handleDeleteAllPermanently}
-                            className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
-                          >
-                            Delete All Permanently
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setTrashBinOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Close</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Status Workflow Dialog */}
-              <Dialog open={statusWorkflowDialog.open} onOpenChange={() => setStatusWorkflowDialog({ open: false, app: null, step: null })}>
-                <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                  {statusWorkflowDialog.step === 'pending' && statusWorkflowDialog.app && (
-                    <>
-                      <DialogHeader>
-                        <DialogTitle>Move to Under Review</DialogTitle>
-                      </DialogHeader>
-                      <p>Do you want to change the status for <span className="font-semibold">
-                        {statusWorkflowDialog.app.firstName && statusWorkflowDialog.app.lastName ? (
-                          <>
-                            {statusWorkflowDialog.app.firstName} {statusWorkflowDialog.app.middleName ? `${statusWorkflowDialog.app.middleName.charAt(0)}.` : ''} {statusWorkflowDialog.app.lastName}
-                          </>
-                        ) : (
-                          statusWorkflowDialog.app.name
-                        )}
-                      </span> to 'Under Review'?</p>
-                      {statusWorkflowDialog.app.birthdate && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          <strong>Birthdate:</strong> {format(new Date(statusWorkflowDialog.app.birthdate), 'MMM dd, yyyy')}
-                        </p>
-                      )}
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                        <Button onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'under_review')} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
-                      </DialogFooter>
-                    </>
-                  )}
-                  {statusWorkflowDialog.step === 'under_review' && statusWorkflowDialog.app && (
-                    <>
-                      <DialogHeader>
-                        <DialogTitle>Update Application Status</DialogTitle>
-                      </DialogHeader>
-                      <p>Accept or reject the application for <span className="font-semibold">
-                        {statusWorkflowDialog.app.firstName && statusWorkflowDialog.app.lastName ? (
-                          <>
-                            {statusWorkflowDialog.app.firstName} {statusWorkflowDialog.app.middleName ? `${statusWorkflowDialog.app.middleName.charAt(0)}.` : ''} {statusWorkflowDialog.app.lastName}
-                          </>
-                        ) : (
-                          statusWorkflowDialog.app.name
-                        )}
-                      </span>?</p>
-                      {statusWorkflowDialog.app.birthdate && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          <strong>Birthdate:</strong> {format(new Date(statusWorkflowDialog.app.birthdate), 'MMM dd, yyyy')}
-                        </p>
-                      )}
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setStatusWorkflowDialog({ open: false, app: null, step: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                        <Button variant="destructive" onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'rejected')} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Reject</Button>
-                        <Button className="bg-green-500 hover:bg-green-600 text-white hover:scale-110 hover:shadow-lg transition-shadow duration-200" onClick={() => handleStatusUpdate(statusWorkflowDialog.app!.id, 'approved')}>Accept</Button>
-                      </DialogFooter>
-                    </>
-                  )}
-                </DialogContent>
-              </Dialog>
-              {/* Permanent Delete Applicant Dialog */}
-              <Dialog open={permanentDeleteDialog.open} onOpenChange={open => setPermanentDeleteDialog(d => ({ ...d, open }))}>
-                <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Delete Applicant Permanently</DialogTitle>
-                  </DialogHeader>
-                  {permanentDeleteDialog.app && (
-                    <div className="space-y-2 text-sm">
-                      <p>Are you sure you want to permanently delete <span className="font-semibold">
-                        {permanentDeleteDialog.app.firstName && permanentDeleteDialog.app.lastName ? (
-                          <>
-                            {permanentDeleteDialog.app.firstName} {permanentDeleteDialog.app.middleName ? `${permanentDeleteDialog.app.middleName.charAt(0)}.` : ''} {permanentDeleteDialog.app.lastName}
-                          </>
-                        ) : (
-                          permanentDeleteDialog.app.name
-                        )}
-                      </span>?</p>
-                      {permanentDeleteDialog.app.birthdate && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          <strong>Birthdate:</strong> {format(new Date(permanentDeleteDialog.app.birthdate), 'MMM dd, yyyy')}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setPermanentDeleteDialog({ open: false, app: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                    <Button variant="destructive" onClick={confirmPermanentDeleteApplicant} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Permanent Delete All Applicants Dialog */}
-              <Dialog open={permanentDeleteAllDialog} onOpenChange={setPermanentDeleteAllDialog}>
-                <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Delete All Applicants Permanently</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-2 text-sm">
-                    <p>Are you sure you want to permanently delete <span className="font-semibold">all applicants</span> in the Trash Bin?</p>
-                    <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+                      Move to Trash Bin
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSelectionMode(false)}
+                      className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                    >
+                      Cancel Selection
+                    </Button>
                   </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setPermanentDeleteAllDialog(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                    <Button variant="destructive" onClick={confirmDeleteAllPermanently} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete All Permanently</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          )}
-
-          {activeTab === "ranking" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">Application Ranking</h2>
-                <p className="text-muted-foreground">Review and rank scholarship applications by GWA (GPA)</p>
-              </div>
-              {/* Status Cards */}
-              <div className="flex gap-4 mb-4">
-                {/* Approved */}
-                <div
-                  className={cn(
-                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
-                    "focus:outline-none focus:ring-2 focus:ring-green-400",
-                    "bg-green-500 text-white",
-                    "hover:bg-green-100 hover:text-green-800 hover:scale-[1.04] hover:shadow-lg",
-                    "dark:bg-green-600 dark:text-white dark:hover:bg-green-400/30 dark:hover:text-green-200"
-                  )}
-                  onClick={() => setRankingStatusModal({ open: true, status: 'approved' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'approved' }); }}
-                  aria-label="Show Approved Applicants"
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{applications.filter(app => app.status === 'approved').length}</div>
-                    <div className="font-semibold">Approved</div>
-                  </CardContent>
-                </div>
-                {/* Under Review */}
-                <div
-                  className={cn(
-                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
-                    "focus:outline-none focus:ring-2 focus:ring-blue-400",
-                    "bg-blue-500 text-white",
-                    "hover:bg-blue-100 hover:text-blue-800 hover:scale-[1.04] hover:shadow-lg",
-                    "dark:bg-blue-600 dark:text-white dark:hover:bg-blue-400/30 dark:hover:text-blue-200"
-                  )}
-                  onClick={() => setRankingStatusModal({ open: true, status: 'under_review' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'under_review' }); }}
-                  aria-label="Show Under Review Applicants"
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{applications.filter(app => app.status === 'under_review').length}</div>
-                    <div className="font-semibold">Under Review</div>
-                  </CardContent>
-                </div>
-                {/* Pending */}
-                <div
-                  className={cn(
-                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
-                    "focus:outline-none focus:ring-2 focus:ring-orange-400",
-                    "bg-orange-500 text-white",
-                    "hover:bg-orange-100 hover:text-orange-800 hover:scale-[1.04] hover:shadow-lg",
-                    "dark:bg-orange-600 dark:text-white dark:hover:bg-orange-400/30 dark:hover:text-orange-200"
-                  )}
-                  onClick={() => setRankingStatusModal({ open: true, status: 'pending' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'pending' }); }}
-                  aria-label="Show Pending Applicants"
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{applications.filter(app => app.status === 'pending').length}</div>
-                    <div className="font-semibold">Pending</div>
-                  </CardContent>
-                </div>
-                {/* Rejected */}
-                <div
-                  className={cn(
-                    "flex-1 text-center cursor-pointer rounded-lg border transition-all duration-200 shadow-sm",
-                    "focus:outline-none focus:ring-2 focus:ring-red-400",
-                    "bg-red-500 text-white",
-                    "hover:bg-red-100 hover:text-red-800 hover:scale-[1.04] hover:shadow-lg",
-                    "dark:bg-red-600 dark:text-white dark:hover:bg-red-400/30 dark:hover:text-red-200"
-                  )}
-                  onClick={() => setRankingStatusModal({ open: true, status: 'rejected' })}
-                  tabIndex={0}
-                  style={{ outline: 'none' }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setRankingStatusModal({ open: true, status: 'rejected' }); }}
-                  aria-label="Show Rejected Applicants"
-                >
-                  <CardContent className="py-2">
-                    <div className="font-bold text-lg">{applications.filter(app => app.status === 'rejected').length}</div>
-                    <div className="font-semibold">Rejected</div>
-                  </CardContent>
-                </div>
-              </div>
-              {/* Status Card Modal */}
-              <Dialog open={rankingStatusModal.open} onOpenChange={open => setRankingStatusModal(s => ({ ...s, open }))}>
-                <DialogContent className="max-w-lg w-full p-6 rounded-xl dark:bg-[#23232a] dark:text-gray-100">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {rankingStatusModal.status === 'approved' ? 'Approved Applicants'
-                        : rankingStatusModal.status === 'under_review' ? 'Under Review Applicants'
-                        : rankingStatusModal.status === 'pending' ? 'Pending Applicants'
-                        : rankingStatusModal.status === 'rejected' ? 'Rejected Applicants'
-                        : ''}
-                    </DialogTitle>
-                  </DialogHeader>
-                  {/* Make the list scrollable if 4 or more applicants */}
-                  {(() => {
-                    const filteredApps = applications.filter(app => {
-                      if (rankingStatusModal.status === 'approved') return app.status === 'approved';
-                      return app.status === rankingStatusModal.status;
-                    });
-                    return (
-                      <div
-                        className={`space-y-2${filteredApps.length >= 4 ? ' max-h-[300px] overflow-y-auto scrollbar-hover' : ''}`}
-                        style={{}}
-                      >
-                        {filteredApps.length === 0 ? (
-                          <div className="text-center text-muted-foreground py-4">No applicants with this status.</div>
-                        ) : (
-                          filteredApps.map(app => (
-                            <div
-                              key={app.id}
-                              className={cn(
-                                "flex items-center justify-between border-b pb-2 cursor-pointer rounded transition-all duration-200",
-                                "hover:scale-105 hover:shadow-lg hover:bg-accent/40 focus:scale-105 focus:shadow-lg"
-                              )}
-                              onClick={() => {
-                                  setActiveTab('applications');
-                                setStatusFilter(app.status);
-                                  setHighlightedApplicantId(app.id);
-                                setRankingStatusModal({ open: false, status: null });
-                              }}
-                                      tabIndex={0}
-                                      role="button"
-                              aria-label={`Go to applicant ${app.name} in Applications`}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  setActiveTab('applications');
-                                  setStatusFilter(app.status);
-                                  setHighlightedApplicantId(app.id);
-                                  setRankingStatusModal({ open: false, status: null });
-                                }
-                              }}
-                            >
+                )}
+                {!loadingApplications && !applicationsError && (
+                <div className="relative overflow-x-auto overflow-y-auto scrollbar-hover scrollbar-hover-mask max-w-full max-h-[420px] pb-2">
+                <Table>
+                  <TableHeader>
+                      <TableRow>
+                    {selectionMode && (
+                      <TableHead className="text-center font-bold text-gray-600 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          ref={el => {
+                            if (el) el.indeterminate = selectedAppIds.length > 0 && selectedAppIds.length < filteredApplications.length;
+                          }}
+                          checked={filteredApplications.length > 0 && selectedAppIds.length === filteredApplications.length}
+                          onChange={e => handleAppSelectAll(e.target.checked)}
+                          aria-label="Select all applications"
+                        />
+                      </TableHead>
+                    )}
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Applicant</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Region</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Scholarship</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GPA</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Status</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Remarks</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Submitted</TableHead>
+                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {filteredApplications.map((app) => (
+                      <TableRow
+                        key={app.id}
+                        className={cn(
+                          "transition-all duration-200 cursor-pointer",
+                          highlightedApplicantId === app.id
+                            ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
+                            : "hover:scale-105 hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
+                        )}
+                        tabIndex={0}
+                          ref={el => {
+                            if (highlightedApplicantId === app.id && el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          }}
+                        onClick={() => setSelectedApplication(app)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            setSelectedApplication(app);
+                          }
+                        }}
+                        aria-label={`Show details for ${app.name}`}
+                        >
+                          {selectionMode && (
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={selectedAppIds.includes(app.id)}
+                              onChange={e => handleAppCheckboxChange(e, app)}
+                                aria-label={`Select application for ${app.name}`}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={app.avatar || "/placeholder.svg"} />
+                                <AvatarFallback>
+                                {app.name.split(" ").map((n) => n[0]).join("")}
+                                </AvatarFallback>
+                              </Avatar>
                               <div>
-                                <div className="font-medium">
-                                  {app.firstName && app.lastName ? (
-                                    <>
-                                      {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
-                                    </>
-                                  ) : (
-                                    app.name
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  GWA: {app.gwa} | {app.scholarship}
-                                  {app.birthdate && ` | ${format(new Date(app.birthdate), 'MMM dd, yyyy')}`}
-                                </div>
+                                <p className="font-medium">{app.name}</p>
+                                <p className="text-sm text-muted-foreground">{app.email}</p>
                               </div>
-                                </div>
-                          ))
-                        )}
-                                </div>
-                    );
-                  })()}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setRankingStatusModal({ open: false, status: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Close</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Scholarship Ranking Cards */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {scholarships.map((scholarship) => {
-                  // Sort applicants by GPA ascending (lowest to highest)
-                  const rankedApps = applications
-                    .filter(app => app.scholarship === scholarship.name)
-                    .sort((a, b) => (a.gwa || 0) - (b.gwa || 0));
-                  return (
-                    <Card key={scholarship.id} className="dark:bg-[#23232a] dark:text-gray-100">
-                    <CardHeader>
-                        <CardTitle>{scholarship.name} Rankings</CardTitle>
-                        <CardDescription>Ranked by GPA</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {rankedApps.length === 0 ? (
-                          <div className="text-center text-muted-foreground py-4">No applicants for this scholarship.</div>
-                        ) : (
-                          <div className={`divide-y${rankedApps.length >= 4 ? ' max-h-[220px] overflow-y-auto scrollbar-hover' : ''}`}> {/* Scrollable if 4+ */}
-                            {rankedApps.map((app, idx) => (
-                              <div
-                                key={app.id}
-                                id={`ranking-row-${app.id}`}
+                            </div>
+                          </TableCell>
+                          <TableCell>{app.region}</TableCell>
+                        <TableCell>{typeof app.scholarship === 'object' && app.scholarship !== null ? (app.scholarship as any).name : app.scholarship}</TableCell>
+                        <TableCell>{app.gwa}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              {getStatusIcon(app.status)}
+                              {app.status === 'pending'
+                                ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'pending' }); })
+                                : app.status === 'under_review'
+                                  ? getStatusBadge(app.status, (e) => { e?.stopPropagation(); setStatusWorkflowDialog({ open: true, app, step: 'under_review' }); })
+                                : getStatusBadge(app.status)}
+                            </div>
+                          </TableCell>
+                        <TableCell>
+                          {app.review && app.review.trim() !== '' ? (
+                            <span>{app.review}</span>
+                          ) : (
+                            <span className="text-gray-400">None</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{format(new Date(app.submittedDate), 'yyyy-MM-dd')}</TableCell>
+                          <TableCell className="text-right">
+                          {/* Modern action button with open/close state using controlled open state */}
+                          <DropdownMenu open={actionMenuOpenId === app.id} onOpenChange={open => setActionMenuOpenId(open ? app.id : null)}>
+                              <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
                                 className={cn(
-                                  "flex items-center justify-between py-3 transition-all duration-200",
-                                  dashboardRankingHighlightId === app.id
-                                    ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
-                                    : "hover:scale-[1.03] hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40 cursor-pointer"
+                                  "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200",
+                                  actionMenuOpenId === app.id ? "bg-purple-100 text-purple-700 border-purple-300 shadow-md" : "hover:bg-gray-100 dark:hover:bg-zinc-800"
                                 )}
-                                tabIndex={0}
-                                onClick={() => {
-                                  setActiveTab('applications');
-                                  setStatusFilter(app.status);
-                                  setHighlightedApplicantId(app.id);
-                                }}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    setActiveTab('applications');
-                                    setStatusFilter(app.status);
-                                    setHighlightedApplicantId(app.id);
-                                  }
-                                }}
-                                aria-label={`Go to applicant ${app.name} in Applications`}
+                                aria-label="Application Actions"
                               >
-                                <div className="flex items-center gap-4">
-                                  <div className="w-8 h-8 flex items-center justify-center rounded-full font-bold bg-gray-200 text-gray-700">{idx + 1}</div>
-                      <div>
-                                    <div className="font-medium">
-                                      {app.firstName && app.lastName ? (
-                                        <>
-                                          {app.firstName} {app.middleName ? `${app.middleName.charAt(0)}.` : ''} {app.lastName}
-                                        </>
-                                      ) : (
-                                        app.name
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                  {app.region}
-                                  {app.birthdate && ` | ${format(new Date(app.birthdate), 'MMM dd, yyyy')}`}
-                                </div>
-                        </div>
-                      </div>
-                                <div className="flex items-center gap-4">
-                                  <span className="font-semibold">{app.gwa?.toFixed(2)}</span>
-                                  {/* Status badge clickable: go to Applications table and highlight applicant */}
-                                  <span
-                                    className="cursor-pointer"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                  setActiveTab('applications');
-                                      setStatusFilter(app.status);
-                                  setHighlightedApplicantId(app.id);
-                                    }}
-                                      tabIndex={0}
-                                      role="button"
-                                      aria-label="Go to applicant in Applications"
-                                    >
-                                {getStatusBadge(app.status)}
-                                  </span>
-                        </div>
-                      </div>
-                          ))}
-                        </div>
-                        )}
-                    </CardContent>
-                  </Card>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                                <span className="sr-only">Open actions</span>
+                                <span className={cn("transition-transform duration-200", actionMenuOpenId === app.id ? "rotate-90 text-purple-700" : "") }>
+                                  <MoreHorizontal className="h-5 w-5" />
+                                </span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl shadow-lg border border-gray-200 dark:border-zinc-700">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              {/* Removed View Details option */}
+                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => { setSelectedApplication(app); setModalMode("reviewApplication"); }}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Review & Score
+                                </DropdownMenuItem>
+                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => { setSelectedApplication(app); setModalMode("sendMessage"); }}>
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Send Message
+                                </DropdownMenuItem>
+                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDownloadDocuments(app)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download Documents
+                                </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500 hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDeleteApplicant(app)}>
+                                  <Trash2 className="h-4 w-4 mr-2 text-red-600 dark:text-red-500" />
+                                  Delete Applicant
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+                </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
           {activeTab === "scholarships" && (
             <div className="space-y-6">
@@ -2935,632 +1993,475 @@ function DashboardPage() {
           <Dialog open={!!pendingScholarshipType} onOpenChange={open => { if (!open) { setPendingScholarshipType(null); setScholarshipTypeDialog(false); } }}>
             <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
               <DialogHeader>
-                <DialogTitle>
-                  <span>Create {pendingScholarshipType} Scholarship</span>
-                </DialogTitle>
+                <DialogTitle>Create {pendingScholarshipType} Scholarship</DialogTitle>
               </DialogHeader>
               {pendingScholarshipType && (
-                <Suspense fallback={<FormLoadingSpinner />}>
-                  <ScholarshipCreateForm
-                    onSave={data => { handleCreateScholarship({ ...data, type: pendingScholarshipType }); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
-                    onCancel={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
-                    type={pendingScholarshipType}
-                  />
-                </Suspense>
-              )}
-            </DialogContent>
-          </Dialog>
-              {/* Scholarship Remove Confirmation Modal */}
-              <Dialog open={deleteScholarshipDialog.open} onOpenChange={open => setDeleteScholarshipDialog(d => ({ ...d, open }))}>
-                <DialogContent className="max-w-md w-full p-6 rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>Remove Scholarship</DialogTitle>
-                  </DialogHeader>
-                  {deleteScholarshipDialog.scholarship && (
-                    <div className="space-y-2 text-sm">
-                      <p>Are you sure you want to remove <span className="font-semibold">{deleteScholarshipDialog.scholarship.name}</span>?</p>
-                  <p className="text-xs text-muted-foreground">This will move the scholarship to the Trash Bin. All related rankings will also be removed.</p>
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDeleteScholarshipDialog({ open: false, scholarship: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                    <Button variant="destructive" onClick={() => {
-                      if (deleteScholarshipDialog.scholarship) {
-                    handleRemoveScholarship(deleteScholarshipDialog.scholarship);
-                        setDeleteScholarshipDialog({ open: false, scholarship: null });
-                      }
-                    }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Remove</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              {/* Scholarship View/Edit Modal */}
-              <Dialog open={!!modalMode && (modalMode === 'view' || modalMode === 'edit')} onOpenChange={() => { setModalMode(null); setSelectedScholarship(null); }}>
-                <DialogContent className="max-w-2xl w-full p-0 max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border-2 border-indigo-200 dark:border-indigo-800">
-                  {selectedScholarship && (() => {
-                    // Always get the latest scholarship object from state by id
-                    const latestScholarship = scholarships.find(s => s.id === selectedScholarship.id) || selectedScholarship;
-                    const applicantsCount = applications.filter(app => app.scholarship === latestScholarship.name).length;
-                    return (
-                      <>
-                        {modalMode === "view" ? (
-                          <>
-                            {/* Header with gradient background */}
-                            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-8 py-6 text-white" style={{
-                              background: `linear-gradient(to right, ${getComputedStyle(document.documentElement).getPropertyValue('--scholarship-theme-color') || '#6366F1'}, ${getComputedStyle(document.documentElement).getPropertyValue('--scholarship-theme-color') || '#3B82F6'})`
-                            }}>
-                              <div className="flex items-center gap-4">
-                                <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                  <Award className="h-8 w-8 text-white" />
-                                </div>
-                                <div className="flex-1">
-                                  <h2 className="text-2xl font-bold text-white mb-1">{latestScholarship.name}</h2>
-                                  <div className="flex items-center gap-2">
-                                    {getStatusBadge(latestScholarship.status)}
-                                    {latestScholarship.type && (
-                                      <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                                        {latestScholarship.type} Scholarship
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Content sections */}
-                            <div className="px-8 py-6 max-h-[calc(85vh-140px)] overflow-y-auto">
-                              <div className="space-y-6">
-                                {/* Scholarship Information Section */}
-                                <div className="bg-white dark:bg-gray-800/50 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                    <Award className="h-5 w-5 text-indigo-600" />
-                                    Scholarship Information
-                                  </h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Amount</label>
-                                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">₱ {latestScholarship.amount.replace(/[$₱]/g, "")}</div>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Deadline</label>
-                                      <div className="text-lg font-semibold text-gray-900 dark:text-white">{format(new Date(latestScholarship.deadline), 'MMM dd, yyyy')}</div>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Applicants</label>
-                                      <div className="text-lg font-semibold text-gray-900 dark:text-white">{applicantsCount}</div>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
-                                      <div>{getStatusBadge(latestScholarship.status)}</div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Statistics Section */}
-                                <div className="bg-white dark:bg-gray-800/50 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                    <TrendingUp className="h-5 w-5 text-indigo-600" />
-                                    Application Statistics
-                                  </h3>
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-900/30">
-                                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                                        {applications.filter(app => app.scholarship === latestScholarship.name && app.status === 'pending').length}
-                                      </div>
-                                      <div className="text-sm text-orange-700 dark:text-orange-300 font-medium">Pending</div>
-                                    </div>
-                                    <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30">
-                                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                        {applications.filter(app => app.scholarship === latestScholarship.name && app.status === 'under_review').length}
-                                      </div>
-                                      <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">Under Review</div>
-                                    </div>
-                                    <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-900/30">
-                                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                        {applications.filter(app => app.scholarship === latestScholarship.name && (app.status === 'approved' || app.status === 'accepted')).length}
-                                      </div>
-                                      <div className="text-sm text-green-700 dark:text-green-300 font-medium">Approved</div>
-                                    </div>
-                                    <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-900/30">
-                                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                                        {applications.filter(app => app.scholarship === latestScholarship.name && app.status === 'rejected').length}
-                                      </div>
-                                      <div className="text-sm text-red-700 dark:text-red-300 font-medium">Rejected</div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Recent Applications Section */}
-                                {applicantsCount > 0 && (
-                                  <div className="bg-white dark:bg-gray-800/50 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                      <Users className="h-5 w-5 text-indigo-600" />
-                                      Recent Applications
-                                    </h3>
-                                    <div className="space-y-3">
-                                      {applications
-                                        .filter(app => app.scholarship === latestScholarship.name)
-                                        .sort((a, b) => new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime())
-                                        .slice(0, 5)
-                                        .map((app, index) => (
-                                          <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                              <Avatar className="h-8 w-8">
-                                                <AvatarImage src={app.avatar} />
-                                                <AvatarFallback className="text-xs">
-                                                  {app.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                                                </AvatarFallback>
-                                              </Avatar>
-                                              <div>
-                                                <div className="font-medium text-gray-900 dark:text-white">{app.name}</div>
-                                                <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                  GWA: {app.gwa}% • {format(new Date(app.submittedDate), 'MMM dd, yyyy')}
-                                                </div>
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              {getStatusBadge(app.status)}
-                                              <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                onClick={() => {
-                                                  setSelectedApplication(app);
-                                                  setModalMode(null);
-                                                  setSelectedScholarship(null);
-                                                }}
-                                                className="h-8 w-8 p-0 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
-                                              >
-                                                <Eye className="h-4 w-4" />
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                    </div>
-                                    {applicantsCount > 5 && (
-                                      <div className="mt-4 text-center">
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm"
-                                          onClick={() => {
-                                            setActiveTab('applications');
-                                            setScholarshipFilter(latestScholarship.name);
-                                            setModalMode(null);
-                                            setSelectedScholarship(null);
-                                          }}
-                                          className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-800 dark:hover:bg-indigo-900/50"
-                                        >
-                                          View All {applicantsCount} Applications
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="px-8 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-2xl">
-                              <div className="flex justify-between items-center">
-                                <div className="flex gap-2">
-                                  <Button 
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setModalMode('edit')}
-                                    className="hover:bg-indigo-50 hover:border-indigo-300 dark:hover:bg-indigo-900/50"
-                                  >
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit Scholarship
-                                  </Button>
-                                </div>
-                                <Button 
-                                  variant="outline" 
-                                  onClick={() => { setModalMode(null); setSelectedScholarship(null); }}
-                                  className="hover:bg-gray-100 dark:hover:bg-gray-700"
-                                >
-                                  Close
-                                </Button>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          // Edit mode with enhanced container
-                          <div className="p-8">
-                            <div className="mb-6">
-                              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Edit Scholarship</h2>
-                              <p className="text-gray-600 dark:text-gray-400">Update scholarship information and settings</p>
-                            </div>
-                            <Suspense fallback={<FormLoadingSpinner />}>
-                              <ScholarshipEditForm scholarship={latestScholarship} onSave={handleSaveScholarship} onCancel={() => { setModalMode(null); setSelectedScholarship(null); }} />
-                            </Suspense>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </DialogContent>
-              </Dialog>
-          {/* Scholarship Trash Bin Modal */}
-          <Dialog open={scholarshipTrashOpen} onOpenChange={setScholarshipTrashOpen}>
-            <DialogContent className="max-w-lg w-full p-6 rounded-xl">
-              <DialogHeader>
-                <DialogTitle>Scholarship Trash Bin</DialogTitle>
-              </DialogHeader>
-              {scholarshipTrash.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">No deleted scholarships.</div>
-              ) : (
-                <div className={`space-y-4${scholarshipTrash.length >= 5 ? ' max-h-[320px] overflow-y-auto scrollbar-hover' : ''}`}>
-                  {scholarshipTrash.map(sch => (
-                    <div key={sch.id} className="flex items-center justify-between border-b pb-2">
-                      <div>
-                        <div className="font-medium">{sch.name}</div>
-                        <div className="text-xs text-muted-foreground">Amount: {sch.amount} | Deadline: {format(new Date(sch.deadline), 'yyyy-MM-dd')}</div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleRestoreScholarship(sch)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Restore</Button>
-                        <Button size="sm" variant="destructive" onClick={() => setPermanentDeleteScholarshipDialog({ open: true, scholarship: sch })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
-                      </div>
-                    </div>
-                  ))}
-                  {scholarshipTrash.length > 1 && (
-                    <div className="flex justify-end mt-4">
-                      <Button size="lg" variant="destructive" onClick={() => setPermanentDeleteAllScholarshipsDialog(true)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete All Permanently</Button>
-                    </div>
-                  )}
-                </div>
-              )}
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setScholarshipTrashOpen(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Close</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {/* Permanent Delete Scholarship Dialog */}
-          <Dialog open={permanentDeleteScholarshipDialog.open} onOpenChange={open => setPermanentDeleteScholarshipDialog(d => ({ ...d, open }))}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl">
-              <DialogHeader>
-                <DialogTitle>Delete Scholarship Permanently</DialogTitle>
-              </DialogHeader>
-              {permanentDeleteScholarshipDialog.scholarship && (
-                <div className="space-y-2 text-sm">
-                  <p>Are you sure you want to permanently delete <span className="font-semibold">{permanentDeleteScholarshipDialog.scholarship.name}</span>?</p>
-                  <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
-                </div>
-              )}
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setPermanentDeleteScholarshipDialog({ open: false, scholarship: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                <Button variant="destructive" onClick={() => { if (permanentDeleteScholarshipDialog.scholarship) { handlePermanentDeleteScholarship(permanentDeleteScholarshipDialog.scholarship); setPermanentDeleteScholarshipDialog({ open: false, scholarship: null }); } }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete Permanently</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {/* Permanent Delete All Scholarships Dialog */}
-          <Dialog open={permanentDeleteAllScholarshipsDialog} onOpenChange={setPermanentDeleteAllScholarshipsDialog}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl">
-              <DialogHeader>
-                <DialogTitle>Delete All Scholarships Permanently</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-2 text-sm">
-                <p>Are you sure you want to permanently delete <span className="font-semibold">all scholarships</span> in the Trash Bin?</p>
-                <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setPermanentDeleteAllScholarshipsDialog(false)} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                <Button variant="destructive" onClick={() => { handlePermanentDeleteAllScholarships(); setPermanentDeleteAllScholarshipsDialog(false); }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Delete All Permanently</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          )}
-
-          {activeTab === "users" && user?.role === "Administrator" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">User Management</h2>
-                  <p className="text-muted-foreground">Manage system users and permissions (Administrator Only)</p>
-                </div>
-            <Button variant="purple" onClick={() => setShowAddUserModal(true)}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
-              </div>
-              <Card className="dark:bg-[#23232a] dark:text-gray-100">
-                <CardContent className="pt-6">
-              {loadingUsers ? (
-                <div className="text-center text-muted-foreground py-8">Loading users...</div>
-              ) : users.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">No users found.</div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">User</TableHead>
-                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Role</TableHead>
-                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Department</TableHead>
-                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Last Active</TableHead>
-                      <TableHead className="font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
-                      <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map(user => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <Avatar>
-                              <AvatarImage src={"/placeholder.svg?height=32&width=32"} />
-                              <AvatarFallback>{getUserInitials(user)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{getUserFullName(user)}</p>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge>{user.role}</Badge>
-                        </TableCell>
-                        <TableCell>{user.department}</TableCell>
-                        <TableCell>{user.lastActive ? format(new Date(user.lastActive), 'yyyy-MM-dd') : ''}</TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-2">
-                            {user.status === 'Active' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                            {user.status === 'Inactive' && <XCircle className="h-4 w-4 text-muted-foreground" />}
-                            <Badge variant={user.status === 'Active' ? 'default' : 'destructive'} className={user.status === 'Active' ? 'bg-green-600 hover:bg-green-600/80 dark:bg-green-700 dark:text-white' : ''}>
-                              {user.status}
-                            </Badge>
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu open={userActionMenuOpenId === user.id} onOpenChange={open => setUserActionMenuOpenId(open ? user.id : null)}>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                className={cn(
-                                  "h-8 w-8 p-0 flex items-center justify-center rounded-full border transition-colors hover:scale-110 hover:shadow-lg transition-shadow duration-200",
-                                  userActionMenuOpenId === user.id ? "bg-purple-100 text-purple-700 border-purple-300 shadow-md" : "hover:bg-gray-100 dark:hover:bg-zinc-800"
-                                )}
-                                aria-label="User Actions"
-                              >
-                                <span className="sr-only">Open actions</span>
-                                <span className={cn("transition-transform duration-200", userActionMenuOpenId === user.id ? "rotate-90 text-purple-700" : "") }>
-                                  <MoreHorizontal className="h-5 w-5" />
-                                </span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl shadow-lg border border-gray-200 dark:border-zinc-700">
-                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => setUserModal({ mode: 'edit', user })}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit User
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => {
-                                setDeptDialog({ open: true, user });
-                                setDeptValue(user.department || "");
-                                setDeptOther("");
-                              }}>
-                                <UserIcon className="h-4 w-4 mr-2" />
-                                Change Dept.
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => setRoleDialog({ open: true, user })}>
-                                <Star className="h-4 w-4 mr-2" />
-                                Change Role
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => setResetDialog({ open: true, user })}>
-                                <Key className="h-4 w-4 mr-2" />
-                                Reset Password
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600 hover:scale-105 hover:shadow-lg transition-shadow duration-200" onClick={() => handleDeleteUser(user)}>
-                                <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-                                Delete User
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-                </CardContent>
-              </Card>
-          {/* Add/Edit User Modal */}
-          <Dialog open={!!userModal || showAddUserModal} onOpenChange={() => { setUserModal(null); setShowAddUserModal(false); }}>
-            <DialogContent className="max-w-md w-full p-6 max-h-[80vh] overflow-y-auto rounded-xl">
-              <DialogHeader>
-                <DialogTitle>{userModal?.mode === 'edit' ? 'Edit User' : userModal?.mode === 'role' ? 'Change Role' : userModal?.mode === 'reset' ? 'Reset Password' : userModal?.mode === 'deactivate' ? 'Deactivate User' : 'Add User'}</DialogTitle>
-              </DialogHeader>
-              <Suspense fallback={<FormLoadingSpinner />}>
-                <UserForm
-                  user={userModal?.user}
-                  currentUserRole={user?.role}
-                  onSave={async (userData) => {
-                    if (userModal?.user?.id) {
-                      // Edit existing user
-                      try {
-                        const res = await fetch(`/api/users/${userModal.user.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ ...userData, id: userModal.user.id }),
-                        });
-                        if (!res.ok) {
-                          const error = await res.json();
-                          throw new Error(error.error || 'Failed to update user');
-                        }
-                        const updatedUser = await res.json();
-                        setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-                        toast.success('User updated successfully!');
-                      } catch (err: any) {
-                        toast.error(err.message || 'Failed to update user');
-                      }
-                    } else {
-                      // Add new user (requires password for creation)
-                      const createUserData = {
-                        ...userData,
-                        password: 'temp123456' // Default password for admin-created users
-                      };
-                      
-                      try {
-                        const res = await fetch('/api/users', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(createUserData),
-                        });
-                        if (!res.ok) {
-                          const error = await res.json();
-                          throw new Error(error.error || 'Failed to create user');
-                        }
-                        const newUser = await res.json();
-                        setUsers(prev => [...prev, newUser]);
-                        toast.success('User created successfully! Default password: temp123456');
-                      } catch (err: any) {
-                        toast.error(err.message || 'Failed to create user');
-                      }
-                    }
-                    setUserModal(null);
-                    setShowAddUserModal(false);
-                  }}
-                  onCancel={() => { setUserModal(null); setShowAddUserModal(false); }}
+                <ScholarshipCreateForm
+                  onSave={data => { handleCreateScholarship({ ...data, type: pendingScholarshipType }); setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
+                  onCancel={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}
+                  type={pendingScholarshipType}
                 />
-              </Suspense>
+              )}
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button variant="outline">Close</Button>
+                  <Button variant="outline" onClick={() => { setPendingScholarshipType(null); setScholarshipTypeDialog(false); }}>Cancel</Button>
                 </DialogClose>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          {/* Role Change Dialog */}
-          <Dialog open={roleDialog.open} onOpenChange={open => setRoleDialog(d => ({ ...d, open }))}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl">
-              <DialogHeader>
-                <DialogTitle>Change Role</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <Label htmlFor="role-select">Select new role:</Label>
-                <Select value={selectedRole || roleDialog.user?.role || ""} onValueChange={setSelectedRole}>
-                  <SelectTrigger id="role-select">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Administrator">Administrator</SelectItem>
-                    <SelectItem value="Staff">Staff</SelectItem>
-                    <SelectItem value="Viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
+          </div>
+        )}
+
+        {activeTab === "ranking" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">Student Ranking</h2>
+                <p className="text-muted-foreground">Rank students by their General Weighted Average (GWA)</p>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setRoleDialog({ open: false, user: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                <Button onClick={async () => {
-                  if (!roleDialog.user || !selectedRole) return;
-                  try {
-                  const res = await fetch(`/api/users/${roleDialog.user.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: selectedRole }),
-                  });
-                    if (!res.ok) throw new Error('Failed to update role');
-                    const updatedUser = await res.json();
-                    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-                    toast.success('Role updated successfully!');
-                  } catch (err: any) {
-                    toast.error(err.message || 'Failed to update role.');
-                  }
-                  setRoleDialog({ open: false, user: null });
-                  setSelectedRole("");
-                }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {/* Reset Password Dialog */}
-          <Dialog open={resetDialog.open} onOpenChange={open => setResetDialog(d => ({ ...d, open }))}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl">
-              <DialogHeader>
-                <DialogTitle>Reset Password</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p>Are you sure you want to reset the password for <span className="font-semibold">{getUserFullName(resetDialog.user || {})}</span>?</p>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setResetDialog({ open: false, user: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                <Button variant="destructive" onClick={async () => {
-                  if (!resetDialog.user) return;
-                  try {
-                  const res = await fetch(`/api/users/${resetDialog.user.id}`, { method: 'POST' });
-                    if (!res.ok) throw new Error('Failed to reset password');
-                    const data = await res.json();
-                    toast.success(data.message || 'Password reset successfully!');
-                  } catch (err: any) {
-                    toast.error(err.message || 'Failed to reset password.');
-                  }
-                  setResetDialog({ open: false, user: null });
-                }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {/* Department Change Dialog */}
-          <Dialog open={deptDialog.open} onOpenChange={open => setDeptDialog(d => ({ ...d, open }))}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl">
-              <DialogHeader>
-                <DialogTitle>Change Department</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <Label htmlFor="dept-select">Select new department:</Label>
-                <select
-                  id="dept-select"
-                  className="w-full border rounded px-3 py-2 mt-1"
-                  value={deptValue}
-                  onChange={e => setDeptValue(e.target.value)}
+              <div className="flex items-center space-x-4">
+                <Button 
+                  onClick={() => setModalMode("createApplication")}
+                  variant="purple"
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
                 >
-                  <option value="" disabled>Select Department</option>
-                  <option value="UniFAST">UniFAST</option>
-                  <option value="IZN">IZN</option>
-                  <option value="CoScho">CoScho</option>
-                  <option value="LSGO">LSGO</option>
-                  <option value="Scholarship">Scholarship</option>
-                  <option value="MIS">MIS</option>
-                  <option value="Other">Other</option>
-                </select>
-                {deptValue === "Other" && (
-                  <div className="mt-2">
-                    <Label htmlFor="dept-other">Specify Department</Label>
-                    <input
-                      id="dept-other"
-                      type="text"
-                      className="w-full border rounded px-3 py-2 mt-1"
-                      placeholder="Enter department"
-                      value={deptOther}
-                      onChange={e => setDeptOther(e.target.value)}
-                    />
+                  <FileText className="h-4 w-4 mr-2" />
+                  Add Student
+                </Button>
+              </div>
             </div>
-          )}
-      </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDeptDialog({ open: false, user: null })} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Cancel</Button>
-                <Button onClick={async () => {
-                  if (!deptDialog.user) return;
-                  let newDept = deptValue === "Other" ? deptOther : deptValue;
-                  if (!newDept) return;
-                  try {
-                    const res = await fetch(`/api/users/${deptDialog.user.id}`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ department: newDept }),
-                    });
-                    if (!res.ok) throw new Error('Failed to update department');
-                    const updatedUser = await res.json();
-                    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-                    toast.success('Department updated successfully!');
-                  } catch (err: any) {
-                    toast.error(err.message || 'Failed to update department.');
-                  }
-                  setDeptDialog({ open: false, user: null });
-                }} className="hover:scale-110 hover:shadow-lg transition-shadow duration-200">Confirm</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            
+            <Card className="dark:bg-[#23232a] dark:text-gray-100">
+              <CardContent className="pt-6">
+                <div className="relative overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Rank</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Name</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">GWA</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Scholarship</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Status</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-center">Requirements</TableHead>
+                        <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ranking.map((app, idx) => (
+                        <TableRow
+                          key={app.id}
+                          id={`ranking-row-${app.id}`}
+                          className={cn(
+                            "transition-all duration-200",
+                            dashboardRankingHighlightId === app.id
+                              ? "ring-2 ring-purple-400 bg-purple-100 dark:bg-purple-900/40 scale-[1.03] shadow-xl"
+                              : "hover:scale-105 hover:shadow-lg hover:bg-purple-50 dark:hover:bg-purple-900/40"
+                          )}
+                        >
+                          <TableCell className="text-center font-bold">{idx + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={app.avatar || "/placeholder.svg"} />
+                                <AvatarFallback>
+                                  {app.name.split(" ").map((n) => n[0]).join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{app.name}</p>
+                                <p className="text-sm text-muted-foreground">{app.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center font-bold">{app.gwa?.toFixed(2)}</TableCell>
+                          <TableCell className="text-center">{app.scholarship}</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center space-x-2">
+                              {getStatusIcon(app.status)}
+                              {getStatusBadge(app.status)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex space-x-2">
+                              <Badge variant="outline" className="text-xs">
+                                {Object.values(app.requirements || {}).filter(req => req.valid).length}/{Object.keys(app.requirements || {}).length} Complete
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => { setSelectedApplication(app); setModalMode("reviewApplication"); }}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Review & Score
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setSelectedApplication(app); setModalMode("sendMessage"); }}>
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Send Message
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteApplicant(app)}>
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "users" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold text-purple-700 dark:text-purple-300">Users</h2>
+                <p className="text-muted-foreground">Manage system users and their permissions</p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <Button 
+                  onClick={() => setUserModal({ mode: 'add' })}
+                  variant="purple"
+                  className="hover:scale-110 hover:shadow-lg transition-shadow duration-200"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </div>
             </div>
-          )}
-        </main>
-        </>
+            
+            <Card className="dark:bg-[#23232a] dark:text-gray-100">
+              <CardContent className="pt-6">
+                {loadingUsers ? (
+                  <div className="text-center text-muted-foreground py-8">Loading users...</div>
+                ) : (
+                  <div className="relative overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="font-bold text-gray-600 dark:text-gray-300">Name</TableHead>
+                          <TableHead className="font-bold text-gray-600 dark:text-gray-300">Email</TableHead>
+                          <TableHead className="font-bold text-gray-600 dark:text-gray-300">Role</TableHead>
+                          <TableHead className="font-bold text-gray-600 dark:text-gray-300">Department</TableHead>
+                          <TableHead className="font-bold text-gray-600 dark:text-gray-300">Status</TableHead>
+                          <TableHead className="font-bold text-gray-600 dark:text-gray-300">Last Active</TableHead>
+                          <TableHead className="font-bold text-gray-600 dark:text-gray-300 text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((user) => (
+                          <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={user.avatar || "/placeholder.svg"} />
+                                  <AvatarFallback>
+                                    {getUserInitials(user)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{getUserFullName(user)}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{user.role}</Badge>
+                            </TableCell>
+                            <TableCell>{user.department}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                className={user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+                              >
+                                {user.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{format(new Date(user.lastActive), 'MMM dd, yyyy')}</TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem onClick={() => setUserModal({ mode: 'edit', user })}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setUserModal({ mode: 'role', user })}>
+                                    <Key className="h-4 w-4 mr-2" />
+                                    Change Role
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setUserModal({ mode: 'reset', user })}>
+                                    <Key className="h-4 w-4 mr-2" />
+                                    Reset Password
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    className="text-red-600" 
+                                    onClick={() => handleDeleteUser(user)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </main>
+
+      {/* Modals */}
+      {modalMode === "createApplication" && (
+        <Dialog open={modalMode === "createApplication"} onOpenChange={() => setModalMode(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Application</DialogTitle>
+            </DialogHeader>
+            <ApplicationCreateForm
+              onSave={handleCreateApplication}
+              onCancel={() => setModalMode(null)}
+              scholarships={scholarships}
+            />
+          </DialogContent>
+        </Dialog>
       )}
+
+      {modalMode === "reviewApplication" && selectedApplication && (
+        <Dialog open={modalMode === "reviewApplication"} onOpenChange={() => setModalMode(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Review Application</DialogTitle>
+            </DialogHeader>
+            <ApplicationReviewForm
+              application={selectedApplication}
+              onSave={handleSaveApplicationReview}
+              onCancel={() => setModalMode(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {modalMode === "sendMessage" && selectedApplication && (
+        <Dialog open={modalMode === "sendMessage"} onOpenChange={() => setModalMode(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Send Message</DialogTitle>
+            </DialogHeader>
+            <SendMessageForm
+              application={selectedApplication}
+              onSend={handleSendMessage}
+              onCancel={() => setModalMode(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {modalMode === "view" && selectedScholarship && (
+        <Dialog open={modalMode === "view"} onOpenChange={() => setModalMode(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{selectedScholarship.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Amount</label>
+                  <p className="text-lg font-semibold">{formatPeso(selectedScholarship.amount)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Deadline</label>
+                  <p className="text-lg font-semibold">{format(new Date(selectedScholarship.deadline), 'MMM dd, yyyy')}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <div className="mt-1">
+                    {getStatusBadge(displayStatus(selectedScholarship))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Applicants</label>
+                  <p className="text-lg font-semibold">
+                    {applications.filter(app => app.scholarship === selectedScholarship.name).length}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setModalMode(null)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {modalMode === "edit" && selectedScholarship && (
+        <Dialog open={modalMode === "edit"} onOpenChange={() => setModalMode(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Scholarship</DialogTitle>
+            </DialogHeader>
+            <ScholarshipEditForm
+              scholarship={selectedScholarship}
+              onSave={handleSaveScholarship}
+              onCancel={() => setModalMode(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* User Modal */}
+      {userModal && (
+        <Dialog open={!!userModal} onOpenChange={() => setUserModal(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {userModal.mode === 'add' ? 'Add User' : 
+                 userModal.mode === 'edit' ? 'Edit User' :
+                 userModal.mode === 'role' ? 'Change Role' :
+                 userModal.mode === 'reset' ? 'Reset Password' : 'Deactivate User'}
+              </DialogTitle>
+            </DialogHeader>
+            <UserForm
+              user={userModal.user}
+              onSave={(data) => {
+                // Handle user save logic here
+                console.log('User data:', data);
+                setUserModal(null);
+              }}
+              onCancel={() => setUserModal(null)}
+              currentUserRole={user?.role}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Application Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Application</DialogTitle>
+          </DialogHeader>
+          <p>Are you sure you want to delete this application? This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmDeleteApplicant}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <Dialog open={deleteUserDialog.open} onOpenChange={(open) => setDeleteUserDialog({ open, user: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+          </DialogHeader>
+          <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteUserDialog({ open: false, user: null })}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDeleteUser}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Scholarship Dialog */}
+      <Dialog open={deleteScholarshipDialog.open} onOpenChange={(open) => setDeleteScholarshipDialog({ open, scholarship: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Scholarship</DialogTitle>
+          </DialogHeader>
+          <p>Are you sure you want to delete this scholarship? This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteScholarshipDialog({ open: false, scholarship: null })}>Cancel</Button>
+            <Button variant="destructive" onClick={() => {
+              if (deleteScholarshipDialog.scholarship) {
+                handleRemoveScholarship(deleteScholarshipDialog.scholarship);
+                setDeleteScholarshipDialog({ open: false, scholarship: null });
+              }
+            }}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Download Documents Dialog */}
+      <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Download Documents</DialogTitle>
+          </DialogHeader>
+          <p>Choose the format for downloading {downloadApplication?.name}'s documents:</p>
+          <div className="flex space-x-4">
+            <Button onClick={handleConfirmDownloadPDF} className="flex-1">
+              <Download className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+            <Button onClick={handleConfirmDownloadDOCX} className="flex-1">
+              <Download className="h-4 w-4 mr-2" />
+              DOCX
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDownloadDialogOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Excel Import Modal */}
+      <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Applications from Excel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Select Excel File</label>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setImportFile(file);
+                    handleExcelImport(file);
+                  }
+                }}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+              />
+            </div>
+            {importError && (
+              <div className="text-red-500 text-sm">{importError}</div>
+            )}
+            {importLoading && (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                <span>Importing...</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

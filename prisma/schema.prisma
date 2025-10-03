@@ -5,12 +5,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
-  id          String        @id @default(uuid())
+  id          String        @id @default(cuid())
   name        String
   firstName   String?
   middleName  String?
@@ -26,7 +26,7 @@ model User {
 }
 
 model Scholarship {
-  id         String        @id @default(uuid())
+  id         String        @id @default(cuid())
   name       String
   amount     String
   deadline   DateTime
@@ -37,7 +37,7 @@ model Scholarship {
 }
 
 model Application {
-  id            String      @id @default(uuid())
+  id            String      @id @default(cuid())
   name          String
   firstName     String?
   middleName    String?
