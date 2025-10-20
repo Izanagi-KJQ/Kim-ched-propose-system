@@ -8,7 +8,7 @@ import { Input } from "./input";
 import { Button } from "./button";
 import { Label } from "./label";
 import { useAuth } from "@/hooks/useAuth";
-import { Eye, EyeOff, User, Mail, Lock, Briefcase, CheckCircle, XCircle, Info, AlertTriangle, CheckCircle as SuccessIcon, Loader2, } from "lucide-react";
+import { Eye, EyeOff, User, Mail, Lock, Briefcase, CheckCircle, XCircle, Info, AlertTriangle, CheckCircle as SuccessIcon, Loader2, GraduationCap } from "lucide-react";
 import { RegisterSchema, type RegisterData } from "@/lib/validations";
 import zxcvbn from "zxcvbn";
 
@@ -202,51 +202,73 @@ export function RegisterForm() {
   // Don't render until mounted to prevent hydration issues
   if (!isMounted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted px-2 sm:px-0">
-        <Card className="w-full max-w-md shadow-lg">
-          <CardContent className="space-y-4 p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-              <div className="h-10 bg-gray-300 rounded"></div>
-              <div className="h-10 bg-gray-300 rounded"></div>
-              <div className="h-10 bg-gray-300 rounded"></div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 dark:from-purple-950 dark:via-gray-900 dark:to-purple-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-4">
+              <div className="p-3 rounded-full bg-purple-600 shadow-lg">
+                <GraduationCap className="h-8 w-8 text-white" />
+              </div>
             </div>
-          </CardContent>
-        </Card>
+            <h1 className="text-3xl font-bold text-purple-700 dark:text-purple-300 mb-2">SAMRS</h1>
+            <p className="text-sm text-purple-600 dark:text-purple-400">Scholarship Application Management & Ranking System</p>
+          </div>
+          <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+            <CardContent className="space-y-4 p-8">
+              <div className="animate-pulse space-y-4">
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-10 bg-gray-300 rounded"></div>
+                <div className="h-10 bg-gray-300 rounded"></div>
+                <div className="h-10 bg-gray-300 rounded"></div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted px-2 sm:px-0">
-      <Card className="w-full max-w-md shadow-lg">
-        {/* Error Feedback */}
-        {registerError && (
-          <div
-            className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-t-md animate-shake"
-            role="alert"
-            aria-live="assertive"
-            aria-atomic="true"
-            tabIndex={-1}
-            style={{ borderBottom: '1px solid #fca5a5' }}
-          >
-            <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" aria-hidden="true" />
-            <span className="font-medium">{registerError}</span>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-100 dark:from-purple-950 dark:via-gray-900 dark:to-purple-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Header with Logo */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-4">
+            <div className="p-3 rounded-full bg-purple-600 shadow-lg">
+              <GraduationCap className="h-8 w-8 text-white" />
+            </div>
           </div>
-        )}
-        <form onSubmit={handleSubmit(onSubmit)} aria-label="Registration form" autoComplete="on">
-          <CardHeader>
-            <CardTitle tabIndex={0}>Create your account</CardTitle>
-            <CardDescription tabIndex={0}>Fill in the details below to register.</CardDescription>
-          </CardHeader>
-          {/* Sign in with Google button (relocated) */}
-          <CardContent className="space-y-4">
+          <h1 className="text-3xl font-bold text-purple-700 dark:text-purple-300 mb-2">SAMRS</h1>
+          <p className="text-sm text-purple-600 dark:text-purple-400">Scholarship Application Management & Ranking System</p>
+        </div>
+
+        <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+          {/* Error Feedback */}
+          {registerError && (
+            <div
+              className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-t-lg animate-shake"
+              role="alert"
+              aria-live="assertive"
+              aria-atomic="true"
+              tabIndex={-1}
+            >
+              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" aria-hidden="true" />
+              <span className="font-medium">{registerError}</span>
+            </div>
+          )}
+          <form onSubmit={handleSubmit(onSubmit)} aria-label="Registration form" autoComplete="on">
+            <CardHeader className="text-center pb-6">
+              <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">Create Account</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">Fill in the details below to get started</CardDescription>
+            </CardHeader>
+          <CardContent className="space-y-6 px-8">
+            {/* Google Sign-in Button */}
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
                 ref={googleButtonRef}
-                className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-md py-2 px-4 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors font-medium text-gray-700 shadow-sm"
-                aria-label="Sign in with Google"
+                className="w-full flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg py-3 px-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors font-medium text-gray-700 dark:text-gray-300 shadow-sm"
+                aria-label="Sign up with Google"
                 tabIndex={0}
                 onClick={() => {
                   if (!(window as any).google || !(window as any).google.accounts || !(window as any).google.accounts.id) {
@@ -258,72 +280,76 @@ export function RegisterForm() {
                 disabled={!googleLoaded || isSubmitting || googleLoading}
               >
                 <GoogleIcon className="mr-2" />
-                <span>{googleLoading ? "Signing in..." : "Sign in with Google"}</span>
+                <span>{googleLoading ? "Signing up..." : "Continue with Google"}</span>
               </button>
               <div className="flex items-center w-full my-4">
-                <div className="flex-1 h-px bg-gray-200" aria-hidden="true"></div>
-                <span className="mx-2 text-xs text-gray-400">or</span>
-                <div className="flex-1 h-px bg-gray-200" aria-hidden="true"></div>
+                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" aria-hidden="true"></div>
+                <span className="mx-2 text-xs text-gray-500 dark:text-gray-400">or continue with email</span>
+                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" aria-hidden="true"></div>
               </div>
             </div>
-            <div>
-              <Label htmlFor="firstName">First Name</Label>
+            {/* Name Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700 dark:text-gray-300">First Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <Input
+                    id="firstName"
+                    type="text"
+                    placeholder="First Name"
+                    autoComplete="given-name"
+                    className="pl-10 h-12 border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 dark:bg-gray-800 dark:text-white"
+                    {...registerField("firstName")}
+                    disabled={isSubmitting}
+                    aria-invalid={!!errors.firstName}
+                    aria-describedby={errors.firstName ? "firstName-error" : undefined}
+                  />
+                </div>
+                {errors.firstName && <p id="firstName-error" className="text-sm text-red-600 dark:text-red-400" role="alert">{errors.firstName.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <Input
+                    id="lastName"
+                    type="text"
+                    placeholder="Last Name"
+                    autoComplete="family-name"
+                    className="pl-10 h-12 border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 dark:bg-gray-800 dark:text-white"
+                    {...registerField("lastName")}
+                    disabled={isSubmitting}
+                    aria-invalid={!!errors.lastName}
+                    aria-describedby={errors.lastName ? "lastName-error" : undefined}
+                  />
+                </div>
+                {errors.lastName && <p id="lastName-error" className="text-sm text-red-600 dark:text-red-400" role="alert">{errors.lastName.message}</p>}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="middleName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Middle Name (Optional)</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <Input
-                  id="firstName"
-                  type="text"
-                  placeholder="First Name"
-                  autoComplete="given-name"
-                  className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("firstName")}
-                  disabled={isSubmitting}
-                  aria-invalid={!!errors.firstName}
-                  aria-describedby={errors.firstName ? "firstName-error" : undefined}
-                />
-              </div>
-              {errors.firstName && <p id="firstName-error" className="text-sm text-destructive mt-1" role="alert">{errors.firstName.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="middleName">Middle Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" aria-hidden="true" />
-                <Input
                   id="middleName"
                   type="text"
-                  placeholder="Middle Name (optional)"
+                  placeholder="Middle Name"
                   autoComplete="additional-name"
-                  className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 dark:bg-gray-800 dark:text-white"
                   {...registerField("middleName")}
                   disabled={isSubmitting}
                 />
               </div>
             </div>
-            <div>
-              <Label htmlFor="lastName">Last Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
-                <Input
-                  id="lastName"
-                  type="text"
-                  placeholder="Last Name"
-                  autoComplete="family-name"
-                  className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                  {...registerField("lastName")}
-                  disabled={isSubmitting}
-                  aria-invalid={!!errors.lastName}
-                  aria-describedby={errors.lastName ? "lastName-error" : undefined}
-                />
-              </div>
-              {errors.lastName && <p id="lastName-error" className="text-sm text-destructive mt-1" role="alert">{errors.lastName.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="department">Department</Label>
+            {/* Department Field */}
+            <div className="space-y-2">
+              <Label htmlFor="department" className="text-sm font-medium text-gray-700 dark:text-gray-300">Department</Label>
               <div className="relative">
                 <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <select
                   id="department"
-                  className="w-full border rounded px-3 py-2 mt-1 pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-3 pl-10 h-12 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800 dark:text-white"
                   {...registerField("department")}
                   disabled={isSubmitting}
                   defaultValue=""
@@ -340,27 +366,30 @@ export function RegisterForm() {
                   <option value="Other">Other</option>
                 </select>
               </div>
-              {errors.department && <p id="department-error" className="text-sm text-destructive mt-1" role="alert">{errors.department.message}</p>}
+              {errors.department && <p id="department-error" className="text-sm text-red-600 dark:text-red-400" role="alert">{errors.department.message}</p>}
               {department === "Other" && (
-                <div className="mt-2 relative">
-                  <Label htmlFor="otherDepartment">Specify Department</Label>
-                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" aria-hidden="true" />
-                  <Input
-                    id="otherDepartment"
-                    type="text"
-                    placeholder="Enter department"
-                    className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
-                    {...registerField("otherDepartment")}
-                    disabled={isSubmitting}
-                    aria-invalid={!!errors.otherDepartment}
-                    aria-describedby={errors.otherDepartment ? "otherDepartment-error" : undefined}
-                  />
-                  {errors.otherDepartment && <p id="otherDepartment-error" className="text-sm text-destructive mt-1" role="alert">{errors.otherDepartment.message}</p>}
+                <div className="space-y-2">
+                  <Label htmlFor="otherDepartment" className="text-sm font-medium text-gray-700 dark:text-gray-300">Specify Department</Label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                    <Input
+                      id="otherDepartment"
+                      type="text"
+                      placeholder="Enter department"
+                      className="pl-10 h-12 border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 dark:bg-gray-800 dark:text-white"
+                      {...registerField("otherDepartment")}
+                      disabled={isSubmitting}
+                      aria-invalid={!!errors.otherDepartment}
+                      aria-describedby={errors.otherDepartment ? "otherDepartment-error" : undefined}
+                    />
+                  </div>
+                  {errors.otherDepartment && <p id="otherDepartment-error" className="text-sm text-red-600 dark:text-red-400" role="alert">{errors.otherDepartment.message}</p>}
                 </div>
               )}
             </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
+            {/* Email Field */}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <Input
@@ -368,25 +397,26 @@ export function RegisterForm() {
                   type="email"
                   placeholder="you@example.com"
                   autoComplete="email"
-                  className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 dark:bg-gray-800 dark:text-white"
                   {...registerField("email")}
                   disabled={isSubmitting}
                   aria-invalid={!!errors.email}
                   aria-describedby={errors.email ? "email-error" : undefined}
                 />
               </div>
-              {errors.email && <p id="email-error" className="text-sm text-destructive mt-1" role="alert">{errors.email.message}</p>}
+              {errors.email && <p id="email-error" className="text-sm text-red-600 dark:text-red-400" role="alert">{errors.email.message}</p>}
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
+            {/* Password Field */}
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   autoComplete="new-password"
-                  className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 dark:bg-gray-800 dark:text-white"
                   {...registerField("password")}
                   disabled={isSubmitting}
                   aria-describedby="password-requirements password-strength-tips"
@@ -395,7 +425,7 @@ export function RegisterForm() {
                 <button
                   type="button"
                   tabIndex={0}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
@@ -407,7 +437,7 @@ export function RegisterForm() {
               {/* Password strength meter */}
               {password && (
                 <div className="mt-2">
-                  <div className="w-full h-2 bg-gray-200 rounded">
+                  <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded">
                     <div
                       className={`h-2 rounded transition-all duration-300 ${strengthColors[passwordStrength?.score || 0]}`}
                       style={{ width: `${((passwordStrength?.score || 0) + 1) * 20}%` }}
@@ -460,16 +490,17 @@ export function RegisterForm() {
               )}
               {errors.password && <p className="text-sm text-destructive mt-1" role="alert">{errors.password.message}</p>}
             </div>
-            <div>
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+            {/* Confirm Password Field */}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Confirm your password"
                   autoComplete="new-password"
-                  className="pl-10 focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-purple-500/20 dark:bg-gray-800 dark:text-white"
                   {...registerField("confirmPassword")}
                   disabled={isSubmitting}
                   aria-invalid={!!errors.confirmPassword}
@@ -478,7 +509,7 @@ export function RegisterForm() {
                 <button
                   type="button"
                   tabIndex={0}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   onClick={() => setShowConfirmPassword((v) => !v)}
                   aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                   aria-pressed={showConfirmPassword}
@@ -487,34 +518,48 @@ export function RegisterForm() {
                   {showConfirmPassword ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
                 </button>
               </div>
-              {errors.confirmPassword && <p id="confirmPassword-error" className="text-sm text-destructive mt-1" role="alert">{errors.confirmPassword.message}</p>}
+              {errors.confirmPassword && <p id="confirmPassword-error" className="text-sm text-red-600 dark:text-red-400" role="alert">{errors.confirmPassword.message}</p>}
             </div>
             {/* Success Feedback */}
             {registerSuccess && (
               <div
-                className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md mt-2 animate-fadeIn"
+                className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg animate-fadeIn"
                 role="alert"
                 aria-live="polite"
                 aria-atomic="true"
                 tabIndex={-1}
               >
                 <SuccessIcon className="h-5 w-5 text-green-500 shrink-0" aria-hidden="true" />
-                <span className="font-medium">Registration successful! You can now <a href="/login" className="underline text-primary">login</a>.</span>
+                <span className="font-medium">Registration successful! You can now <a href="/login" className="underline text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300">login</a>.</span>
               </div>
             )}
-            <Button type="submit" variant="purple" className="w-full flex items-center justify-center focus:ring-2 focus:ring-primary focus:ring-offset-2" disabled={isSubmitting} aria-busy={isSubmitting} aria-live="polite">
+            <Button 
+              type="submit" 
+              className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100" 
+              disabled={isSubmitting} 
+              aria-busy={isSubmitting} 
+              aria-live="polite"
+            >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" aria-hidden="true" />
-                  Registering...
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" aria-hidden="true" />
+                  Creating Account...
                 </>
               ) : (
-                "Sign Up"
+                "Create Account"
               )}
             </Button>
           </CardContent>
-          <CardFooter className="justify-center">
-            <span className="text-sm text-muted-foreground">Already have an account? <a href="/login" className="text-primary hover:underline">Sign in</a></span>
+          <CardFooter className="justify-center pt-6 pb-8">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Already have an account?{" "}
+              <a 
+                href="/login" 
+                className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium hover:underline transition-colors"
+              >
+                Sign in
+              </a>
+            </span>
           </CardFooter>
         </form>
         <style jsx>{`
@@ -546,7 +591,8 @@ export function RegisterForm() {
             animation: fadeIn 0.5s ease-in;
           }
         `}</style>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 } 

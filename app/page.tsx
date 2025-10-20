@@ -466,7 +466,13 @@ function DashboardPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
+        let errorData: { error?: string; details?: string[] } = {};
+        try {
+          const responseText = await res.text();
+          errorData = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+          errorData = { error: `HTTP ${res.status}: ${res.statusText}` };
+        }
         throw new Error(errorData.error || 'Failed to create application');
       }
       let newApp = await res.json();
@@ -2343,10 +2349,66 @@ function DashboardPage() {
             </DialogHeader>
             <UserForm
               user={userModal.user}
-              onSave={(data) => {
-                // Handle user save logic here
-                console.log('User data:', data);
-                setUserModal(null);
+              onSave={async (data) => {
+                try {
+                  if (userModal.mode === 'add') {
+                    // Create new user with default password
+                    const userData = {
+                      ...data,
+                      password: 'TempPassword123!', // Default password for new users
+                    };
+                    console.log('Creating user with data:', userData);
+                    const res = await fetch('/api/users', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(userData),
+                    });
+                    console.log('Response status:', res.status);
+                    console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+                    
+                    if (!res.ok) {
+                      let errorData: { error?: string; details?: string[] } = {};
+                      try {
+                        const responseText = await res.text();
+                        console.log('Raw response text:', responseText);
+                        errorData = responseText ? JSON.parse(responseText) : {};
+                      } catch (parseError) {
+                        console.error('Failed to parse error response:', parseError);
+                        errorData = { error: `HTTP ${res.status}: ${res.statusText}` };
+                      }
+                      console.error('Error response:', errorData);
+                      throw new Error(errorData.error || `Failed to create user (${res.status})`);
+                    }
+                    const newUser = await res.json();
+                    console.log('Created user:', newUser);
+                    setUsers(prev => [...prev, newUser]);
+                    toast.success('User created successfully! Default password: TempPassword123!');
+                  } else if (userModal.mode === 'edit' && userModal.user) {
+                    // Update existing user
+                    const res = await fetch(`/api/users/${userModal.user.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(data),
+                    });
+                    if (!res.ok) {
+                      let errorData: { error?: string; details?: string[] } = {};
+                      try {
+                        const responseText = await res.text();
+                        errorData = responseText ? JSON.parse(responseText) : {};
+                      } catch (parseError) {
+                        errorData = { error: `HTTP ${res.status}: ${res.statusText}` };
+                      }
+                      throw new Error(errorData.error || 'Failed to update user');
+                    }
+                    const updatedUser = await res.json();
+                    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+                    toast.success('User updated successfully!');
+                  }
+                  setUserModal(null);
+                } catch (err: any) {
+                  console.error('User save error:', err);
+                  toast.error(err.message || 'Failed to save user');
+                }
               }}
               onCancel={() => setUserModal(null)}
               currentUserRole={user?.role}
